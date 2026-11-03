@@ -560,6 +560,7 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
           if (a.hidden === '1' || a.hidden === 'true') info.hidden = true
           if (style) info.style = style
           if (a.outlineLevel) info.outline = Number(a.outlineLevel)
+          if (a.collapsed === '1' || a.collapsed === 'true') info.collapsed = true
           if (Object.keys(info).length) sh.cols.set(c, info)
         }
       }
@@ -597,6 +598,7 @@ function readSheetData(sh: Sheet, xml: string, ctx: SheetCtx) {
     }
     if (ra.hidden === '1' || ra.hidden === 'true') info.hidden = true
     if (ra.outlineLevel) info.outline = Number(ra.outlineLevel)
+    if (ra.collapsed === '1' || ra.collapsed === 'true') info.collapsed = true
     if ((ra.customFormat === '1' || ra.customFormat === 'true') && ra.s !== undefined) info.style = ctx.styles.xfToStyle[Number(ra.s)]
     if (Object.keys(info).length) sh.rowInfo.set(r, info)
     if (m[2] === '/') continue

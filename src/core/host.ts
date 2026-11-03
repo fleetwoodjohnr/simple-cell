@@ -43,6 +43,9 @@ export interface SheetMeta {
   cf: boolean
   /** AutoFilter ranges (the sheet's and tables'), for their header buttons. */
   filters: { key: string; area: Area; active: number[] }[]
+  /** Outline (group) levels by row / column index. */
+  outlineRows: [number, number][]
+  outlineCols: [number, number][]
 }
 
 export interface WorkbookMeta {
@@ -147,13 +150,17 @@ export class Host {
     const s = this.doc.sheet(id)
     const filtered: number[] = []
     const rows: [number, number][] = []
+    const outlineRows: [number, number][] = []
+    const outlineCols: [number, number][] = []
     for (const [r, ri] of s.rowInfo) {
+      if (ri.outline) outlineRows.push([r, ri.outline])
       if (ri.hidden) rows.push([r, 0])
       else if (ri.height !== undefined) rows.push([r, ri.height])
       if (ri.filtered) filtered.push(r)
     }
     const cols: [number, number][] = []
     for (const [c, ci] of s.cols) {
+      if (ci.outline) outlineCols.push([c, ci.outline])
       if (ci.hidden) cols.push([c, 0])
       else if (ci.width !== undefined) cols.push([c, ci.width])
     }
@@ -175,7 +182,9 @@ export class Host {
       spills,
       filtered,
       cf: s.condFormats.length > 0,
-      filters: this.doc.filtersOn(s.id)
+      filters: this.doc.filtersOn(s.id),
+      outlineRows,
+      outlineCols
     }
   }
 
@@ -538,6 +547,15 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  group(sheet: number, axis: 'row' | 'col', from: number, to: number, delta: 1 | -1) {
+    return this.run(() => this.doc.group(sheet, axis, from, to, delta))
+  }
+  showDetail(sheet: number, axis: 'row' | 'col', from: number, to: number, show: boolean) {
+    return this.run(() => this.doc.showDetail(sheet, axis, from, to, show))
+  }
+  showOutlineLevel(sheet: number, axis: 'row' | 'col', level: number) {
+    return this.run(() => this.doc.showOutlineLevel(sheet, axis, level))
   }
   insertCells(area: Area, dir: 'down' | 'right') {
     return this.run(() => this.doc.insertCells(area, dir))

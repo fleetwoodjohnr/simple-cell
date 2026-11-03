@@ -159,7 +159,7 @@ export function paint(ctx: CanvasRenderingContext2D, P: PaintInput) {
   ctx.clip()
   paintOverlays(ctx, P)
   ctx.restore()
-  if (L.showHeaders) paintHeaders(ctx, P)
+  if (L.showHeaders || L.gutterW || L.gutterH) paintHeaders(ctx, P)
   // Frozen pane dividers
   ctx.strokeStyle = theme.dark ? '#55555f' : '#b5b5bd'
   ctx.lineWidth = 1
@@ -520,7 +520,15 @@ function paintHeaders(ctx: CanvasRenderingContext2D, P: PaintInput) {
   ctx.fillStyle = theme.header
   ctx.fillRect(0, 0, L.width, L.headerH)
   ctx.fillRect(0, 0, L.headerW, L.height)
-  for (const c of colsShown) {
+  const gx = L.gutterW
+  const gy = L.gutterH
+  if (gx || gy) {
+    // Outline gutters: plain background; the bars and buttons are drawn as controls over them.
+    ctx.fillStyle = theme.bg
+    ctx.fillRect(0, 0, gx, L.height)
+    ctx.fillRect(0, 0, L.width, gy)
+  }
+  for (const c of L.showHeaders ? colsShown : []) {
     const w = L.cols.size(c) * z
     if (!w) continue
     const x = colX(L, c)
@@ -528,14 +536,14 @@ function paintHeaders(ctx: CanvasRenderingContext2D, P: PaintInput) {
     if (c >= L.fc && x < L.headerW + L.frozenW * z - 1) continue
     if (selCols.has(c)) {
       ctx.fillStyle = fullCols.has(c) ? theme.accent : theme.headerActive
-      ctx.fillRect(x, 0, w, L.headerH)
+      ctx.fillRect(x, gy, w, L.headerH - gy)
     }
     ctx.fillStyle = fullCols.has(c) ? '#fff' : selCols.has(c) ? theme.accent : theme.headerText
-    if (w > 10) ctx.fillText(colName(c), x + w / 2, L.headerH / 2 + 0.5)
+    if (w > 10) ctx.fillText(colName(c), x + w / 2, gy + (L.headerH - gy) / 2 + 0.5)
     ctx.fillStyle = theme.line
-    ctx.fillRect(Math.round(x + w) - 1, 0, 1, L.headerH)
+    ctx.fillRect(Math.round(x + w) - 1, gy, 1, L.headerH - gy)
   }
-  for (const r of rowsShown) {
+  for (const r of L.showHeaders ? rowsShown : []) {
     const h = L.rows.size(r) * z
     if (!h) continue
     const y = rowY(L, r)
@@ -543,12 +551,12 @@ function paintHeaders(ctx: CanvasRenderingContext2D, P: PaintInput) {
     if (r >= L.fr && y < L.headerH + L.frozenH * z - 1) continue
     if (selRows.has(r)) {
       ctx.fillStyle = fullRows.has(r) ? theme.accent : theme.headerActive
-      ctx.fillRect(0, y, L.headerW, h)
+      ctx.fillRect(gx, y, L.headerW - gx, h)
     }
     ctx.fillStyle = fullRows.has(r) ? '#fff' : selRows.has(r) ? theme.accent : theme.headerText
-    if (h > 8) ctx.fillText(String(r + 1), L.headerW / 2, y + h / 2 + 0.5)
+    if (h > 8) ctx.fillText(String(r + 1), gx + (L.headerW - gx) / 2, y + h / 2 + 0.5)
     ctx.fillStyle = theme.line
-    ctx.fillRect(0, Math.round(y + h) - 1, L.headerW, 1)
+    ctx.fillRect(gx, Math.round(y + h) - 1, L.headerW - gx, 1)
   }
   // Bottom/right edges of the header bands and the corner
   ctx.fillStyle = theme.line

@@ -56,7 +56,11 @@ import {
   Filter,
   FilterX,
   PaintbrushVertical,
-  Wand2
+  Wand2,
+  ListTree,
+  ListX,
+  Plus,
+  Minus
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -668,6 +672,15 @@ function DataTab() {
         <Cmd id="data.filter" label="Filter" text="Filter" icon={<Filter />} />
         <Cmd id="data.clearFilter" label="Clear filters" text="Clear" icon={<FilterX />} />
         <Cmd id="data.reapply" label="Reapply filters" text="Reapply" icon={<RefreshCw />} />
+      </Group>
+      <Sep />
+      <Group label="Outline">
+        <Cmd id="data.group" label="Group" text="Group" icon={<ListTree />} />
+        <Cmd id="data.ungroup" label="Ungroup" text="Ungroup" icon={<ListX />} />
+        <div className={cx('flex gap-0.5', expandedLayout && 'flex-col')}>
+          <Cmd id="data.showDetail" label="Show detail" icon={<Plus className="size-4" />} />
+          <Cmd id="data.hideDetail" label="Hide detail" icon={<Minus className="size-4" />} />
+        </div>
       </Group>
       <Sep />
       <Group label="Data tools">

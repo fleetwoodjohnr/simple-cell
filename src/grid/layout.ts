@@ -9,6 +9,9 @@ export interface Layout {
   height: number
   headerW: number
   headerH: number
+  /** Outline gutters (group bars and +/− buttons) at the left of the row headers and above the column headers. */
+  gutterW: number
+  gutterH: number
   rows: Axis
   cols: Axis
   fr: number
@@ -42,10 +45,18 @@ export function makeLayout(m: SheetMeta, width: number, height: number, zoom: nu
   // Row header width grows with the number of digits of the last visible row.
   const lastRow = rows.indexAt(frozenH + sy + height / zoom)
   const digits = String(lastRow + 1).length
-  const headerW = showHeaders ? Math.max(32, Math.round((digits * 7.5 + 14) * Math.min(zoom, 1.5))) : 0
-  const headerH = showHeaders ? Math.round(22 * Math.min(Math.max(zoom, 0.75), 1.5)) : 0
-  return { zoom, width, height, headerW, headerH, rows, cols, fr, fc, sx, sy, frozenW, frozenH, showHeaders }
+  const levels = (list: [number, number][]) => list.reduce((m, [, l]) => Math.max(m, l), 0)
+  const rl = levels(m.outlineRows ?? [])
+  const cl = levels(m.outlineCols ?? [])
+  const gutterW = rl ? (rl + 1) * GUTTER_STEP + 4 : 0
+  const gutterH = cl ? (cl + 1) * GUTTER_STEP + 4 : 0
+  const headerW = gutterW + (showHeaders ? Math.max(32, Math.round((digits * 7.5 + 14) * Math.min(zoom, 1.5))) : 0)
+  const headerH = gutterH + (showHeaders ? Math.round(22 * Math.min(Math.max(zoom, 0.75), 1.5)) : 0)
+  return { zoom, width, height, headerW, headerH, gutterW, gutterH, rows, cols, fr, fc, sx, sy, frozenW, frozenH, showHeaders }
 }
+
+/** Width of one outline level in the gutter. */
+export const GUTTER_STEP = 14
 
 /** Screen x of the left edge of column c (may be off screen). */
 export function colX(L: Layout, c: number): number {
@@ -68,7 +79,8 @@ export function visibleRows(L: Layout): [number, number] {
 }
 
 /** Cell under a screen point; null over headers. */
-export function hit(L: Layout, x: number, y: number): { r: number; c: number; zone: 'cell' | 'colhdr' | 'rowhdr' | 'corner' } {
+export function hit(L: Layout, x: number, y: number): { r: number; c: number; zone: 'cell' | 'colhdr' | 'rowhdr' | 'corner' | 'gutter' } {
+  if (x < L.gutterW || y < L.gutterH) return { r: 0, c: 0, zone: 'gutter' }
   const inColHdr = y < L.headerH
   const inRowHdr = x < L.headerW
   const cx = (x - L.headerW) / L.zoom

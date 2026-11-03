@@ -53,6 +53,8 @@ export const SHORTCUTS: ShortcutDef[] = [
   { command: 'edit.pasteSpecial', win: ['Mod-Alt-v'], mac: ['Mod-Ctrl-v'], sheets: [], context: 'grid' },
   { command: 'select.visible', win: ['Alt-;'], mac: [], sheets: [], context: 'grid' },
   { command: 'data.flashFill', win: ['Mod-e'], mac: ['Mod-e'], sheets: [], context: 'grid' },
+  { command: 'data.group', win: ['Alt-Shift-ArrowRight'], mac: ['Mod-Shift-k'], sheets: ['Alt-Shift-ArrowRight'], context: 'grid' },
+  { command: 'data.ungroup', win: ['Alt-Shift-ArrowLeft'], mac: ['Mod-Shift-j'], sheets: ['Alt-Shift-ArrowLeft'], context: 'grid' },
   { command: 'insert.link', win: ['Mod-k'], mac: ['Mod-k'], context: 'grid' },
   { command: 'insert.note', win: ['Shift-F2'], mac: ['Shift-F2'], context: 'grid' },
   { command: 'data.table', win: ['Mod-t', 'Mod-l'], mac: ['Mod-t'], context: 'grid' },

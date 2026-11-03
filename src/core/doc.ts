@@ -597,6 +597,70 @@ export class Doc {
     return todo.length
   }
 
+  // ---------- grouping and outline ----------
+
+  /** Group (delta 1) or ungroup (-1) rows or columns from..to; Excel allows 8 levels. */
+  group(sheet: number, axis: 'row' | 'col', from: number, to: number, delta: 1 | -1) {
+    const sh = this.sheet(sheet)
+    const map = (axis === 'row' ? sh.rowInfo : sh.cols) as Map<number, RowInfo | ColInfo>
+    if (to - from > 100_000) throw new Error('Group fewer rows or columns at a time.')
+    if (delta > 0 && [...range(from, to)].some((i) => (map.get(i)?.outline ?? 0) >= 7)) throw new Error('Excel allows at most eight outline levels.')
+    return this.transact(delta > 0 ? 'Group' : 'Ungroup', (tx) => {
+      for (let i = from; i <= to; i++) {
+        const cur = map.get(i) ?? {}
+        const level = Math.max(0, (cur.outline ?? 0) + delta)
+        // Ungrouping shows rows the group had hidden.
+        const next = { ...cur, outline: level || undefined, ...(delta < 0 && level === 0 && cur.hidden && !(cur as RowInfo).filtered ? { hidden: undefined } : {}) }
+        tx.mapSet(map, i, cleanInfo(next))
+      }
+      if (axis === 'row') tx.rowsShown = true
+    })
+  }
+
+  /** Hide (collapse) or show (expand) an outline group; the summary row/column after it gets the +/− state. */
+  showDetail(sheet: number, axis: 'row' | 'col', from: number, to: number, show: boolean) {
+    const sh = this.sheet(sheet)
+    const map = (axis === 'row' ? sh.rowInfo : sh.cols) as Map<number, RowInfo | ColInfo>
+    return this.transact(show ? 'Show detail' : 'Hide detail', (tx) => {
+      const level = Math.min(...[...range(from, to)].map((i) => map.get(i)?.outline ?? 0))
+      for (let i = from; i <= to; i++) {
+        const cur = map.get(i) ?? {}
+        if (show) {
+          // Inner groups that are still collapsed stay hidden.
+          const innerCollapsed = (cur.outline ?? 0) > level && this.insideCollapsed(map, i, level)
+          if (!innerCollapsed) tx.mapSet(map, i, cleanInfo({ ...cur, hidden: undefined }))
+        } else tx.mapSet(map, i, { ...cur, hidden: true })
+      }
+      const sum = map.get(to + 1) ?? {}
+      tx.mapSet(map, to + 1, cleanInfo({ ...sum, collapsed: show ? undefined : true }))
+      if (axis === 'row') tx.rowsShown = true
+    })
+  }
+
+  /** Whether row/column i sits in a collapsed group deeper than `level`. */
+  private insideCollapsed(map: Map<number, RowInfo | ColInfo>, i: number, level: number): boolean {
+    for (let l = (map.get(i)?.outline ?? 0); l > level; l--) {
+      let end = i
+      while ((map.get(end + 1)?.outline ?? 0) >= l) end++
+      if (map.get(end + 1)?.collapsed) return true
+    }
+    return false
+  }
+
+  /** The outline level buttons (1, 2, 3…): show rows/columns up to that level, hide deeper ones. */
+  showOutlineLevel(sheet: number, axis: 'row' | 'col', level: number) {
+    const sh = this.sheet(sheet)
+    const map = (axis === 'row' ? sh.rowInfo : sh.cols) as Map<number, RowInfo | ColInfo>
+    return this.transact('Outline level', (tx) => {
+      for (const [i, cur] of [...map]) {
+        const l = cur.outline ?? 0
+        if (l >= level && l > 0) tx.mapSet(map, i, { ...cur, hidden: true, collapsed: undefined })
+        else if (l > 0 || cur.collapsed) tx.mapSet(map, i, cleanInfo({ ...cur, hidden: cur.hidden && !(cur as RowInfo).filtered && l > 0 ? undefined : cur.hidden, collapsed: undefined }))
+      }
+      if (axis === 'row') tx.rowsShown = true
+    })
+  }
+
   // ---------- notes and hyperlinks ----------
 
   /** Add, change or (with null) delete the note on a cell. */
@@ -1595,3 +1659,7 @@ function cleanInfo<T extends object>(o: T): T | undefined {
 }
 
 export { isError, ERR }
+
+function* range(a: number, b: number) {
+  for (let i = a; i <= b; i++) yield i
+}

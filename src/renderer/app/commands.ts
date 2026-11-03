@@ -497,6 +497,16 @@ def({ id: 'data.flashFill', label: 'Flash Fill', keywords: 'fill by example patt
     toast(`Flash Fill filled ${res.filled} ${res.filled === 1 ? 'cell' : 'cells'}.`, 'success')
   }
 })
+/** Grouping works on the selection's rows, or its columns when whole columns are selected. */
+function outlineTarget(c: A.Ctx): { axis: 'row' | 'col'; from: number; to: number } {
+  const r = lastRange(c)
+  if (r.r0 === 0 && r.r1 === MAX_ROWS - 1 && !(r.c0 === 0 && r.c1 === MAX_COLS - 1)) return { axis: 'col', from: r.c0, to: r.c1 }
+  return { axis: 'row', from: r.r0, to: r.r1 }
+}
+def({ id: 'data.group', label: 'Group', keywords: 'outline', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.group(x.view.sheet, t.axis, t.from, t.to, 1)) } })
+def({ id: 'data.ungroup', label: 'Ungroup', keywords: 'outline', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.group(x.view.sheet, t.axis, t.from, t.to, -1)) } })
+def({ id: 'data.hideDetail', label: 'Hide detail', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.showDetail(x.view.sheet, t.axis, t.from, t.to, false)) } })
+def({ id: 'data.showDetail', label: 'Show detail', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.showDetail(x.view.sheet, t.axis, t.from, t.to, true)) } })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

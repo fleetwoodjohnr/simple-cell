@@ -51,12 +51,15 @@ export interface ColInfo {
   hidden?: boolean
   style?: number
   outline?: number
+  /** The summary column of a collapsed outline group. */
+  collapsed?: boolean
 }
 export interface RowInfo {
   height?: number
   hidden?: boolean
   style?: number
   outline?: number
+  collapsed?: boolean
   /** Height set by the user or the file rather than fitted to the content. */
   custom?: boolean
   /** Hidden by an AutoFilter (SUBTOTAL ignores filtered rows even with 1–11). */

@@ -552,6 +552,13 @@ function sheetXml(
   sfp.defaultRowHeight = String(pxToPt(sh.defaultRowHeight))
   if (sh.defaultColWidth !== 64 || sfp.defaultColWidth) sfp.defaultColWidth = String(pxToWidth(sh.defaultColWidth))
   delete sfp['x14ac:dyDescent']
+  // Excel shows outline symbols only up to these levels.
+  const maxRow = Math.max(0, ...[...sh.rowInfo.values()].map((i) => i.outline ?? 0))
+  const maxCol = Math.max(0, ...[...sh.cols.values()].map((i) => i.outline ?? 0))
+  if (maxRow) sfp.outlineLevelRow = String(maxRow)
+  else delete sfp.outlineLevelRow
+  if (maxCol) sfp.outlineLevelCol = String(maxCol)
+  else delete sfp.outlineLevelCol
   parts.set('sheetFormatPr', `<sheetFormatPr ${Object.entries(sfp).map(([k, v]) => `${k}="${esc(v)}"`).join(' ')}/>`)
   // cols (consecutive identical columns grouped)
   const colKeys = [...sh.cols.keys()].sort((a, b) => a - b)
@@ -568,6 +575,7 @@ function sheetXml(
     if (info.hidden || info.width === 0) attrs.push('hidden="1"')
     if (info.style) attrs.push(`style="${styles.xf(info.style)}"`)
     if (info.outline) attrs.push(`outlineLevel="${info.outline}"`)
+    if (info.collapsed) attrs.push('collapsed="1"')
     colEls.push(`<col ${attrs.join(' ')}/>`)
     i = j + 1
   }
@@ -593,6 +601,7 @@ function sheetXml(
     if (ri?.hidden || ri?.height === 0) ra.push('hidden="1"')
     if (ri?.style) ra.push(`s="${styles.xf(ri.style)}"`, 'customFormat="1"')
     if (ri?.outline) ra.push(`outlineLevel="${ri.outline}"`)
+    if (ri?.collapsed) ra.push('collapsed="1"')
     const cells: string[] = []
     if (row) {
       for (const c of [...row.keys()].sort((a, b) => a - b)) {

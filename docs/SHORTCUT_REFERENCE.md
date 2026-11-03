@@ -34,6 +34,8 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Paste special… | `Ctrl+Alt+V` | `⌘⌃V` |  |
 | Select visible cells only | `Alt+;` | — |  |
 | Flash Fill | `Ctrl+E` | `⌘E` |  |
+| Group | `Alt+Shift+ArrowRight` | `⌘⇧K` | `Alt+Shift+ArrowRight` |
+| Ungroup | `Alt+Shift+ArrowLeft` | `⌘⇧J` | `Alt+Shift+ArrowLeft` |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |

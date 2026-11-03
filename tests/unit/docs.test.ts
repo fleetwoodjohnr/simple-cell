@@ -157,6 +157,11 @@ describe('generated documentation', () => {
     check('docs/SHORTCUT_REFERENCE.md', out.join('\n'))
   })
 
+  it('shortcut bindings are written in the order key events produce (Mod, Ctrl, Alt, Shift, key)', () => {
+    for (const s of SHORTCUTS)
+      for (const k of [...s.win, ...(s.mac ?? []), ...(s.sheets ?? [])]) expect(k, `${s.command}: ${k}`).toMatch(/^(Mod-)?(Ctrl-)?(Alt-)?(Shift-)?[^-]+$/)
+  })
+
   it('shortcut registry has no conflicting bindings', () => {
     for (const platform of ['win', 'mac'] as const)
       for (const preset of ['excel', 'sheets'] as const) {
