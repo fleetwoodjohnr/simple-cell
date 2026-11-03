@@ -13,7 +13,10 @@ for r in rows:
     m = re.match(r'^([A-Za-z ,]+):\s*(.*)$', desc)
     cat, d = (m.group(1), m.group(2)) if m else ('', desc)
     for l in links:
-        for name in re.split(r'[,\s]+', txt(l)):
-            if re.match(r'^[A-Z][A-Z0-9_.]*$', name):
+        for raw in re.split(r'[,\s]+', txt(l)):
+            # The page has the odd typo ("BETA.INVn"): keep the upper-case function name.
+            m = re.match(r'^[A-Z][A-Z0-9_.]*', raw)
+            name = m.group(0).rstrip('.') if m else ''
+            if name and len(name) >= 1 and (name == raw or raw[len(name):].islower()):
                 out.append({'name': name, 'category': cat, 'description': d, 'since': ver.group(1) if ver else None})
 json.dump(out, sys.stdout, indent=0)

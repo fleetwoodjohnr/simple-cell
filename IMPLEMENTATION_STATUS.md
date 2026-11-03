@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-02 · Milestones M0–M1 complete, M2 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-02 · Milestones M0–M2 complete (M2 with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,7 +9,8 @@ _Last updated: 2026-11-02 · Milestones M0–M1 complete, M2 in progress · vers
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 25 / 25 |
+| `npm test` (vitest) | ✅ 509 / 509 (481 function tests covering 973 formulas, plus engine, parser, number-format and registry tests) |
+| `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
 | `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 6 / 6 (every test also fails on a CSP violation or an uncaught renderer error) |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
@@ -50,25 +51,40 @@ _Last updated: 2026-11-02 · Milestones M0–M1 complete, M2 in progress · vers
 - **Printing and PDF.** Not available yet (M5).
 - **File formats.** Only CSV/TSV can be saved. XLSX/ODS reading and writing is M3.
 
-## M2 — Calculation engine 🟡 in progress
+## M2 — Calculation engine ✅
 
 ### Done
 
-- **Parser.** Excel precedence (unary minus before `^`), range, intersection and union operators, cross-sheet and 3-D references, names, structured table references, `A1#` spill references, `@`, array constants, and `_xlfn.`/`_xlpm.` file prefixes. Test: unit `parser`.
-- **Evaluation.** Excel coercion rules, the full error set, dynamic arrays with spilling and `#SPILL!`, implicit intersection for legacy formulas, lifting of scalar functions over arrays, and LET, LAMBDA, MAP, REDUCE, SCAN, BYROW, BYCOL, MAKEARRAY. Test: unit `engine`.
-- **Recalculation.** Incremental, with dependency indexes and an iterative ordering (a 5,000-cell chain is tested). Also covered:
-  - volatile functions, INDIRECT and OFFSET;
-  - circular reference detection, with optional iteration;
-  - manual calculation mode.
+| Feature | Test |
+|---|---|
+| **Parser.** Excel precedence (unary minus before `^`), range, intersection and union operators, cross-sheet and 3-D references, names, structured table references, `A1#` spill references, `@`, array constants, `_xlfn.`/`_xlpm.` file prefixes. | unit `parser` |
+| **Evaluation.** Excel coercion rules and the full error set; dynamic arrays with spilling and `#SPILL!`; implicit intersection for legacy formulas; scalar functions lifted over arrays; LET, LAMBDA, named LAMBDAs, eta-reduced functions (`GROUPBY(…, SUM)`). | unit `engine`, `functions` |
+| **Recalculation.** Incremental, with single-cell and column-indexed range dependency indexes and an iterative topological ordering (a 5,000-cell chain is tested). Volatile functions, INDIRECT and OFFSET, circular references (with optional iteration), manual mode, F9 and Ctrl+Alt+F9. | unit `engine` |
+| **Number formats.** The full Excel format-code language, and date serials with the 1900 leap-year bug and the 1904 system. | unit `numfmt` |
+| **Function catalog.** All 526 Excel functions from Microsoft's list (`scripts/gen-catalog.mjs`). It drives autocomplete, argument hints, the Insert Function dialog and the coverage report. | unit `docs` |
+| **499 functions calculated, 481 with test cases** (973 formulas, mostly Microsoft's documented examples). Full categories: math & trig, logical, text (except TRANSLATE and DETECTLANGUAGE), date & time, financial, engineering, database. See [FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md). | unit `functions` |
+| **Independent check.** Every test formula is also run through LibreOffice Calc. | `npm run crosscheck` |
+| **Formula editing.** Point mode, F4, coloured reference highlights, function autocomplete, argument hints, Insert Function dialog. | e2e `core › keyboard…` |
+| **Generated docs.** `docs/FORMULA_COVERAGE.md` and `docs/SHORTCUT_REFERENCE.md` are generated from the registries; a test fails when they are stale, and another checks the shortcut registry for conflicts. | unit `docs` |
 
-  Test: unit `engine`.
-- **Number formats.** The Excel format-code engine (sections, conditions, colours, dates and times, elapsed time, fractions, scientific, thousands and scaling) and date serials with the 1900 leap-year bug. Test: unit `numfmt`.
-- **Function catalog.** All 525 Excel functions from Microsoft's list (`scripts/gen-catalog.mjs`). Formulas using an Excel function that isn't implemented keep the value saved in the file, flagged; they are never shown as 0.
-- **Implemented functions (231).** Math & trig 80/80, logical 19/19, text 48/50, date & time 25/25, information 21/22, lookup & reference 36/41.
+### Known limitations
 
-### Still open in M2
+- **Not calculated (27 functions).** Formulas using them keep the saved result.
+  - FORECAST.ETS (4 functions).
+  - Online services: WEBSERVICE, IMPORTCSV, IMPORTTEXT, STOCKHISTORY, TRANSLATE, DETECTLANGUAGE, COPILOT, PY, FIELDVALUE.
+  - FILTERXML, IMAGE, GETPIVOTDATA, PIVOTBY, RTD, CALL, REGISTER.ID.
+  - The 7 CUBE functions.
+- **Partial: GROUPBY.** Subtotal depth beyond 1 and the field-relationship argument are not implemented.
+- **Partial: database functions.** Value criteria work; computed (formula) criteria do not.
+- **Known deviation: DURATION and MDURATION.** They differ from Excel's documented examples by up to 2×10⁻⁶ (relative).
+- **Not done yet.**
+  - A Trace Precedents/Dependents UI (the engine API exists).
+  - Error-indicator triangles.
+  - The Evaluate Formula dialog.
+  - Locale-specific formula separators.
 
-- **Remaining functions.** Statistical, financial, engineering, database, compatibility and web functions.
-- **Test coverage.** A table of test cases for each function.
-- **Independent check.** A LibreOffice cross-check.
-- **Generated docs.** `docs/FORMULA_COVERAGE.md` and `docs/SHORTCUT_REFERENCE.md`.
+## Next
+
+- **M3 — Files.** XLSX/XLSM/XLTX and ODS reading and writing, with preservation of unknown parts and compatibility warnings. XLS/XLSB through LibreOffice. JSON, HTML and XML Spreadsheet 2003.
+- **M4 — Editing depth.** Conditional formatting, data validation, tables, filters, comments, Paste Special, Flash Fill and the remaining shortcuts.
+- **M5 onward.** See the plan in ARCHITECTURE.md.

@@ -10,7 +10,7 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
   - Typing numbers, dates, percentages and currency, with Excel's automatic formats.
   - Formula bar and Name Box, multiple sheets, undo and redo.
 - **Formulas.** Excel operator precedence, dynamic arrays with spilling, LET and LAMBDA, names, cross-sheet references, and circular reference detection.
-  - 231 of Excel's 525 worksheet functions are implemented ([docs/FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md)).
+  - 499 of Excel's 526 worksheet functions are implemented and checked against Microsoft's documented examples and LibreOffice ([docs/FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md)).
 - **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
 - **Files.** CSV and tab-separated text.
 - **Safety.** AutoSave and crash recovery.

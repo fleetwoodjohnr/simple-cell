@@ -1,6 +1,6 @@
 // Text functions.
 import { defineFunctions, toArray, toScalar, type EvalContext } from '../evaluate'
-import { CellError, ERR, isArray, isError, isRef, makeArray, numberToText, parseNumber, toText, type Scalar, type Value } from '../values'
+import { CellError, ERR, isArray, isError, isRef, makeArray, numberToText, parseNumber, toNumber, toText, type Scalar, type Value } from '../values'
 import { formatValue } from '../../numfmt/format'
 import { parseDateTime } from '../../numfmt/dates'
 import { allValues, fn, MANY, roundHalfAway, wildcardRegex } from './helpers'
@@ -85,6 +85,18 @@ function splitAround(text: string, delims: string[], instance: number, insensiti
   const h = hits[k]
   if (!h || k < 0) return null
   return { before: text.slice(0, h.i), after: text.slice(h.i + h.len) }
+}
+
+/** instance_num, match_mode, match_end of TEXTBEFORE/TEXTAFTER; an empty argument means the default. */
+function textOpts(i: Scalar | undefined, m: Scalar | undefined, e: Scalar | undefined): [number, number, number] | CellError {
+  const num = (v: Scalar | undefined, d: number) => (v === undefined || v === null ? d : toNumber(v))
+  const a = num(i, 1)
+  const b = num(m, 0)
+  const c = num(e, 0)
+  if (isError(a)) return a
+  if (isError(b)) return b
+  if (isError(c)) return c
+  return [Math.trunc(a), b, c]
 }
 
 function regex(pattern: string, caseInsensitive: boolean, global = false): RegExp | CellError {
@@ -222,18 +234,22 @@ defineFunctions([
     parts.forEach((p, i) => (out += (i ? (ds.length ? ds[(i - 1) % ds.length] : '') : '') + p))
     return tooLong(out)
   }),
-  fn('TEXTBEFORE', 2, 6, 'srnnnr', ([s, delim, inst = 1, mode = 0, end = 0, notFound], ctx) => {
+  fn('TEXTBEFORE', 2, 6, 'srvvvr', ([s, delim, i, m, e, notFound], ctx) => {
     const ds = delimiters(delim, ctx)
     if (isError(ds)) return ds
-    inst = Math.trunc(inst)
+    const opts = textOpts(i, m, e)
+    if (isError(opts)) return opts
+    const [inst, mode, end] = opts
     if (inst === 0 || Math.abs(inst) > s.length + 1) return ERR.VALUE
     const r = splitAround(s, ds, inst, mode === 1, end === 1)
     return r ? r.before : notFound === undefined ? ERR.NA : toScalar(notFound, ctx)
   }),
-  fn('TEXTAFTER', 2, 6, 'srnnnr', ([s, delim, inst = 1, mode = 0, end = 0, notFound], ctx) => {
+  fn('TEXTAFTER', 2, 6, 'srvvvr', ([s, delim, i, m, e, notFound], ctx) => {
     const ds = delimiters(delim, ctx)
     if (isError(ds)) return ds
-    inst = Math.trunc(inst)
+    const opts = textOpts(i, m, e)
+    if (isError(opts)) return opts
+    const [inst, mode, end] = opts
     if (inst === 0 || Math.abs(inst) > s.length + 1) return ERR.VALUE
     const r = splitAround(s, ds, inst, mode === 1, end === 1)
     return r ? r.after : notFound === undefined ? ERR.NA : toScalar(notFound, ctx)

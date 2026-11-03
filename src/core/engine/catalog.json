@@ -31,6 +31,7 @@
 {"n":"BESSELK","cat":"Engineering","d":"Returns the modified Bessel function Kn(x)","v":null},
 {"n":"BESSELY","cat":"Engineering","d":"Returns the Bessel function Yn(x)","v":null},
 {"n":"BETA.DIST","cat":"Statistical","d":"Returns the beta cumulative distribution function","v":"2010"},
+{"n":"BETA.INV","cat":"Statistical","d":"Returns the inverse of the cumulative distribution function for a specified beta distribution","v":"2010"},
 {"n":"BETADIST","cat":"Compatibility","d":"Returns the beta cumulative distribution function","v":null},
 {"n":"BETAINV","cat":"Compatibility","d":"Returns the inverse of the cumulative distribution function for a specified beta distribution","v":null},
 {"n":"BIN2DEC","cat":"Engineering","d":"Converts a binary number to decimal","v":null},

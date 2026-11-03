@@ -2,7 +2,7 @@
 import { defineFunctions, type EvalContext } from '../evaluate'
 import { ERR, isError, toNumber, type CellError, type Value } from '../values'
 import { dateSerial, daysInMonth, isLeapYear, nowSerial, parseDateTime, serialToDate, timeParts, weekday, type YMD } from '../../numfmt/dates'
-import { fn, numbers } from './helpers'
+import { allValues, fn } from './helpers'
 
 const MAX_SERIAL = 2958465 // 9999-12-31
 
@@ -84,11 +84,19 @@ function weekendMask(w: Value | undefined): boolean[] | CellError {
 /** Monday-first weekday index 0..6. */
 const monFirst = (x: number, date1904: boolean) => (weekday(x, date1904) + 6) % 7
 
+/** Holidays: numbers, or date text (Excel accepts {"2006/1/2","2006/1/16"}). Empty cells are skipped. */
 function holidaySet(v: Value | undefined, ctx: EvalContext): Set<number> | CellError {
   if (v === undefined || v === null) return new Set()
-  const xs = numbers([v], ctx)
-  if (isError(xs)) return xs
-  return new Set(xs.map(Math.floor))
+  const vals = allValues([v], ctx)
+  if (isError(vals)) return vals
+  const out = new Set<number>()
+  for (const x of vals) {
+    if (x === null) continue
+    const n = toNumber(x)
+    if (isError(n)) return n
+    out.add(Math.floor(n))
+  }
+  return out
 }
 
 function networkDays(s: number, e: number, mask: boolean[], hol: Set<number>, d1904: boolean): number {
