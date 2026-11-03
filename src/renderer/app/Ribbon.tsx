@@ -54,11 +54,12 @@ import {
   Highlighter,
   ListChecks,
   Filter,
-  FilterX
+  FilterX,
+  PaintbrushVertical
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
-import { useViews } from '../state/view'
+import { setView, useViews } from '../state/view'
 import { runCommand, shortcutFor } from './commands'
 import * as A from './actions'
 import { ColorGrid, IconBtn, Menu, MenuContent, MenuItem, MenuSep, MenuLabel, Pop, PopContent, PopTrigger, SubMenu, Tip, cx, MenuTrigger } from '../ui'
@@ -239,6 +240,26 @@ function ColorBtn({ label, icon, current, onPick, onClear, clearLabel }: { label
   )
 }
 
+/** Format Painter: click once to paint the next selection; double-click to keep painting until Esc. */
+function PainterBtn({ tab }: { tab: string }) {
+  const on = useViews((s) => !!s.views[tab]?.painter)
+  return (
+    <IconBtn
+      label="Format painter (double-click to keep it on)"
+      active={on}
+      onMouseDown={(e) => e.preventDefault()}
+      onClick={(e) => {
+        if (e.detail > 1) return
+        withCtx((c) => (on ? setView(tab, { painter: undefined }) : A.startPainter(c, false)))
+      }}
+      onDoubleClick={() => withCtx((c) => A.startPainter(c, true))}
+      data-testid="format-painter"
+    >
+      <PaintbrushVertical className="size-4" />
+    </IconBtn>
+  )
+}
+
 /** Home ▸ Format as Table: pick a style, then confirm the range. */
 function FormatAsTable() {
   const [open, setOpen] = useState(false)
@@ -347,6 +368,7 @@ function HomeTab({ tab }: { tab: string }) {
         <div className={cx('flex gap-0.5', expandedLayout && 'flex-col')}>
           <Cmd id="edit.cut" label="Cut" icon={<Scissors className="size-4" />} />
           <Cmd id="edit.copy" label="Copy" icon={<Copy className="size-4" />} />
+          <PainterBtn tab={tab} />
         </div>
       </Group>
       <Sep />

@@ -140,3 +140,40 @@ describe('insert and delete cells (shift)', () => {
     expect(() => b.doc.insertCells({ sheet: b.sheet, r0: 4, c0: 1, r1: 4, c1: 1 }, 'down')).toThrow(/merged/)
   })
 })
+
+describe('paste special', () => {
+  it('values, formats, operations, skip blanks, transpose, column widths, notes', async () => {
+    const { book } = await import('./helpers/book')
+    const b = book({ A1: 1, A2: 2, B1: '=A1*10', D1: 100, D2: 'x', D3: '=5' })
+    const s = b.sheet
+    b.doc.format([{ sheet: s, r0: 0, c0: 0, r1: 1, c1: 1 }], { bold: true, numFmt: '0.00', borderTop: { style: 'thin' } })
+    const A = (r0: number, c0: number, r1 = r0, c1 = c0) => ({ sheet: s, r0, c0, r1, c1 })
+    b.doc.pasteSpecial(A(0, 0, 1, 1), A(5, 0), { what: 'values' })
+    expect([b.get('A6'), b.get('B6'), b.doc.formulaText(s, 5, 1)]).toEqual([1, 10, null])
+    expect(b.doc.styleAt(s, 5, 0).bold).toBeUndefined()
+    b.doc.pasteSpecial(A(0, 0, 1, 1), A(5, 0), { what: 'formats' })
+    expect(b.doc.styleAt(s, 5, 0)).toMatchObject({ bold: true, numFmt: '0.00' })
+    expect(b.get('A6')).toBe(1)
+    b.doc.pasteSpecial(A(0, 0), A(7, 0), { what: 'allExceptBorders' })
+    expect(b.doc.styleAt(s, 7, 0)).toMatchObject({ bold: true })
+    expect(b.doc.styleAt(s, 7, 0).borderTop).toBeUndefined()
+    // Multiply D1:D3 by A2 (2): numbers and formulas change, text stays.
+    b.doc.pasteSpecial(A(1, 0), A(0, 3, 2, 3), { what: 'values', op: 'multiply' })
+    expect([b.get('D1'), b.get('D2'), b.get('D3')]).toEqual([200, 'x', 10])
+    expect(b.doc.formulaText(s, 2, 3)).toBe('=(5)*2')
+    // Skip blanks: the empty C1 doesn't overwrite.
+    b.set('F1', 'keep')
+    b.doc.pasteSpecial(A(0, 2), A(0, 5), { what: 'all', skipBlanks: true })
+    expect(b.get('F1')).toBe('keep')
+    // Transpose a column into a row; the formula's references keep their offsets.
+    b.doc.pasteSpecial(A(0, 0, 1, 1), A(10, 0), { what: 'all', transpose: true })
+    expect([b.get('A11'), b.get('B11'), b.get('A12')]).toEqual([1, 2, 10])
+    b.doc.setColWidths(s, [0], 150)
+    b.doc.pasteSpecial(A(0, 0), A(0, 7), { what: 'colWidths' })
+    expect(b.doc.wb.sheets[0].colWidth(7)).toBe(150)
+    b.doc.setNote(s, 0, 0, 'hello', 'me')
+    b.doc.pasteSpecial(A(0, 0), A(20, 0), { what: 'notes' })
+    expect(b.doc.noteAt(s, 20, 0)?.text).toBe('hello')
+    expect(b.get('A21')).toBeNull()
+  })
+})

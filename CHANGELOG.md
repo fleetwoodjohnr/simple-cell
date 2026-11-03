@@ -14,3 +14,4 @@
   - Data validation: lists with an in-cell dropdown, number, date, text-length and formula rules, input messages, error alerts and Circle Invalid Data.
   - Tables (Ctrl+T) with styles, a total row and Table Design options; filters on tables and ranges (Ctrl+Shift+L).
   - Notes (Shift+F2) and hyperlinks (Ctrl+K), kept in .xlsx and .ods files.
+  - Insert and Delete Cells with a shift, Paste Special, Format Painter.

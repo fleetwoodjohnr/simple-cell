@@ -31,12 +31,13 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Insert current date | `Ctrl+;` | `⌃;` | same |
 | Insert current time | `Ctrl+Shift+;` | `⌘;` | same |
 | Edit active cell | `F2` | `⌃U`, `F2` | same |
+| Paste special… | `Ctrl+Alt+V` | `⌘⌃V` |  |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |
 | Filter (turn on or off) | `Ctrl+Shift+L` | `⌘⇧F` |  |
-| Insert rows or columns | `Ctrl+Shift+=`, `Ctrl++` | `⌃⇧=`, `⌘⇧=` | `Ctrl+Alt+=` |
-| Delete rows or columns | `Ctrl+-` | `⌘-`, `⌃-` | `Ctrl+Alt+-` |
+| Insert cells… | `Ctrl+Shift+=`, `Ctrl++` | `⌃⇧=`, `⌘⇧=` | `Ctrl+Alt+=` |
+| Delete cells… | `Ctrl+-` | `⌘-`, `⌃-` | `Ctrl+Alt+-` |
 | Clear formats | — | — | `Ctrl+\` |
 | Bold | `Ctrl+B`, `Ctrl+2` | `⌘B` | same |
 | Italic | `Ctrl+I`, `Ctrl+3` | `⌘I` | same |
@@ -106,7 +107,6 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Point mode: insert and move a cell reference | `Arrow keys (in a formula)` | `Arrow keys (in a formula)` | ✅ |
 | Point mode: extend the inserted reference to a range | `Shift+Arrow (in a formula)` | `⇧Arrow (in a formula)` | ✅ |
 | Flash Fill | `Ctrl+E` | `⌘E` | Planned |
-| Paste Special dialog | `Ctrl+Alt+V` | `⌘⌥V` | Planned |
 | Select direct precedents | `Ctrl+[` | `⌘[` | Planned |
 | Select direct dependents | `Ctrl+]` | `⌘]` | Planned |
 | Insert a chart of the current data | `Alt+F1` | `⌥F1` | Planned |

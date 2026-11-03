@@ -479,6 +479,8 @@ def({
     void A.edit(x, (b) => b.api.setLink(areasOf(x.view), null))
   }
 })
+def({ id: 'edit.pasteSpecial', label: 'Paste special…', keywords: 'transpose values operation skip blanks', run: (c) => (needsSelection(c), set({ dialog: { kind: 'paste-special' } })) })
+def({ id: 'fmt.painter', label: 'Format painter', keywords: 'copy formatting', run: (c) => A.startPainter(needsSelection(c), false) })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

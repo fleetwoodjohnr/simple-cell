@@ -439,3 +439,40 @@ export async function circleInvalid(c: Ctx) {
 export function clearCircles(c: Ctx) {
   setView(c.tab, { circles: [] })
 }
+
+// ---------- paste special, format painter ----------
+
+/** The cells copied inside Simple Cell for this workbook (Paste Special needs them). */
+export function copiedArea(c: Ctx): Area | null {
+  return internalClip && internalClip.book === c.book.id && !internalClip.cut ? internalClip.area : null
+}
+
+export async function pasteSpecial(c: Ctx, o: import('@/core/doc').PasteSpecialOptions) {
+  const src = copiedArea(c)
+  if (!src) return toast('Copy cells in Simple Cell first; Paste Special works with copied cells.', 'info')
+  const s = c.view.sel
+  const dst = s.ranges[s.ranges.length - 1]
+  const h = o.transpose ? src.c1 - src.c0 + 1 : src.r1 - src.r0 + 1
+  const w = o.transpose ? src.r1 - src.r0 + 1 : src.c1 - src.c0 + 1
+  const single = dst.r0 === dst.r1 && dst.c0 === dst.c1
+  const target: Area = { sheet: c.view.sheet, r0: dst.r0, c0: dst.c0, r1: single ? dst.r0 + h - 1 : dst.r1, c1: single ? dst.c0 + w - 1 : dst.c1 }
+  if (await edit(c, (b) => b.api.pasteSpecial(src, target, o))) setView(c.tab, (v) => ({ sel: { ...v.sel, ranges: [target], focus: { r: target.r1, c: target.c1 } } }))
+}
+
+/** Format Painter: remember the selection's formats; the next selection gets them (sticky: until Esc). */
+export function startPainter(c: Ctx, sticky: boolean) {
+  const r = c.view.sel.ranges[c.view.sel.ranges.length - 1]
+  setView(c.tab, { painter: { area: { sheet: c.view.sheet, ...r }, sticky } })
+}
+
+export async function applyPainter(c: Ctx) {
+  const p = c.view.painter
+  if (!p) return
+  const dst = c.view.sel.ranges[c.view.sel.ranges.length - 1]
+  const h = p.area.r1 - p.area.r0 + 1
+  const w = p.area.c1 - p.area.c0 + 1
+  const single = dst.r0 === dst.r1 && dst.c0 === dst.c1
+  const target: Area = { sheet: c.view.sheet, r0: dst.r0, c0: dst.c0, r1: single ? dst.r0 + h - 1 : dst.r1, c1: single ? dst.c0 + w - 1 : dst.c1 }
+  if (!p.sticky) setView(c.tab, { painter: undefined })
+  await edit(c, (b) => b.api.pasteSpecial(p.area, target, { what: 'formats' }))
+}

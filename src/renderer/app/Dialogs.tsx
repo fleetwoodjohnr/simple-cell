@@ -18,6 +18,7 @@ import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
+import type { PasteSpecialOptions } from '@/core/doc'
 
 const close = () => set({ dialog: null })
 
@@ -61,6 +62,8 @@ export function Dialogs() {
       return <NoteDialog />
     case 'shift-cells':
       return <ShiftCellsDialog mode={d.mode} />
+    case 'paste-special':
+      return <PasteSpecialDialog />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':
@@ -198,6 +201,67 @@ function ExportWarnings({ d }: { d: Extract<Dialog, { kind: 'export-warnings' }>
       }
     >
       <WarningList title="What changes" icon={<AlertTriangle className="size-4 text-warn" />} items={d.warnings} />
+    </Modal>
+  )
+}
+
+// ---------- paste special ----------
+
+const PASTE_KINDS: [PasteSpecialOptions['what'], string][] = [
+  ['all', 'All'],
+  ['formulas', 'Formulas'],
+  ['values', 'Values'],
+  ['formats', 'Formats'],
+  ['notes', 'Notes'],
+  ['validation', 'Validation'],
+  ['allExceptBorders', 'All except borders'],
+  ['colWidths', 'Column widths'],
+  ['formulasNumFmt', 'Formulas and number formats'],
+  ['valuesNumFmt', 'Values and number formats']
+]
+
+function PasteSpecialDialog() {
+  const c = A.ctx()
+  const [what, setWhat] = useState<PasteSpecialOptions['what']>('all')
+  const [op, setOp] = useState<'' | NonNullable<PasteSpecialOptions['op']>>('')
+  const [skipBlanks, setSkip] = useState(false)
+  const [transpose, setTranspose] = useState(false)
+  if (!c) return null
+  const has = !!A.copiedArea(c)
+  const ok = async () => {
+    close()
+    afterDialog()
+    await A.pasteSpecial(c, { what, op: op || undefined, skipBlanks, transpose })
+  }
+  return (
+    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title="Paste special" width={460} footer={<><Btn onClick={() => (close(), afterDialog())}>Cancel</Btn><Btn variant="primary" disabled={!has} onClick={() => void ok()}>OK</Btn></>}>
+      {!has && <p className="mb-3 text-[12.5px] text-text-2">Copy cells in Simple Cell first (Ctrl+C), then choose what to paste.</p>}
+      <div className="grid grid-cols-2 gap-x-4 text-[12.5px]">
+        <fieldset>
+          <legend className="mb-1.5 font-medium text-text-2">Paste</legend>
+          {PASTE_KINDS.map(([v, l]) => (
+            <label key={v} className="flex items-center gap-2 py-0.5">
+              <input type="radio" name="what" checked={what === v} onChange={() => setWhat(v)} /> {l}
+            </label>
+          ))}
+        </fieldset>
+        <div>
+          <fieldset>
+            <legend className="mb-1.5 font-medium text-text-2">Operation</legend>
+            {(['', 'add', 'subtract', 'multiply', 'divide'] as const).map((v) => (
+              <label key={v} className="flex items-center gap-2 py-0.5">
+                <input type="radio" name="op" checked={op === v} onChange={() => setOp(v)} /> {v ? v[0].toUpperCase() + v.slice(1) : 'None'}
+              </label>
+            ))}
+          </fieldset>
+          <label className="mt-3 flex items-center gap-2">
+            <input type="checkbox" checked={skipBlanks} onChange={(e) => setSkip(e.target.checked)} /> Skip blanks
+          </label>
+          <label className="mt-1 flex items-center gap-2">
+            <input type="checkbox" checked={transpose} onChange={(e) => setTranspose(e.target.checked)} /> Transpose
+          </label>
+        </div>
+      </div>
     </Modal>
   )
 }

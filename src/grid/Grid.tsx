@@ -371,7 +371,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
         const ok = await A.edit(c, (b) => b.api.autofill({ sheet: c.view.sheet, ...d.src }, { sheet: c.view.sheet, ...dst }))
         if (ok) setView(tab, (v) => ({ sel: { ...v.sel, ranges: [dst], focus: { r: dst.r1, c: dst.c1 } } }))
       }
-    }
+    } else if (getView(tab).painter && d.kind !== 'point') await A.applyPainter({ ...c, view: getView(tab) })
     if (!getView(tab).editing) inputRef.current?.focus({ preventScroll: true })
   }
 

@@ -7,7 +7,7 @@ import { FormulaSyntaxError, parseFormula, printFormula, type Node } from './eng
 import { CellError, ERR, MAX_COLS, MAX_ROWS, isError, numberToText, setDateParser, type Area, type Scalar } from './engine/values'
 import { Sheet, Workbook, type Cell, type ColInfo, type DefinedName, type RowInfo } from './model/workbook'
 import type { Style } from './model/styles'
-import { adjustFormula, relocate, shiftArea, type Shift } from './model/adjust'
+import { adjustFormula, relocate, shiftArea, transposeRefs, type Shift } from './model/adjust'
 import { areaName, cellKey, cellName, fromKey, quoteSheet } from './refs'
 import { parseInput } from './input'
 import { formatValue, isDateFormat } from './numfmt/format'
@@ -127,6 +127,13 @@ export interface CfListItem {
   stopIfTrue?: boolean
   dxf?: Style
   formulas?: string[]
+}
+
+export interface PasteSpecialOptions {
+  what: 'all' | 'formulas' | 'values' | 'formats' | 'notes' | 'validation' | 'allExceptBorders' | 'colWidths' | 'formulasNumFmt' | 'valuesNumFmt'
+  op?: 'add' | 'subtract' | 'multiply' | 'divide'
+  skipBlanks?: boolean
+  transpose?: boolean
 }
 
 /** A data validation rule as the UI describes it: formulas as text (a list may be "a,b,c"). */
@@ -1365,6 +1372,95 @@ export class Doc {
         if (what === 'values' || what === 'formulas') next = next ? { ...next, s: cur?.s } : cur?.s ? { v: null, s: cur.s } : undefined
         tx.setCell(dst.sheet, r, c, next)
       }
+  }
+
+  /**
+   * Paste Special: which parts of the copied cells to paste, an arithmetic operation with what is there,
+   * Skip Blanks and Transpose (Excel's dialog). `dst` is the top-left cell, or a larger area to tile.
+   */
+  pasteSpecial(src: Area, dst: Area, o: PasteSpecialOptions) {
+    const from = this.sheet(src.sheet)
+    const to = this.sheet(dst.sheet)
+    let block = this.block(src)
+    const srcAt = (i: number, j: number) => (o.transpose ? { r: src.r0 + j, c: src.c0 + i } : { r: src.r0 + i, c: src.c0 + j })
+    if (o.transpose) {
+      const t: (Cell | undefined)[] = new Array(block.rows * block.cols)
+      for (let i = 0; i < block.rows; i++) for (let j = 0; j < block.cols; j++) t[j * block.rows + i] = block.cells[i * block.cols + j]
+      block = { rows: block.cols, cols: block.rows, cells: t }
+    }
+    const rows = Math.max(block.rows, Math.floor((dst.r1 - dst.r0 + 1) / block.rows) * block.rows)
+    const cols = Math.max(block.cols, Math.floor((dst.c1 - dst.c0 + 1) / block.cols) * block.cols)
+    if (dst.r0 + rows > MAX_ROWS || dst.c0 + cols > MAX_COLS) throw new Error('The paste area extends beyond the edge of the sheet.')
+    const what = o.what
+    return this.transact('Paste special', (tx) => {
+      tx.refetch = true
+      if (what === 'colWidths') {
+        for (let j = 0; j < cols; j++) {
+          const sc = o.transpose ? src.c0 : src.c0 + (j % block.cols)
+          tx.mapSet(to.cols, dst.c0 + j, cleanInfo({ ...(to.cols.get(dst.c0 + j) ?? {}), width: from.cols.get(sc)?.width }))
+        }
+        return
+      }
+      for (let i = 0; i < rows; i++)
+        for (let j = 0; j < cols; j++) {
+          const bi = i % block.rows
+          const bj = j % block.cols
+          const s = block.cells[bi * block.cols + bj]
+          const r = dst.r0 + i
+          const c = dst.c0 + j
+          const cur = to.get(r, c)
+          const sp = srcAt(bi, bj)
+          if (o.skipBlanks && (!s || (s.v === null && !s.f))) continue
+          if (what === 'notes') {
+            tx.mapSet(to.notes, r * 16384 + c, from.notes.get(sp.r * 16384 + sp.c))
+            continue
+          }
+          if (what === 'validation') continue
+          if (what === 'formats') {
+            tx.setCell(dst.sheet, r, c, cur ? { ...cur, s: s?.s } : s?.s ? { v: null, s: s.s } : undefined)
+            continue
+          }
+          const srcStyle = this.wb.styles.get(s?.s)
+          let style = cur?.s
+          if (what === 'all') style = s?.s
+          else if (what === 'allExceptBorders') style = this.wb.styles.derive(s?.s, { borderTop: undefined, borderBottom: undefined, borderLeft: undefined, borderRight: undefined, borderDiagUp: undefined, borderDiagDown: undefined })
+          else if (what === 'formulasNumFmt' || what === 'valuesNumFmt') style = this.wb.styles.derive(cur?.s, { numFmt: srcStyle.numFmt })
+          const asValue = what === 'values' || what === 'valuesNumFmt'
+          let next: Cell | undefined = s ? (asValue || !s.f ? { v: s.v } : { v: s.v, f: { ...s.f, ast: relocate(o.transpose ? transposeRefs(s.f.ast) : s.f.ast, { row: r, col: c }), array: undefined } }) : { v: null }
+          if (o.op) {
+            // Excel: a non-number source pastes as it is; a non-number destination is left alone; a formula
+            // destination becomes =(formula)op value; numbers are combined.
+            const a = cur?.v ?? null
+            const y = typeof next.v === 'number' ? next.v : next.v === null ? 0 : null
+            if (y !== null) {
+              if (typeof a === 'string' || typeof a === 'boolean' || a instanceof CellError) continue
+              const sym = { add: '+', subtract: '-', multiply: '*', divide: '/' }[o.op]
+              if (cur?.f) {
+                this.inputTx(tx, dst.sheet, r, c, `=(${this.formulaText(dst.sheet, r, c)!.slice(1)})${sym}${numberToText(y)}`)
+                continue
+              }
+              const x = a ?? 0
+              next = { v: o.op === 'add' ? x + y : o.op === 'subtract' ? x - y : o.op === 'multiply' ? x * y : y === 0 ? ERR.DIV0 : x / y }
+              style = cur?.s
+            }
+          }
+          if (next.v === null && !next.f && !style) tx.setCell(dst.sheet, r, c, undefined)
+          else tx.setCell(dst.sheet, r, c, { ...next, ...(style ? { s: style } : {}) })
+        }
+      if (what === 'validation' || what === 'all') {
+        // Validation rules of the source cells cover the destination (all: as Excel does on a normal paste).
+        for (const dv of from.validations) {
+          if (!dv.ranges.some((a) => a.r0 <= src.r1 && a.r1 >= src.r0 && a.c0 <= src.c1 && a.c1 >= src.c0)) continue
+          if (what === 'all' && src.sheet === dst.sheet) continue
+          const area: Area = { sheet: dst.sheet, r0: dst.r0, c0: dst.c0, r1: dst.r0 + rows - 1, c1: dst.c0 + cols - 1 }
+          const others = to.validations.flatMap((v) => {
+            const ranges = v.ranges.flatMap((x) => subtractArea(x, area))
+            return ranges.length ? [{ ...v, ranges }] : []
+          })
+          tx.prop(to, 'validations', [...others, { ...dv, ranges: [area], formulas: dv.formulas?.map((f) => relocate(f, { row: area.r0, col: area.c0 })) }])
+        }
+      }
+    })
   }
 
   /** Fill down/right/up/left from the edge row/column of the selection (Ctrl+D / Ctrl+R). */

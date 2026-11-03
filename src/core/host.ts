@@ -1,7 +1,7 @@
 // The document host: every operation the UI can ask of an open workbook. It runs inside the core Web Worker
 // (worker.ts) and directly in unit tests. All arguments and results are structured-clone friendly.
 
-import { Doc, type CfSpec, type DvSpec, type ViewCell } from './doc'
+import { Doc, type CfSpec, type DvSpec, type PasteSpecialOptions, type ViewCell } from './doc'
 import type { DvAlert } from './validation'
 import type { FilterColumn } from './filter'
 import type { Link } from './model/workbook'
@@ -394,6 +394,9 @@ export class Host {
     })
   }
 
+  pasteSpecial(src: Area, dst: Area, o: PasteSpecialOptions) {
+    return this.run(() => this.doc.pasteSpecial(src, dst, o))
+  }
   clear(areas: Area[], what: 'contents' | 'formats' | 'all') {
     return this.run(() => this.doc.clear(areas, what))
   }

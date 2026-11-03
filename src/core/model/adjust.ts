@@ -111,6 +111,17 @@ export function adjustForMove(ast: Node, sheet: number, from: { row: number; col
   })
 }
 
+/** Paste Special ▸ Transpose: relative references swap their row and column offsets (absolute parts stay). */
+export function transposeRefs(ast: Node): Node {
+  return mapNode(ast, (n) => {
+    if (n.t !== 'ref' || n.span) return undefined
+    const corner = (r: number, c: number, ra: boolean, ca: boolean) => (!ra && !ca ? [c, r] : [r, c])
+    const [r0, c0] = corner(n.r0, n.c0, n.ra0, n.ca0)
+    const [r1, c1] = corner(n.r1, n.c1, n.ra1, n.ca1)
+    return { ...n, r0, c0, r1, c1 }
+  })
+}
+
 /** Rewrite a formula copied from `from` to `to`: relative references move; those falling off the sheet become #REF!. */
 export function relocate(ast: Node, to: { row: number; col: number }): Node {
   return mapNode(ast, (n) => (n.t === 'ref' && !refCorner(n, to) ? { t: 'err', v: '#REF!' } : undefined))

@@ -28,6 +28,7 @@ export function GridMenu({ tab, children }: { tab: string; children: ReactNode }
           {item('edit.pasteValues', 'Values')}
           {item('edit.pasteFormulas', 'Formulas')}
           {item('edit.pasteFormats', 'Formatting')}
+          {item('edit.pasteSpecial', 'Paste special…')}
         </CtxSub>
         <CtxSep />
         {rows ? (

@@ -205,6 +205,7 @@ export function handleGridKey(e: React.KeyboardEvent<HTMLTextAreaElement>, c: A.
       return
     case 'Escape':
       A.clearCopy(c)
+      if (c.view.painter) setView(c.tab, { painter: undefined })
       return
     case 'Home':
       e.preventDefault()
