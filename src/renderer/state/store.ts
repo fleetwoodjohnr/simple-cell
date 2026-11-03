@@ -6,7 +6,7 @@ import { DEFAULT_SETTINGS, type RecentFile, type RecoveryEntry, type Settings } 
 import type { FormatId, FormatWarning } from '@/core/formats/types'
 import type { Book } from './client'
 
-export type RibbonTab = 'home' | 'insert' | 'page' | 'formulas' | 'data' | 'review' | 'view' | 'automate' | 'help'
+export type RibbonTab = 'home' | 'insert' | 'page' | 'formulas' | 'data' | 'review' | 'view' | 'automate' | 'help' | 'table'
 export type SaveStatus = 'saved' | 'unsaved' | 'saving' | 'error'
 
 export interface TabMeta {
@@ -39,6 +39,7 @@ export type Dialog =
   | { kind: 'cf-rule'; preset: CfPreset }
   | { kind: 'cf-manage' }
   | { kind: 'data-validation' }
+  | { kind: 'create-table'; area: { r0: number; c0: number; r1: number; c1: number }; headers: boolean; style?: string }
   | { kind: 'dv-alert'; alert: DvAlert; resolve: (c: AlertChoice) => void }
   | { kind: 'row-height' | 'col-width' }
   | { kind: 'csv-import'; name: string; path: string; data: Uint8Array }

@@ -29,7 +29,8 @@
   - Formulas using a function Simple Cell doesn't calculate keep the saved result and are flagged. They are never replaced with 0.
 - **Styles.** Fonts, fills, borders, alignment, wrap, rotation, indent, protection flags, number formats (built-in and custom) and theme colours with tint.
 - **Layout.** Column widths, row heights, hidden rows and columns, merged cells, frozen panes, gridlines, zoom, and the active sheet.
-- **Names and tables.** Defined names at workbook and sheet scope, tables (structured references calculate), and hidden and very-hidden sheets.
+- **Names and tables.** Defined names at workbook and sheet scope, and hidden and very-hidden sheets. Tables keep their name, columns, total row, style options and filter criteria. A table Simple Cell didn't change is written back exactly as it was read; a changed table is regenerated, and its extension elements are dropped.
+- **AutoFilter.** Value lists, blanks, custom conditions and top 10 are read, applied and written, for sheets and tables. Other filter kinds are kept as they are but not re-applied: date grouping, colour, icon and dynamic filters. Excel's hidden `_FilterDatabase` name is regenerated. Tested: unit `xlsx › tables and filters…`, which includes LibreOffice reading the result.
 - **Conditional formatting.** Every rule type of the main schema is read, shown and written back: cell value, formula, top/bottom, above/below average, duplicate/unique, text, dates, blanks/errors, colour scales, data bars and icon sets. Differential formats keep their original indexes, which tables and PivotTables also use. The Excel 2010 data-bar extensions stay linked to their rules. Tested: unit `xlsx › conditional formatting…` (3 tests, one with LibreOffice reading the result).
 - **Data validation.** Every rule type (whole number, decimal, list, date, time, text length, custom) with its operator, formulas, input message and error alert. Tested: unit `xlsx › data validation…`, which includes LibreOffice reading the result.
 
@@ -38,7 +39,7 @@
 Simple Cell keeps every part and element of the file it doesn't understand, and writes them back in schema order. Examples:
 - Charts, pictures and shapes; comments and notes.
 - Conditional formats and data validation that exist only in the Excel 2010 extension list (for example icon sets with custom icons, or lists that refer to other sheets in old files), and hyperlinks.
-- Sheet protection, AutoFilter settings, page setup.
+- Sheet protection, sort state, page setup.
 - PivotTables and their caches, external links.
 - `customXml`, `extLst` extensions and the VBA project.
 

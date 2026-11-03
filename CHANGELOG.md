@@ -12,3 +12,4 @@
   - Saving to a format that would lose content offers to save as .xlsx instead.
   - Conditional formatting: highlight rules, top/bottom, colour scales, data bars, icon sets and formula rules, shown on the grid and kept in .xlsx files.
   - Data validation: lists with an in-cell dropdown, number, date, text-length and formula rules, input messages, error alerts and Circle Invalid Data.
+  - Tables (Ctrl+T) with styles, a total row and Table Design options; filters on tables and ranges (Ctrl+Shift+L).

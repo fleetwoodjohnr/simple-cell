@@ -1,10 +1,10 @@
 // XLSX / XLSM / XLTX writer. Regenerates the parts the model owns and writes every carried part back unchanged.
-import type { Sheet, Workbook, Cell, Table } from '../../model/workbook'
+import type { Sheet, Workbook, Cell, Table, DefinedName } from '../../model/workbook'
 import type { BorderSide, Style } from '../../model/styles'
 import { printFormula } from '../../engine/parser'
 import { fileFunctionName } from '../../engine/catalog'
 import { CellError, MAX_COLS, MAX_ROWS, numberToText } from '../../engine/values'
-import { areaName, cellKey, cellName, colName, fromKey } from '../../refs'
+import { areaName, cellKey, cellName, colName, fromKey, quoteSheet } from '../../refs'
 import { BUILTIN_FORMATS } from '../../numfmt/format'
 import { bytes, text, writeZip } from '../zip'
 import { contentTypesXml, CT, esc, escText, parseRels, REL, relsPath, relsXml, resolveTarget, unreachable, type Rel } from '../opc'
@@ -13,6 +13,8 @@ import type { SheetCarry, XlsxCarry } from './read'
 import type { CfRule } from '../../condfmt'
 import { condFormatsXml, dxfXml } from './condfmt'
 import { validationsXml } from './validation'
+import { autoFilterXml, filterColumnsXml } from './filter'
+import { tableSig } from './read'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -411,7 +413,9 @@ function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[],
   if (!bookViews) bookViews = `<bookViews><workbookView xWindow="0" yWindow="0" windowWidth="28800" windowHeight="12300" activeTab="${wb.activeSheet}"/></bookViews>`
   else bookViews = bookViews.replace(/\sactiveTab="\d+"/, '').replace(/<(\w+:)?workbookView\b/, `$&${wb.activeSheet ? ` activeTab="${wb.activeSheet}"` : ''}`).replace(/\sfirstSheet="\d+"/, '')
   const sheets = wb.sheets.map((s, i) => `<sheet name="${esc(s.name)}" sheetId="${i + 1}"${s.hidden ? ` state="${s.hidden}"` : ''} r:id="${rids[i]}"/>`).join('')
-  const names = wb.names
+  // Excel keeps each sheet AutoFilter's range in a hidden name; regenerate them from the model.
+  const filterNames: DefinedName[] = wb.sheets.flatMap((s) => (s.autoFilter ? [{ name: '_xlnm._FilterDatabase', scope: s.id, text: `${quoteSheet(s.name)}!${areaName(s.autoFilter.area).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}`, hidden: true }] : []))
+  const names = [...wb.names.filter((n) => n.name.toLowerCase() !== '_xlnm._filterdatabase'), ...filterNames]
     .map((n) => {
       const local = n.scope !== null ? wb.sheetIndex(n.scope) : -1
       if (n.scope !== null && local < 0) return ''
@@ -446,17 +450,18 @@ function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[],
 
 function tableXml(t: Table, wb: Workbook): string {
   const ref = areaName(t.area)
-  const orig = (t.carry as { xml?: string } | undefined)?.xml
-  if (orig) {
+  const orig = (t.carry as { xml?: string; sig?: string } | undefined)?.xml
+  // A table changed in Simple Cell is written afresh (its extension elements go); an unchanged one as it was.
+  if (orig && (t.carry as { sig?: string }).sig === tableSig(t)) {
     // Unchanged tables are written as they were; a moved or resized table gets its new range.
     return orig.replace(/(<(?:\w+:)?table\b[^>]*\sref=")[^"]*(")/, `$1${ref}$2`).replace(/(<(?:\w+:)?autoFilter\b[^>]*\sref=")[^"]*(")/, `$1${areaName({ ...t.area, r1: t.totalsRow ? t.area.r1 - 1 : t.area.r1 })}$2`)
   }
   void wb
-  const cols = t.columns.map((c, i) => `<tableColumn id="${i + 1}" name="${esc(c.name)}"${c.totalsFunction ? ` totalsRowFunction="${c.totalsFunction}"` : ''}${c.totalsLabel ? ` totalsRowLabel="${esc(c.totalsLabel)}"` : ''}>${c.formula ? `<calculatedColumnFormula>${esc(c.formula)}</calculatedColumnFormula>` : ''}</tableColumn>`)
+  const cols = t.columns.map((c, i) => `<tableColumn id="${i + 1}" name="${esc(c.name)}"${c.totalsFunction ? ` totalsRowFunction="${c.totalsFunction}"` : ''}${c.totalsLabel ? ` totalsRowLabel="${esc(c.totalsLabel)}"` : ''}${c.formula ? `><calculatedColumnFormula>${escText(c.formula)}</calculatedColumnFormula></tableColumn>` : '/>'}`)
   return (
     HEAD +
     `<table xmlns="${MAIN_NS}" id="${t.id}" name="${esc(t.name)}" displayName="${esc(t.displayName)}" ref="${ref}"${t.headerRow ? '' : ' headerRowCount="0"'}${t.totalsRow ? ' totalsRowCount="1"' : ''}>` +
-    (t.autoFilter !== false && t.headerRow ? `<autoFilter ref="${areaName({ ...t.area, r1: t.totalsRow ? t.area.r1 - 1 : t.area.r1 })}"/>` : '') +
+    (t.autoFilter !== false && t.headerRow ? `<autoFilter ref="${areaName({ ...t.area, r1: t.totalsRow ? t.area.r1 - 1 : t.area.r1 })}"${t.filter?.length ? `>${filterColumnsXml(t.filter)}</autoFilter>` : '/>'}` : '') +
     `<tableColumns count="${cols.length}">${cols.join('')}</tableColumns>` +
     `<tableStyleInfo name="${esc(t.style ?? 'TableStyleMedium2')}" showFirstColumn="${t.showFirstColumn ? 1 : 0}" showLastColumn="${t.showLastColumn ? 1 : 0}" showRowStripes="${t.showRowStripes === false ? 0 : 1}" showColumnStripes="${t.showColumnStripes ? 1 : 0}"/>` +
     '</table>'
@@ -551,6 +556,7 @@ function sheetXml(
   }
   parts.set('sheetData', `<sheetData>${rowsXml.join('')}</sheetData>`)
   if (sh.merges.length) parts.set('mergeCells', `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${areaName(m)}"/>`).join('')}</mergeCells>`)
+  if (sh.autoFilter) parts.set('autoFilter', autoFilterXml(sh.autoFilter))
   if (sh.condFormats.length) parts.set('conditionalFormatting', condFormatsXml(sh.condFormats, (r) => styles.dxf(r), sheetName, fname))
   if (sh.validations.length) parts.set('dataValidations', validationsXml(sh.validations, sheetName, fname))
   if (tableParts.length) parts.set('tableParts', `<tableParts count="${tableParts.length}">${tableParts.join('')}</tableParts>`)

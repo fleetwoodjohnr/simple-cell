@@ -12,6 +12,7 @@ import { contentTypes, parseRels, REL, resolveTarget, type Rel } from '../opc'
 import { attr, boolAttr, deep, kid, kids, numAttr, parseXml, tagAttrs, textOf, topLevel, xmlText, type El } from '../xml'
 import { readCondFormat, readDxf } from './condfmt'
 import { readValidations } from './validation'
+import { readAutoFilter, readFilterColumns } from './filter'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -310,6 +311,7 @@ export function readXlsx(bytes: Uint8Array): ImportResult & { carry: XlsxCarry }
 
   const themeRel = wbRels.find((r) => r.type === REL.theme)
   const theme = themeColors(themeRel ? text(files[resolveTarget(wbPath, themeRel.target)]) : '')
+  wb.theme = theme
   const stylesRel = wbRels.find((r) => r.type === REL.styles)
   const styles = readStyles(stylesRel ? text(files[resolveTarget(wbPath, stylesRel.target)]) : '', wb, theme, w)
   const ssRel = wbRels.find((r) => r.type === REL.sharedStrings)
@@ -404,7 +406,8 @@ function readTable(xml: string, sheet: number, id: number): Table | null {
     formula: textOf(kid(c, 'calculatedColumnFormula')) || undefined
   }))
   const style = kid(t, 'tableStyleInfo')
-  return {
+  const af = kid(t, 'autoFilter')
+  const table: Table = {
     id: numAttr(t, 'id') ?? id,
     name: attr(t, 'name') ?? `Table${id}`,
     displayName: attr(t, 'displayName') ?? attr(t, 'name') ?? `Table${id}`,
@@ -418,9 +421,18 @@ function readTable(xml: string, sheet: number, id: number): Table | null {
     showColumnStripes: boolAttr(style, 'showColumnStripes'),
     showFirstColumn: boolAttr(style, 'showFirstColumn'),
     showLastColumn: boolAttr(style, 'showLastColumn'),
-    autoFilter: !!kid(t, 'autoFilter'),
+    autoFilter: !!af,
+    filter: af ? readFilterColumns(af).columns : [],
     carry: { xml }
   }
+  ;(table.carry as Record<string, unknown>).sig = tableSig(table)
+  return table
+}
+
+/** What a table's XML is generated from: when this is unchanged, the original XML is written back. */
+export function tableSig(t: Table): string {
+  const { name, displayName, headerRow, totalsRow, columns, style, showRowStripes, showColumnStripes, showFirstColumn, showLastColumn, autoFilter, filter } = t
+  return JSON.stringify({ name, displayName, headerRow, totalsRow, columns, style, showRowStripes, showColumnStripes, showFirstColumn, showLastColumn, autoFilter, filter })
 }
 
 // ---------- worksheet ----------
@@ -457,6 +469,10 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     const list = readValidations(e.xml, sh.id, ctx.sheetId)
     if (list) sh.validations.push(...list)
     return !list
+  }).filter((e) => {
+    if (e.name !== 'autoFilter') return true
+    sh.autoFilter = readAutoFilter(e.xml, sh.id)
+    return !sh.autoFilter
   })
   const kinds = new Set(sc.elements.map((e) => e.name))
   if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Some conditional formats could not be read; they are kept and saved, but not shown.')
@@ -464,7 +480,6 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
   if (kinds.has('dataValidations')) ctx.w.add('info', 'Some data validation rules could not be read; they are kept and saved, but not enforced.')
   if (kinds.has('drawing')) ctx.w.add('loss', 'Charts, pictures and shapes are kept and saved, but not shown yet.')
   if (kinds.has('legacyDrawing')) ctx.w.add('info', 'Comments and notes are kept and saved, but not shown yet.')
-  if (kinds.has('autoFilter')) ctx.w.add('info', 'AutoFilter settings are kept; filtered rows stay hidden.')
   if (kinds.has('sheetProtection')) ctx.w.add('info', 'Sheet protection is kept in the file, but Simple Cell doesn’t enforce it yet.')
   if (kinds.has('hyperlinks')) ctx.w.add('info', 'Hyperlinks are kept and saved; clicking them arrives with the next milestone.')
   for (const e of top) {
@@ -525,7 +540,7 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     } else if (e.name === 'sheetData') readSheetData(sh, e.xml, ctx)
   }
   // Hidden rows from an AutoFilter count as filtered (SUBTOTAL ignores them).
-  if (kinds.has('autoFilter')) for (const ri of sh.rowInfo.values()) if (ri.hidden) ri.filtered = true
+  if (sh.autoFilter || kinds.has('autoFilter')) for (const [r, ri] of sh.rowInfo) if (ri.hidden && (!sh.autoFilter || (r > sh.autoFilter.area.r0 && r <= sh.autoFilter.area.r1))) ri.filtered = true
 }
 
 const ERR_SET = new Set<string>(ERROR_CODES)

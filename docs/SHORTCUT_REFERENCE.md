@@ -31,6 +31,8 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Insert current date | `Ctrl+;` | `⌃;` | same |
 | Insert current time | `Ctrl+Shift+;` | `⌘;` | same |
 | Edit active cell | `F2` | `⌃U`, `F2` | same |
+| Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |
+| Filter (turn on or off) | `Ctrl+Shift+L` | `⌘⇧F` |  |
 | Insert rows or columns | `Ctrl+Shift+=`, `Ctrl++` | `⌃⇧=`, `⌘⇧=` | `Ctrl+Alt+=` |
 | Delete rows or columns | `Ctrl+-` | `⌘-`, `⌃-` | `Ctrl+Alt+-` |
 | Clear formats | — | — | `Ctrl+\` |
@@ -39,7 +41,7 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Underline | `Ctrl+U`, `Ctrl+4` | `⌘U` | same |
 | Strikethrough | `Ctrl+5` | `⌘⇧X` | `Alt+Shift+5` |
 | Format cells… | `Ctrl+1` | `⌘1` | same |
-| Format font… | `Ctrl+Shift+F`, `Ctrl+Shift+P` | `⌘⇧F` | same |
+| Format font… | `Ctrl+Shift+F`, `Ctrl+Shift+P` | `⌘⇧P` | same |
 | General number format | `Ctrl+Shift+`` | `⌃⇧`` | same |
 | Currency format | `Ctrl+Shift+4` | `⌃⇧4` | `Ctrl+Shift+4` |
 | Percent format | `Ctrl+Shift+5` | `⌃⇧5` | `Ctrl+Shift+5` |
@@ -101,8 +103,6 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Cycle the reference at the cursor through absolute/relative | `F4` | `⌘T` | ✅ |
 | Point mode: insert and move a cell reference | `Arrow keys (in a formula)` | `Arrow keys (in a formula)` | ✅ |
 | Point mode: extend the inserted reference to a range | `Shift+Arrow (in a formula)` | `⇧Arrow (in a formula)` | ✅ |
-| Toggle AutoFilter | `Ctrl+Shift+L` | `⌘⇧L` | Planned |
-| Create table | `Ctrl+T` | `⌘T` | Planned |
 | Flash Fill | `Ctrl+E` | `⌘E` | Planned |
 | Insert hyperlink | `Ctrl+K` | `⌘K` | Planned |
 | Insert or edit a note | `Shift+F2` | `⇧F2` | Planned |

@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 545 / 545 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 552 / 552 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 10 / 10 (every test also fails on a CSP violation or an uncaught renderer error) |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 11 / 11 (every test also fails on a CSP violation or an uncaught renderer error). One intermittent failure of `smoke` was seen once on 2026-11-03 and did not reproduce in 6 repeats and 2 further full runs. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -118,11 +118,13 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | Conditional formatting: every main rule type, evaluated in the core for the cells on screen (including empty cells); fills, fonts, borders and number formats from the rule; colour scales, data bars and 20 icon sets drawn on the grid | unit `condfmt` (9), e2e `condfmt` |
 | Home ▸ Conditional menu with Excel's presets, rule dialog, formula rules, Manage Rules (reorder, delete), Clear Rules; undoable | e2e `condfmt` |
 | Conditional formats in XLSX read and written (dxf indexes kept, Excel 2010 data-bar links kept); LibreOffice reads them | unit `xlsx › conditional formatting…` |
+| Tables: Ctrl+T, 60 generated table styles, total row, Table Design tab (name, options, style gallery, convert to range); structured references; header edits rename columns | unit `tables` (6), e2e `tables` |
+| AutoFilter for tables and ranges: header buttons, value checklist with search, blanks, conditions, top N, sort, clear, reapply; SUBTOTAL follows row visibility; XLSX round trip with `_FilterDatabase` | unit `tables`, `xlsx › tables and filters…`; e2e `tables` |
 | Data validation: all rule types, list dropdown (arrow and Alt+Down), input messages, Stop/Warning/Information alerts, Circle Invalid Data, Data ▸ Validation dialog; follows structure edits; XLSX round trip | unit `validation` (5), `xlsx › data validation…`; e2e `validation` |
 
 ### Still to do in M4
 
-- Tables (Ctrl+T) and AutoFilter.
+- Calculated table columns, table auto-expansion.
 - Comments and notes, hyperlinks.
 - The Paste Special dialog, Format Painter, cell styles, Flash Fill, Go To Special.
 - Grouping and outline, split view.

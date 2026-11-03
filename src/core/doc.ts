@@ -8,12 +8,15 @@ import { CellError, ERR, MAX_COLS, MAX_ROWS, isError, numberToText, setDateParse
 import { Sheet, Workbook, type Cell, type ColInfo, type DefinedName, type RowInfo } from './model/workbook'
 import type { Style } from './model/styles'
 import { adjustFormula, relocate, shiftArea, type Shift } from './model/adjust'
-import { areaName, cellKey, fromKey } from './refs'
+import { areaName, cellKey, cellName, fromKey, quoteSheet } from './refs'
 import { parseInput } from './input'
 import { formatValue, isDateFormat } from './numfmt/format'
 import { parseDateTime } from './numfmt/dates'
 import { CfEvaluator, newRuleId, type CfResult, type CfRule, type CondFormat } from './condfmt'
 import { alertFor, isValid, listItems, validationAt, type DataValidation, type DvAlert } from './validation'
+import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './filter'
+import { tableCellStyle } from './tablestyle'
+import type { Table } from './model/workbook'
 
 setDateParser((s) => parseDateTime(s))
 
@@ -38,6 +41,8 @@ export class Tx {
   structural = false
   /** Display changed beyond the edited cells (conditional formats): the client refetches what is on screen. */
   refetch = false
+  /** Rows were hidden or shown: SUBTOTAL/AGGREGATE recalculate. */
+  rowsShown = false
   namesChanged = new Set<string>()
 
   constructor(private doc: Doc) {}
@@ -238,6 +243,7 @@ export class Doc {
     if (!tx.changes.length) return null
     if (tx.structural) this.afterStructure()
     if (tx.refetch) this.viewVersion++
+    if (tx.rowsShown) this.engine.rowsVisibilityChanged()
     for (const n of tx.namesChanged) this.engine.nameChanged(n)
     const t: Transaction = { label, changes: tx.changes, selection }
     this.undoStack.push(t)
@@ -363,16 +369,18 @@ export class Doc {
     return this.viewOf(cell, r, c, chars)
   }
 
-  viewOf(cell: Cell, r: number, c: number, chars = 11, cf?: CfResult): ViewCell {
+  /** View of one cell. `table` is the table style beneath the cell's own formatting; `cf` goes on top. */
+  viewOf(cell: Cell, r: number, c: number, chars = 11, cf?: CfResult, table?: Style | null): ViewCell {
     const base = this.wb.styles.get(cell.s)
-    const style = cf?.style ? { ...base, ...cf.style } : base
+    const style = cf?.style || table ? { ...table, ...base, ...cf?.style } : base
     const v = cell.v
     const out: ViewCell = { r, c, t: '', s: cell.s ?? 0, k: '' }
     if (cell.f) out.f = 1
     if (cell.spillOf !== undefined) out.sp = 1
     if (cell.f?.unsupported && cell.stale) out.st = 1
+    if (table && !cf?.style) out.x = style
     if (cf) {
-      if (cf.style) out.x = style
+      if (cf.style || table) out.x = style
       if (cf.bar) out.bar = cf.bar
       if (cf.icon) out.icon = cf.icon
       if (cf.hide) out.hide = 1
@@ -419,6 +427,19 @@ export class Doc {
     if (p.quoted) s = this.wb.styles.derive(s, { carry: { ...(this.wb.styles.get(s).carry ?? {}), quotePrefix: true } })
     else if (this.wb.styles.get(s).carry?.quotePrefix && typeof p.value !== 'string') s = this.wb.styles.derive(s, { carry: undefined })
     tx.setCell(sheet, r, c, p.value === null && !s ? undefined : { v: p.value ?? null, s })
+    // Typing over a table's header cell renames the column.
+    const t = this.wb.tableAt(sheet, r, c)
+    if (t?.headerRow && r === t.area.r0) {
+      const i = c - t.area.c0
+      const typed = (this.display(sheet, r, c)?.t ?? '').trim() || `Column${i + 1}`
+      let name = typed
+      for (let k = 2; t.columns.some((x, j) => j !== i && x.name.toLowerCase() === name.toLowerCase()); k++) name = `${typed}${k}`
+      if (name !== t.columns[i].name) {
+        tx.prop(t, 'columns', t.columns.map((x, j) => (j === i ? { ...x, name } : x)))
+        if (name !== typed) tx.setCell(sheet, r, c, { v: name, s })
+        this.engine.tableChanged(t.name)
+      }
+    }
   }
 
   /** Clear contents, formats or both from areas (Delete key clears contents). */
@@ -707,6 +728,7 @@ export class Doc {
 
   hide(sheet: number, axis: 'row' | 'col', indexes: number[], hidden: boolean) {
     return this.transact(hidden ? 'Hide' : 'Unhide', (tx) => {
+      if (axis === 'row') tx.rowsShown = true
       const sh = this.sheet(sheet)
       const map = (axis === 'row' ? sh.rowInfo : sh.cols) as Map<number, RowInfo | ColInfo>
       for (const i of indexes) {
@@ -760,6 +782,251 @@ export class Doc {
   }
 
   // ---------- names ----------
+
+  // ---------- tables and filters ----------
+
+  /** The filter at a key: 'sheet' for the sheet's AutoFilter, or a table name. */
+  filterOf(sheet: number, key: string): { af: AutoFilter; table?: Table } | null {
+    const sh = this.sheet(sheet)
+    if (key === 'sheet') return sh.autoFilter ? { af: sh.autoFilter } : null
+    const t = this.wb.tableByName(key)
+    if (!t || t.sheet !== sheet || !t.headerRow || t.autoFilter === false) return null
+    return { af: { area: { ...t.area, r1: t.totalsRow ? t.area.r1 - 1 : t.area.r1 }, columns: t.filter ?? [] }, table: t }
+  }
+
+  /**
+   * Hide the rows any filter on the sheet excludes and show filtered rows that every filter now passes (a row is
+   * hidden if any filter hides it). Call after changing the model; `extra` adds ranges whose filter was removed.
+   */
+  private refilterTx(tx: Tx, sheet: number, extra: Area[] = []) {
+    const sh = this.sheet(sheet)
+    const hide = new Set<number>()
+    const rows = new Set<number>()
+    const filters = this.filtersOn(sheet).map((f) => this.filterOf(sheet, f.key)!.af)
+    for (const a of [...filters.map((f) => f.area), ...extra]) for (let r = a.r0 + 1; r <= a.r1; r++) rows.add(r)
+    for (const af of filters) for (const r of hiddenRows(this.wb, sh, af)) hide.add(r)
+    tx.rowsShown = true
+    for (const r of rows) {
+      const cur = sh.rowInfo.get(r)
+      if (hide.has(r)) {
+        if (!cur?.hidden || !cur.filtered) tx.mapSet(sh.rowInfo, r, { ...cur, hidden: true, filtered: true })
+      } else if (cur?.filtered) tx.mapSet(sh.rowInfo, r, cleanInfo({ ...cur, hidden: undefined, filtered: undefined }))
+    }
+  }
+
+  /** Set (or clear, with null) one column's criteria and filter. */
+  setFilter(sheet: number, key: string, col: number, fc: Omit<FilterColumn, 'col'> | null) {
+    const f = this.filterOf(sheet, key)
+    if (!f) throw new Error('There is no filter here.')
+    const columns = [...f.af.columns.filter((x) => x.col !== col), ...(fc ? [{ ...fc, col }] : [])].sort((a, b) => a.col - b.col)
+    return this.transact(fc ? 'Filter' : 'Clear filter', (tx) => {
+      if (f.table) tx.prop(f.table, 'filter', columns)
+      else tx.prop(this.sheet(sheet), 'autoFilter', { ...f.af, columns })
+      this.refilterTx(tx, sheet)
+    })
+  }
+
+  clearFilters(sheet: number, key: string) {
+    const f = this.filterOf(sheet, key)
+    if (!f) return null
+    return this.transact('Clear filters', (tx) => {
+      if (f.table) tx.prop(f.table, 'filter', [])
+      else tx.prop(this.sheet(sheet), 'autoFilter', { ...f.af, columns: [] })
+      this.refilterTx(tx, sheet)
+    })
+  }
+
+  /** Filter again with the same criteria (after the data changed). */
+  reapplyFilter(sheet: number, key: string) {
+    const f = this.filterOf(sheet, key)
+    if (!f) return null
+    return this.transact('Reapply filter', (tx) => this.refilterTx(tx, sheet))
+  }
+
+  /** Turn the sheet's AutoFilter on over `area` (header row first), or off when there is one. */
+  toggleAutoFilter(sheet: number, area: Area | null) {
+    const sh = this.sheet(sheet)
+    return this.transact(sh.autoFilter ? 'Remove filter' : 'Filter', (tx) => {
+      if (sh.autoFilter) {
+        const area = sh.autoFilter.area
+        tx.prop(sh, 'autoFilter', null)
+        this.refilterTx(tx, sheet, [area])
+      } else if (area) tx.prop(sh, 'autoFilter', { area: { ...area, sheet }, columns: [] })
+    })
+  }
+
+  /** Values for a column's filter checklist, and its current criteria. */
+  filterValues(sheet: number, key: string, col: number) {
+    const f = this.filterOf(sheet, key)
+    if (!f) return null
+    return { ...columnValues(this.wb, this.sheet(sheet), f.af, col), current: f.af.columns.find((x) => x.col === col) ?? null }
+  }
+
+  /** Filter ranges on a sheet, for drawing their header buttons. */
+  filtersOn(sheet: number): { key: string; area: Area; active: number[] }[] {
+    const sh = this.sheet(sheet)
+    const out: { key: string; area: Area; active: number[] }[] = []
+    if (sh.autoFilter) out.push({ key: 'sheet', area: sh.autoFilter.area, active: sh.autoFilter.columns.map((x) => x.col) })
+    for (const t of this.wb.tables) {
+      if (t.sheet !== sheet) continue
+      const f = this.filterOf(sheet, t.name)
+      if (f) out.push({ key: t.name, area: f.af.area, active: f.af.columns.map((x) => x.col) })
+    }
+    return out
+  }
+
+  /** Format as Table (Ctrl+T). Without headers, a header row is inserted above the data. */
+  createTable(sheet: number, area: Area, hasHeaders: boolean, style = 'TableStyleMedium2') {
+    const sh = this.sheet(sheet)
+    if (this.wb.tables.some((t) => t.sheet === sheet && t.area.r0 <= area.r1 && t.area.r1 >= area.r0 && t.area.c0 <= area.c1 && t.area.c1 >= area.c0)) throw new Error('A table can’t overlap another table.')
+    if (sh.merges.some((m) => m.r0 <= area.r1 && m.r1 >= area.r0 && m.c0 <= area.c1 && m.c1 >= area.c0)) throw new Error('A table can’t contain merged cells. Unmerge them first.')
+    let n = 1
+    while (this.wb.tableByName(`Table${n}`) || this.wb.findName(`Table${n}`, null)) n++
+    return this.transact('Create table', (tx) => {
+      tx.refetch = true
+      let a = { ...area, sheet }
+      if (!hasHeaders) {
+        // ponytail: inserts a whole sheet row (Excel shifts only the table's columns down).
+        this.shiftTx(tx, { sheet, axis: 'row', at: area.r0, count: 1 })
+        a = { ...a, r1: a.r1 + 1 }
+      }
+      const names: string[] = []
+      for (let c = a.c0; c <= a.c1; c++) {
+        let name = hasHeaders ? this.display(sheet, a.r0, c)?.t.trim() || '' : ''
+        if (!name) name = `Column${c - a.c0 + 1}`
+        let k = 2
+        const base = name
+        while (names.some((x) => x.toLowerCase() === name.toLowerCase())) name = `${base}${k++}`
+        names.push(name)
+        if (!hasHeaders || this.display(sheet, a.r0, c)?.t !== name) this.inputTx(tx, sheet, a.r0, c, "'" + name)
+      }
+      const t: Table = { id: Math.max(0, ...this.wb.tables.map((x) => x.id)) + 1, name: `Table${n}`, displayName: `Table${n}`, sheet, area: a, headerRow: true, totalsRow: false, columns: names.map((name) => ({ name })), style, showRowStripes: true, autoFilter: true, filter: [] }
+      tx.prop(this.wb, 'tables', [...this.wb.tables, t])
+      // A sheet AutoFilter over the same cells gives way to the table's.
+      if (sh.autoFilter && sh.autoFilter.area.r0 <= a.r1 && sh.autoFilter.area.r1 >= a.r0 && sh.autoFilter.area.c0 <= a.c1 && sh.autoFilter.area.c1 >= a.c0) tx.prop(sh, 'autoFilter', null)
+      this.engine.tableChanged(t.name)
+    })
+  }
+
+  /** Table Design options: style, stripes, first/last column, filter buttons, total row, name. */
+  setTableOptions(name: string, patch: { style?: string; showRowStripes?: boolean; showColumnStripes?: boolean; showFirstColumn?: boolean; showLastColumn?: boolean; autoFilter?: boolean; totalsRow?: boolean; name?: string }) {
+    const t = this.wb.tableByName(name)
+    if (!t) throw new Error(`There is no table called “${name}”.`)
+    if (patch.name !== undefined) {
+      const nn = patch.name.trim()
+      if (!/^[A-Za-z_\\][\w.\\]*$/.test(nn) || /^[A-Za-z]{1,3}\d+$/.test(nn)) throw new Error(`“${nn}” isn’t a valid table name.`)
+      if (nn.toLowerCase() !== t.name.toLowerCase() && (this.wb.tableByName(nn) || this.wb.findName(nn, null))) throw new Error(`The name “${nn}” is already in use.`)
+    }
+    return this.transact('Table options', (tx) => {
+      tx.refetch = true
+      for (const k of ['style', 'showRowStripes', 'showColumnStripes', 'showFirstColumn', 'showLastColumn', 'autoFilter'] as const) if (patch[k] !== undefined) tx.prop(t, k, patch[k] as never)
+      if (patch.autoFilter === false && t.filter?.length) {
+        tx.prop(t, 'filter', [])
+        this.refilterTx(tx, t.sheet, [t.area])
+      }
+      if (patch.name !== undefined && patch.name.trim() !== t.name) {
+        const old = t.name
+        tx.prop(t, 'name', patch.name.trim())
+        tx.prop(t, 'displayName', patch.name.trim())
+        this.engine.tableChanged(old)
+        this.engine.tableChanged(t.name)
+      }
+      if (patch.totalsRow !== undefined && patch.totalsRow !== t.totalsRow) this.totalsRowTx(tx, t, patch.totalsRow)
+    })
+  }
+
+  /** Add or remove the total row: "Total" in the first column, SUBTOTAL in the last (sum for numbers, count otherwise). */
+  private totalsRowTx(tx: Tx, t: Table, on: boolean) {
+    const sh = this.sheet(t.sheet)
+    const { r1, c0, c1 } = t.area
+    if (on) {
+      const below = r1 + 1
+      let busy = false
+      for (let c = c0; c <= c1; c++) if (sh.get(below, c)) busy = true
+      if (busy) this.shiftTx(tx, { sheet: t.sheet, axis: 'row', at: below, count: 1 })
+      const lastName = t.columns[t.columns.length - 1].name
+      let numeric = true
+      for (let r = t.area.r0 + 1; r <= r1; r++) {
+        const v = sh.get(r, c1)?.v
+        if (v !== null && v !== undefined && typeof v !== 'number') numeric = false
+      }
+      const fn = numeric ? 'sum' : 'count'
+      tx.prop(t, 'area', { ...t.area, r1: below })
+      tx.prop(t, 'totalsRow', true)
+      tx.prop(t, 'columns', t.columns.map((col, i) => (i === 0 && c1 > c0 ? { ...col, totalsLabel: 'Total' } : i === t.columns.length - 1 ? { ...col, totalsFunction: fn } : col)))
+      this.engine.tableChanged(t.name)
+      if (c1 > c0) this.inputTx(tx, t.sheet, below, c0, 'Total')
+      this.inputTx(tx, t.sheet, below, c1, `=SUBTOTAL(${numeric ? 109 : 103},${t.name}[${lastName.replace(/([[\]#'])/g, "'$1")}])`)
+    } else {
+      for (let c = c0; c <= c1; c++) if (sh.get(r1, c)) tx.setCell(t.sheet, r1, c, undefined)
+      tx.prop(t, 'area', { ...t.area, r1: r1 - 1 })
+      tx.prop(t, 'totalsRow', false)
+      tx.prop(t, 'columns', t.columns.map(({ totalsFunction: _f, totalsLabel: _l, ...col }) => col))
+      this.engine.tableChanged(t.name)
+    }
+  }
+
+  /** Convert to Range: the table goes; its look is kept as cell formatting. Formulas keep their results' references. */
+  convertTableToRange(name: string) {
+    const t = this.wb.tableByName(name)
+    if (!t) throw new Error(`There is no table called “${name}”.`)
+    const sh = this.sheet(t.sheet)
+    return this.transact('Convert to range', (tx) => {
+      tx.refetch = true
+      for (let r = t.area.r0; r <= t.area.r1; r++)
+        for (let c = t.area.c0; c <= t.area.c1; c++) {
+          const ts = tableCellStyle(t, r, c, this.wb.theme ?? undefined)
+          if (!ts) continue
+          const cell = sh.get(r, c)
+          const own = this.wb.styles.get(cell?.s)
+          const s = this.wb.styles.intern({ ...ts, ...own })
+          tx.setCell(t.sheet, r, c, cell ? { ...cell, s } : { v: null, s })
+        }
+      // Structured references become ordinary ones.
+      for (const o of this.wb.sheets)
+        for (const [r, row] of o.rows)
+          for (const [c, cell] of row) {
+            if (!cell.f || !printFormula(cell.f.ast, { row: r, col: c, sheetName: this.sheetName }).includes('[')) continue
+            const text = this.formulaText(o.id, r, c)
+            if (!text) continue
+            const plain = this.unstructure(text, t, o.id, r, c)
+            if (plain !== text) this.inputTx(tx, o.id, r, c, plain)
+          }
+      tx.prop(this.wb, 'tables', this.wb.tables.filter((x) => x !== t))
+      if (t.filter?.length) this.refilterTx(tx, t.sheet, [t.area])
+      this.engine.tableChanged(t.name)
+    })
+  }
+
+  /** Replace structured references to table `t` in formula text with A1 references. */
+  private unstructure(text: string, t: Table, sheet: number, r: number, c: number): string {
+    const name = t.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const q = (a: Area) => (a.sheet === sheet ? '' : quoteSheet(this.sheetName(a.sheet) ?? '') + '!') + areaName(a).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')
+    const dataArea = { ...t.area, r0: t.headerRow ? t.area.r0 + 1 : t.area.r0, r1: t.totalsRow ? t.area.r1 - 1 : t.area.r1 }
+    const col = (n: string) => t.columns.findIndex((x) => x.name.toLowerCase() === n.replace(/'(.)/g, '$1').toLowerCase())
+    return text.replace(new RegExp(`${name}\\[(\\[[^\\]]*\\]|[^\\[\\]]*)\\]`, 'gi'), (m, inner: string) => {
+      const spec = inner.replace(/^\[|\]$/g, '')
+      if (spec === '' || /^#data$/i.test(spec)) return q(dataArea)
+      if (/^#all$/i.test(spec)) return q(t.area)
+      if (/^#headers$/i.test(spec)) return q({ ...t.area, r1: t.area.r0 })
+      if (/^#totals$/i.test(spec)) return q({ ...t.area, r0: t.area.r1 })
+      const i = col(spec.replace(/^@/, ''))
+      if (i < 0) return m
+      if (spec.startsWith('@')) return cellName(r, t.area.c0 + i)
+      return q({ ...dataArea, c0: t.area.c0 + i, c1: t.area.c0 + i })
+    })
+  }
+
+  /** Tables and filters for the sheet's meta. */
+  tablesOn(sheet: number) {
+    return this.wb.tables.filter((t) => t.sheet === sheet).map((t) => ({ name: t.name, area: t.area, style: t.style ?? '', showRowStripes: t.showRowStripes !== false, showColumnStripes: !!t.showColumnStripes, showFirstColumn: !!t.showFirstColumn, showLastColumn: !!t.showLastColumn, totalsRow: t.totalsRow, autoFilter: t.autoFilter !== false && t.headerRow }))
+  }
+
+  /** The table style's formatting at a cell (null outside tables). */
+  tableStyleAt(sheet: number, r: number, c: number) {
+    const t = this.wb.tableAt(sheet, r, c)
+    return t ? tableCellStyle(t, r, c, this.wb.theme ?? undefined) : null
+  }
 
   // ---------- data validation ----------
 

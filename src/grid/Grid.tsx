@@ -1,6 +1,7 @@
 // The spreadsheet grid: a canvas painted from the cell cache, native scrollbars, and one textarea that receives the
 // keyboard (invisible over the active cell until you type, then it becomes the in-cell editor).
 import { ValidationOverlay } from '@/renderer/app/Validation'
+import { FilterOverlay } from '@/renderer/app/Tables'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { MAX_COLS, MAX_ROWS } from '@/core/engine/values'
@@ -497,6 +498,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
           if (c) void A.paste(c)
         }}
       />
+      {L && <FilterOverlay tab={tab} book={book} L={L} />}
       {L && <ValidationOverlay tab={tab} book={book} L={L} />}
       {guide && <div className="pointer-events-none absolute z-10 bg-accent" style={guide.x !== undefined ? { left: guide.x, top: 0, width: 1, height: '100%' } : { top: guide.y, left: 0, height: 1, width: '100%' }} />}
       <LiveRegion tab={tab} />

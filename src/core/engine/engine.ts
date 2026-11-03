@@ -16,6 +16,8 @@ interface Registration {
   names: string[]
   tables: string[]
   volatile: boolean
+  /** Uses SUBTOTAL or AGGREGATE, whose results depend on which rows are hidden. */
+  rows?: boolean
 }
 
 /** Column-indexed set of range dependencies for one sheet. Wide ranges (many columns) are kept in a separate list. */
@@ -45,6 +47,8 @@ export class Engine {
   private tableDeps = new Map<string, Set<number>>()
   private regs = new Map<number, Registration>()
   readonly volatile = new Set<number>()
+  /** Formulas using SUBTOTAL/AGGREGATE (recalculated when rows are hidden or shown). */
+  readonly rowSensitive = new Set<number>()
   /** Count of formula evaluations, for tests and benchmarks. */
   evaluations = 0
 
@@ -86,6 +90,7 @@ export class Engine {
           } else if (n.table) reg.tables.push(n.table.toLowerCase())
         } else if (n.t === 'func') {
           if (getFunction(n.name)?.volatile) reg.volatile = true
+          if (n.name === 'SUBTOTAL' || n.name === 'AGGREGATE') reg.rows = true
           // A user-defined LAMBDA name used as a function
           if (!getFunction(n.name)) reg.names.push(n.name.toLowerCase())
         } else if (n.t === 'bin' && n.op === ':' && (n.a.t !== 'ref' || n.b.t !== 'ref')) {
@@ -135,6 +140,7 @@ export class Engine {
       s.add(key)
     }
     if (reg.volatile) this.volatile.add(key)
+    if (reg.rows) this.rowSensitive.add(key)
   }
 
   unregister(key: number) {
@@ -142,6 +148,7 @@ export class Engine {
     if (!reg) return
     this.regs.delete(key)
     this.volatile.delete(key)
+    this.rowSensitive.delete(key)
     this.blocked.delete(key)
     for (const a of reg.areas) {
       if (a.r0 === a.r1 && a.c0 === a.c1) {
@@ -223,6 +230,11 @@ export class Engine {
     }
   }
 
+  /** Rows were hidden or shown (filters, Hide/Unhide): SUBTOTAL and AGGREGATE results change. */
+  rowsVisibilityChanged() {
+    for (const k of this.rowSensitive) if (this.markDirty(k)) this.dirtyDependents(k)
+  }
+
   /** A defined name was added, changed or removed. */
   nameChanged(name: string) {
     const deps = [...(this.nameDeps.get(name.toLowerCase()) ?? [])]
@@ -253,6 +265,7 @@ export class Engine {
     this.tableDeps.clear()
     this.regs.clear()
     this.volatile.clear()
+    this.rowSensitive.clear()
     this.spills.clear()
     for (const sh of this.wb.sheets)
       for (const [r, row] of sh.rows)

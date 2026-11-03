@@ -4,6 +4,7 @@ import type { Node } from '../engine/parser'
 import { StyleTable } from './styles'
 import type { CondFormat } from '../condfmt'
 import type { DataValidation } from '../validation'
+import type { AutoFilter, FilterColumn } from '../filter'
 
 export interface Formula {
   /** Parsed formula; references are relative to the cell (shared by every cell a formula was filled into). */
@@ -62,6 +63,8 @@ export interface Table {
   showFirstColumn?: boolean
   showLastColumn?: boolean
   autoFilter?: boolean
+  /** The table's filter criteria (its header buttons). */
+  filter?: FilterColumn[]
   /** Original table XML parts we don't interpret, for round trips. */
   carry?: unknown
 }
@@ -92,6 +95,8 @@ export class Sheet {
   condFormats: CondFormat[] = []
   /** Data validation rules, in file order. */
   validations: DataValidation[] = []
+  /** The sheet's AutoFilter (Ctrl+Shift+L), separate from tables' filters. */
+  autoFilter: AutoFilter | null = null
   freeze = { rows: 0, cols: 0 }
   hidden: false | 'hidden' | 'veryHidden' = false
   tabColor: string | null = null
@@ -213,6 +218,8 @@ export class Workbook {
   styles = new StyleTable()
   /** 1904 date system (old Mac workbooks): serial 0 is 1904-01-01. */
   date1904 = false
+  /** Theme colours (lt1, dk1, lt2, dk2, accent1–6, links) as hex without #; used by table styles. */
+  theme: string[] | null = null
   calc: CalcSettings = { mode: 'auto', iterate: false, maxIterations: 100, maxChange: 0.001, fullPrecision: true }
   activeSheet = 0
   props: Record<string, string> = {}

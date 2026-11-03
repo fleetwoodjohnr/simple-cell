@@ -19,7 +19,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Keyboard shortcuts | 🟡 | 64 command shortcuts registered + 24 built-in navigation/editing keys done; 11 planned ([SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md)) |
 | File formats | 🟡 | XLSX, XLSM, XLTX, ODS, CSV, TSV, JSON, HTML, XML 2003 ✅; XLS ✅ through LibreOffice; XLSB open only, untested; content not yet shown (charts, CF, comments…) 🔒 kept ([FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md)) |
 | Formatting | 🟡 | Cell formatting ✅; conditional formatting ✅ (all main rule types, shown, edited, saved); cell styles, Format Painter 📋 |
-| Tables | 📋 | Structured references parse and calculate; creating and editing tables is planned |
+| Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
 | PivotTables | 📋 | |
 | Charts | 📋 | |
 | Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
@@ -39,7 +39,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Dynamic arrays, spilling, `#SPILL!`, the `A1#` spill reference | ✅ | |
 | Implicit intersection (`@`, legacy formulas) | ✅ | Formulas from files without the dynamic-array flag calculate as legacy formulas |
 | Legacy array formulas (Ctrl+Shift+Enter) | ✅ | |
-| Structured table references (`Table1[Col]`, `[@Col]`, `#Headers`…) | 🟡 | Calculated, including tables read from XLSX; creating and editing tables is M4 |
+| Structured table references (`Table1[Col]`, `[@Col]`, `#Headers`…) | ✅ | Typing over a header renames the column; formulas using the old name are not rewritten yet |
 | Type coercion (text numbers and dates, logicals, empty cells) | ✅ | |
 | Error values: `#NULL!` `#DIV/0!` `#VALUE!` `#REF!` `#NAME?` `#NUM!` `#N/A` `#SPILL!` `#CALC!` and the rest | ✅ | |
 | Automatic and manual calculation, F9, Ctrl+Alt+F9 | ✅ | |
@@ -78,6 +78,20 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Rules follow inserted and deleted rows and columns; saved in .xlsx | ✅ | |
 | Validation of pasted or filled values | ❌ | As in Excel, pasting replaces rules rather than checking values; Simple Cell doesn't check pasted values either |
 | ODS content validations | 🔒 | Kept and saved, not enforced |
+
+## Tables and filters
+
+| Feature | Status | Notes |
+|---|---|---|
+| Create table (Ctrl+T / Ctrl+L, Insert ▸ Table, Home ▸ Format as Table) with or without headers | ✅ | Without headers a whole sheet row is inserted for the header (Excel shifts only the table's columns) |
+| Table styles Light 1–21, Medium 1–28, Dark 1–11 from the theme colours; banded rows/columns, first/last column | 🟡 | Generated approximations of Excel's built-in styles; custom table styles from files show as Medium 2 |
+| Total row (Total label, SUBTOTAL 109 or 103) | ✅ | Per-column total functions are kept from files; choosing them in the UI is 📋 |
+| Rename, Filter Button on/off, Convert to Range (keeps the look; structured references become ranges) | ✅ | |
+| AutoFilter on tables and ranges (Ctrl+Shift+L): value checklist with search, blanks, conditions with wildcards, top N | ✅ | A row is hidden if any filter on the sheet hides it, as in Excel |
+| Sort A→Z / Z→A from the filter menu; Clear, Reapply | ✅ | |
+| SUBTOTAL/AGGREGATE recalculate when rows are filtered, hidden or shown | ✅ | |
+| Filter by colour, by date groups (year/month), dynamic date filters | 🔒 | Kept from files and saved; not applied by Simple Cell |
+| Calculated columns, auto-expanding tables, slicers | 📋 | |
 
 ## Keyboard shortcuts
 

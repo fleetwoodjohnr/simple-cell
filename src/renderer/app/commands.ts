@@ -1,5 +1,6 @@
 // Central command registry. Ribbon buttons, menus, the command palette and keyboard shortcuts all dispatch through
 // here. Shortcuts follow Microsoft Excel (docs/SHORTCUT_REFERENCE.md); users can rebind any of them.
+import { openCreateTable, toggleFilter } from './Tables'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -430,6 +431,35 @@ def({ id: 'sheet.prev', label: 'Previous sheet', run: (c) => cycleSheet(needsSel
 def({ id: 'data.sortAsc', label: 'Sort A to Z', run: (c) => quickSort(needsSelection(c), 1) })
 def({ id: 'data.sortDesc', label: 'Sort Z to A', run: (c) => quickSort(needsSelection(c), -1) })
 def({ id: 'data.sort', label: 'Custom sort…', run: () => set({ dialog: { kind: 'sort' } }) })
+def({ id: 'data.table', label: 'Create table…', keywords: 'format as table ctrl+t list', run: () => void openCreateTable() })
+def({ id: 'data.filter', label: 'Filter (turn on or off)', keywords: 'autofilter', run: () => void toggleFilter() })
+def({
+  id: 'data.clearFilter',
+  label: 'Clear filters',
+  run: (c) => {
+    const x = needsSelection(c)
+    for (const f of x.book.sheetMeta(x.view.sheet)?.filters ?? []) void A.edit(x, (b) => b.api.clearFilters(x.view.sheet, f.key))
+  }
+})
+def({
+  id: 'data.reapply',
+  label: 'Reapply filters',
+  run: (c) => {
+    const x = needsSelection(c)
+    for (const f of x.book.sheetMeta(x.view.sheet)?.filters ?? []) void A.edit(x, (b) => b.api.reapplyFilter(x.view.sheet, f.key))
+  }
+})
+def({
+  id: 'table.convert',
+  label: 'Convert table to range',
+  run: (c) => {
+    const x = needsSelection(c)
+    const { r, c: col } = x.view.sel.active
+    const t = x.book.meta.tables.find((t) => t.sheet === x.view.sheet && r >= t.area.r0 && r <= t.area.r1 && col >= t.area.c0 && col <= t.area.c1)
+    if (!t) return toast('Select a cell in a table first.', 'info')
+    void A.edit(x, (b) => b.api.convertTableToRange(t.name))
+  }
+})
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

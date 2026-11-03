@@ -16,6 +16,7 @@ import { colName, parseCell } from '@/core/refs'
 import { guessHeader, currentRegion } from './commands'
 import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
+import { CreateTableDialog } from './Tables'
 
 const close = () => set({ dialog: null })
 
@@ -53,6 +54,8 @@ export function Dialogs() {
       return <CfManageDialog />
     case 'data-validation':
       return <ValidationDialog />
+    case 'create-table':
+      return <CreateTableDialog d={d} />
     case 'dv-alert':
       return <ValidationAlert d={d} />
     case 'row-height':

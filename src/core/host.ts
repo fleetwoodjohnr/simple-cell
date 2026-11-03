@@ -3,6 +3,7 @@
 
 import { Doc, type CfSpec, type DvSpec, type ViewCell } from './doc'
 import type { DvAlert } from './validation'
+import type { FilterColumn } from './filter'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -39,13 +40,15 @@ export interface SheetMeta {
   filtered: number[]
   /** The sheet has conditional formatting: any change may restyle other cells, so the client refetches. */
   cf: boolean
+  /** AutoFilter ranges (the sheet's and tables'), for their header buttons. */
+  filters: { key: string; area: Area; active: number[] }[]
 }
 
 export interface WorkbookMeta {
   sheets: SheetMeta[]
   styles: Style[]
   names: { name: string; scope: number | null; text: string; comment?: string }[]
-  tables: { name: string; sheet: number; area: Area }[]
+  tables: ReturnType<Doc['tablesOn']>[number] extends infer T ? (T & { sheet: number })[] : never
   calcMode: 'auto' | 'manual'
   iterate: boolean
   canUndo: string | null
@@ -126,7 +129,7 @@ export class Host {
       sheets: wb.sheets.map((s) => this.sheetMeta(s.id)),
       styles: wb.styles.list,
       names: wb.names.filter((n) => !n.hidden).map((n) => ({ name: n.name, scope: n.scope, text: n.text, comment: n.comment })),
-      tables: wb.tables.map((t) => ({ name: t.name, sheet: t.sheet, area: t.area })),
+      tables: wb.sheets.flatMap((s) => this.doc.tablesOn(s.id).map((t) => ({ ...t, sheet: s.id }))),
       calcMode: wb.calc.mode,
       iterate: wb.calc.iterate,
       canUndo: this.doc.undoStack.at(-1)?.label ?? null,
@@ -170,7 +173,8 @@ export class Host {
       zoom: s.zoom,
       spills,
       filtered,
-      cf: s.condFormats.length > 0
+      cf: s.condFormats.length > 0,
+      filters: this.doc.filtersOn(s.id)
     }
   }
 
@@ -181,13 +185,27 @@ export class Host {
     const out: ViewCell[] = []
     const cf = this.doc.condFormatsIn(sheet, { sheet, r0, r1, c0, c1 })
     const chars = (c: number) => Math.max(1, Math.floor(s.colWidth(c) / 7))
+    const tables = this.doc.wb.tables.filter((t) => t.sheet === sheet && t.area.r0 <= r1 && t.area.r1 >= r0 && t.area.c0 <= c1 && t.area.c1 >= c0)
+    const ts = (r: number, c: number) => (tables.length ? this.doc.tableStyleAt(sheet, r, c) : null)
+    const seen = new Set<number>()
     s.forEachIn({ sheet, r0, r1, c0, c1 }, (r, c, cell) => {
       const k = r * 16384 + c
-      out.push(this.doc.viewOf(cell, r, c, chars(c), cf.get(k)))
-      cf.delete(k)
+      seen.add(k)
+      out.push(this.doc.viewOf(cell, r, c, chars(c), cf.get(k), ts(r, c)))
     })
-    // Empty cells that conditional formatting colours.
-    for (const [k, res] of cf) out.push(this.doc.viewOf({ v: null }, Math.floor(k / 16384), k % 16384, 1, res))
+    // Empty cells that conditional formatting or a table style colours.
+    for (const [k, res] of cf) if (!seen.has(k)) {
+      seen.add(k)
+      out.push(this.doc.viewOf({ v: null }, Math.floor(k / 16384), k % 16384, 1, res, ts(Math.floor(k / 16384), k % 16384)))
+    }
+    for (const t of tables)
+      for (let r = Math.max(r0, t.area.r0); r <= Math.min(r1, t.area.r1); r++)
+        for (let c = Math.max(c0, t.area.c0); c <= Math.min(c1, t.area.c1); c++) {
+          const k = r * 16384 + c
+          if (seen.has(k)) continue
+          seen.add(k)
+          out.push(this.doc.viewOf({ v: null }, r, c, 1, undefined, ts(r, c)))
+        }
     return out
   }
 
@@ -202,8 +220,9 @@ export class Host {
       if (!e) by.set(sheet, (e = { cells: [], cleared: [] }))
       const cell = s.get(r, c)
       const cf = s.condFormats.length ? this.doc.condFormatsIn(sheet, { sheet, r0: r, r1: r, c0: c, c1: c }).get(r * 16384 + c) : undefined
-      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7)), cf))
-      else if (cf) e.cells.push(this.doc.viewOf({ v: null }, r, c, 1, cf))
+      const ts = this.doc.tableStyleAt(sheet, r, c)
+      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7)), cf, ts))
+      else if (cf || ts) e.cells.push(this.doc.viewOf({ v: null }, r, c, 1, cf, ts))
       else e.cleared.push([r, c])
     }
     return [...by].map(([sheet, e]) => ({ sheet, ...e }))
@@ -457,6 +476,30 @@ export class Host {
   }
   deleteName(name: string, scope: number | null) {
     return this.run(() => this.doc.deleteName(name, scope))
+  }
+  createTable(sheet: number, area: Area, hasHeaders: boolean, style?: string) {
+    return this.run(() => this.doc.createTable(sheet, area, hasHeaders, style))
+  }
+  setTableOptions(name: string, patch: Parameters<Doc['setTableOptions']>[1]) {
+    return this.run(() => this.doc.setTableOptions(name, patch))
+  }
+  convertTableToRange(name: string) {
+    return this.run(() => this.doc.convertTableToRange(name))
+  }
+  toggleAutoFilter(sheet: number, area: Area | null) {
+    return this.run(() => this.doc.toggleAutoFilter(sheet, area))
+  }
+  setFilter(sheet: number, key: string, col: number, fc: Omit<FilterColumn, 'col'> | null) {
+    return this.run(() => this.doc.setFilter(sheet, key, col, fc))
+  }
+  clearFilters(sheet: number, key: string) {
+    return this.run(() => this.doc.clearFilters(sheet, key))
+  }
+  reapplyFilter(sheet: number, key: string) {
+    return this.run(() => this.doc.reapplyFilter(sheet, key))
+  }
+  filterValues(sheet: number, key: string, col: number) {
+    return this.doc.filterValues(sheet, key, col)
   }
   setValidation(sheet: number, areas: Area[], spec: DvSpec) {
     return this.run(() => this.doc.setValidation(sheet, areas, spec))

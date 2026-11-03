@@ -281,6 +281,50 @@ describe('XLSX', () => {
     expect(content).toContain('of:cell-content-is-whole-number() and cell-content()&gt;0')
   }, 150_000)
 
+  it('tables and filters: created, filtered, written and read back; LibreOffice reads them', async () => {
+    const h = new Host()
+    const s = h.doc.wb.sheets[0].id
+    ;[['Region', 'Units'], ['East', '10'], ['West', '5'], ['East', '25']].forEach((row, r) => row.forEach((v, c) => h.doc.input(s, r, c, v)))
+    ;[['Name', 'Score'], ['Ann', '3'], ['Bob', '9']].forEach((row, r) => row.forEach((v, c) => h.doc.input(s, r, 4 + c, v)))
+    h.createTable(s, { sheet: s, r0: 0, c0: 0, r1: 3, c1: 1 }, true)
+    h.setTableOptions('Table1', { totalsRow: true, style: 'TableStyleLight9', name: 'Sales' })
+    h.setFilter(s, 'Sales', 0, { values: ['East'] })
+    h.toggleAutoFilter(s, { sheet: s, r0: 0, c0: 4, r1: 2, c1: 5 })
+    h.setFilter(s, 'sheet', 1, { custom: { conds: [{ op: 'greaterThan', val: '5' }] } })
+    const out = await h.save('xlsx')
+    const files = unzipSync(out.data)
+    const table = strFromU8(files['xl/tables/table1.xml'])
+    expect(table).toContain('name="Sales" displayName="Sales" ref="A1:B5" totalsRowCount="1"')
+    expect(table).toContain('<autoFilter ref="A1:B4"><filterColumn colId="0"><filters><filter val="East"/></filters></filterColumn></autoFilter>')
+    expect(table).toContain('<tableColumn id="1" name="Region" totalsRowLabel="Total"/><tableColumn id="2" name="Units" totalsRowFunction="sum"/>')
+    expect(table).toContain('<tableStyleInfo name="TableStyleLight9"')
+    const sheet = strFromU8(files['xl/worksheets/sheet1.xml'])
+    expect(sheet).toContain('<autoFilter ref="E1:F3"><filterColumn colId="1"><customFilters><customFilter operator="greaterThan" val="5"/></customFilters></filterColumn></autoFilter>')
+    expect(sheet).toMatch(/<row r="3"[^>]*hidden="1"/)
+    expect(strFromU8(files['xl/workbook.xml'])).toContain('<definedName name="_xlnm._FilterDatabase" localSheetId="0" hidden="1">Sheet1!$E$1:$F$3</definedName>')
+    const back = await open(out.data)
+    const bs = back.doc.wb.sheets[0].id
+    expect(back.doc.wb.tables[0]).toMatchObject({ name: 'Sales', totalsRow: true, style: 'TableStyleLight9', filter: [{ col: 0, values: ['East'] }] })
+    expect(back.doc.wb.sheets[0].autoFilter).toMatchObject({ area: { r0: 0, c0: 4, r1: 2, c1: 5 }, columns: [{ col: 1, custom: { conds: [{ op: 'greaterThan', val: '5' }] } }] })
+    expect(back.doc.formulaText(bs, 4, 1)).toBe('=SUBTOTAL(109,Sales[Units])')
+    // Row 2 is hidden by the sheet filter (Ann, 3), row 3 by the table filter (West): SUBTOTAL skips both.
+    expect(back.doc.value(bs, 4, 1)).toBe(25)
+    // Clearing the table filter after reopening shows West again; Ann's row stays hidden by the sheet filter.
+    back.clearFilters(bs, 'Sales')
+    expect([...back.doc.wb.sheets[0].rowInfo].filter(([r, i]) => i.hidden && r < 4).map(([r]) => r)).toEqual([1])
+    if (!soffice) return
+    const dir = mkdtempSync(path.join(tmpdir(), 'sc-tbl-'))
+    writeFileSync(path.join(dir, 't.xlsx'), out.data)
+    execFileSync(soffice, ['--headless', '--norestore', `-env:UserInstallation=${pathToFileURL(path.join(dir, 'p')).href}`, '--convert-to', 'csv:Text - txt - csv (StarCalc):44,34,76,1,,1033,false,true,true,false,false,-1', '--outdir', dir, path.join(dir, 't.xlsx')], { timeout: 120_000 })
+    const csv = readFileSync(path.join(dir, readdirSync(dir).find((f) => f.endsWith('.csv'))!), 'utf8').split('\n')
+    expect(csv[4].split(',').slice(0, 2)).toEqual(['Total', '25'])
+    execFileSync(soffice, ['--headless', '--norestore', `-env:UserInstallation=${pathToFileURL(path.join(dir, 'p')).href}`, '--convert-to', 'ods', '--outdir', dir, path.join(dir, 't.xlsx')], { timeout: 120_000 })
+    const content = strFromU8(unzipSync(new Uint8Array(readFileSync(path.join(dir, 't.ods'))))['content.xml'])
+    expect(content).toContain('table:name="Sales"')
+    expect(content).toContain('<table:filter-condition table:value="East" table:operator="=" table:field-number="0"/>')
+    expect(content).toContain('<table:filter-condition table:value="5" table:operator="&gt;" table:field-number="1"/>')
+  }, 200_000)
+
   it('refuses zip bombs and non-zip files', () => {
     expect(() => readXlsx(new Uint8Array([1, 2, 3, 4]))).toThrow(/not a valid workbook/)
     const big = new Uint8Array(30 * 1024 * 1024) // 30 MB of zeros compresses to ~30 KB

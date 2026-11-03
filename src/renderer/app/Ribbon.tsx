@@ -52,7 +52,9 @@ import {
   Trash2,
   Square,
   Highlighter,
-  ListChecks
+  ListChecks,
+  Filter,
+  FilterX
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -62,6 +64,7 @@ import * as A from './actions'
 import { ColorGrid, IconBtn, Menu, MenuContent, MenuItem, MenuSep, MenuLabel, Pop, PopContent, PopTrigger, SubMenu, Tip, cx, MenuTrigger } from '../ui'
 import { useBookVersion } from './hooks'
 import { CondFormatMenuItems } from './CondFormat'
+import { StyleGallery, StyleSwatch, openCreateTable, useActiveTable } from './Tables'
 import type { Style, BorderStyle } from '@/core/model/styles'
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -236,6 +239,100 @@ function ColorBtn({ label, icon, current, onPick, onClear, clearLabel }: { label
   )
 }
 
+/** Home ▸ Format as Table: pick a style, then confirm the range. */
+function FormatAsTable() {
+  const [open, setOpen] = useState(false)
+  return (
+    <Pop open={open} onOpenChange={setOpen}>
+      <PopTrigger asChild>
+        <button
+          type="button"
+          aria-label="Format as table"
+          onMouseDown={(e) => e.preventDefault()}
+          className={cx('flex shrink-0 items-center gap-1 rounded-md px-1.5 text-text-2 hover:bg-hover hover:text-text data-[state=open]:bg-hover', expandedLayout ? 'h-[58px] min-w-[52px] flex-col justify-center text-[11.5px] [&>svg:first-child]:size-5' : 'h-7 text-[12.5px] [&>svg:first-child]:size-4')}
+        >
+          <Table2 />
+          {expandedLayout && (
+            <span className="flex items-center gap-0.5 leading-tight">
+              Table
+              <ChevronDown className="size-3 opacity-60" />
+            </span>
+          )}
+        </button>
+      </PopTrigger>
+      <PopContent className="p-0">
+        <StyleGallery
+          onPick={(style) => {
+            setOpen(false)
+            void openCreateTable(style)
+          }}
+        />
+      </PopContent>
+    </Pop>
+  )
+}
+
+/** Table Design: shown while the active cell is in a table. */
+function TableTab({ tab }: { tab: string }) {
+  const book = books.get(tab)
+  const t = useActiveTable(tab, book)
+  const [name, setName] = useState(t?.name ?? '')
+  useEffect(() => setName(t?.name ?? ''), [t?.name])
+  if (!t || !book) return <span className="px-2 py-4 text-[12px] text-text-3">Select a cell in a table.</span>
+  const opt = (patch: Parameters<typeof book.api.setTableOptions>[1]) => withCtx((c) => A.edit(c, (b) => b.api.setTableOptions(t.name, patch)))
+  const check = (key: 'totalsRow' | 'showRowStripes' | 'showColumnStripes' | 'showFirstColumn' | 'showLastColumn' | 'autoFilter', label: string) => (
+    <label className="flex items-center gap-1.5 whitespace-nowrap px-1 text-[12px] text-text-2">
+      <input type="checkbox" checked={!!t[key]} onChange={(e) => opt({ [key]: e.target.checked })} /> {label}
+    </label>
+  )
+  return (
+    <>
+      <Group label="Properties">
+        <div className="flex flex-col gap-1 px-1">
+          <span className="text-[11px] text-text-3">Table name</span>
+          <input
+            aria-label="Table name"
+            className="h-7 w-32 rounded-md border border-border bg-panel px-2 text-[12.5px] outline-none focus:border-accent"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            onBlur={() => name !== t.name && opt({ name })}
+            onKeyDown={(e) => e.key === 'Enter' && (e.currentTarget as HTMLInputElement).blur()}
+          />
+        </div>
+      </Group>
+      <Sep />
+      <Group label="Tools">
+        <Cmd id="table.convert" label="Convert to range" text="To range" icon={<Grid3x3 />} />
+      </Group>
+      <Sep />
+      <Group label="Style options">
+        <div className="grid grid-cols-2 gap-x-2 gap-y-1">
+          {check('totalsRow', 'Total row')}
+          {check('showFirstColumn', 'First column')}
+          {check('showRowStripes', 'Banded rows')}
+          {check('showLastColumn', 'Last column')}
+          {check('showColumnStripes', 'Banded columns')}
+          {check('autoFilter', 'Filter button')}
+        </div>
+      </Group>
+      <Sep />
+      <Group label="Table styles">
+        <Pop>
+          <PopTrigger asChild>
+            <button type="button" aria-label="Table style" className="flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-hover">
+              <StyleSwatch name={t.style || 'TableStyleMedium2'} />
+              <ChevronDown className="size-3 opacity-60" />
+            </button>
+          </PopTrigger>
+          <PopContent className="p-0">
+            <StyleGallery current={t.style} onPick={(style) => opt({ style })} />
+          </PopContent>
+        </Pop>
+      </Group>
+    </>
+  )
+}
+
 function HomeTab({ tab }: { tab: string }) {
   const s = useActiveStyle(tab)
   const defaultFont = useApp((x) => x.settings.defaultFont)
@@ -360,6 +457,7 @@ function HomeTab({ tab }: { tab: string }) {
             <CondFormatMenuItems />
           </MenuContent>
         </Menu>
+        <FormatAsTable />
       </Group>
       <Sep />
       <Group label="Cells">
@@ -467,6 +565,10 @@ function HomeTab({ tab }: { tab: string }) {
 function InsertTab() {
   return (
     <>
+      <Group label="Tables">
+        <Cmd id="data.table" label="Table" text="Table" icon={<Table2 />} />
+      </Group>
+      <Sep />
       <Group label="Cells">
         <Cmd id="edit.insertRows" label="Insert sheet rows" text="Rows" icon={<Rows3 />} />
         <Cmd id="edit.insertCols" label="Insert sheet columns" text="Columns" icon={<Columns3 />} />
@@ -522,6 +624,12 @@ function DataTab() {
         <Cmd id="data.sortAsc" label="Sort A to Z" text="A→Z" icon={<ArrowDownAZ />} />
         <Cmd id="data.sortDesc" label="Sort Z to A" text="Z→A" icon={<ArrowUpAZ />} />
         <Cmd id="data.sort" label="Custom sort" text="Sort…" icon={<ArrowDownWideNarrow />} />
+      </Group>
+      <Sep />
+      <Group label="Filter">
+        <Cmd id="data.filter" label="Filter" text="Filter" icon={<Filter />} />
+        <Cmd id="data.clearFilter" label="Clear filters" text="Clear" icon={<FilterX />} />
+        <Cmd id="data.reapply" label="Reapply filters" text="Reapply" icon={<RefreshCw />} />
       </Group>
       <Sep />
       <Group label="Data tools">
@@ -591,9 +699,11 @@ function HelpTab() {
 }
 
 export function Ribbon({ tab: docTab }: { tab: string }) {
-  const { tab, collapsed, mode } = useApp(useShallow((x) => ({ tab: x.ribbonTab, collapsed: x.settings.ribbonCollapsed, mode: x.settings.ribbonMode })))
+  const { tab: chosen, collapsed, mode } = useApp(useShallow((x) => ({ tab: x.ribbonTab, collapsed: x.settings.ribbonCollapsed, mode: x.settings.ribbonMode })))
   const book = books.get(docTab)
   useBookVersion(book)
+  const activeTable = useActiveTable(docTab, book)
+  const tab = chosen === 'table' && !activeTable ? 'home' : chosen
   expandedLayout = mode !== 'compact'
   return (
     <div className="shrink-0 border-b border-border bg-panel" data-testid="ribbon">
@@ -606,7 +716,7 @@ export function Ribbon({ tab: docTab }: { tab: string }) {
           File
         </button>
         <div role="tablist" aria-label="Ribbon" className="flex items-center gap-0.5">
-          {TABS.map((t) => (
+          {[...TABS, ...(activeTable ? [{ id: 'table' as RibbonTab, label: 'Table Design' }] : [])].map((t) => (
             <button
               key={t.id}
               role="tab"
@@ -636,6 +746,7 @@ export function Ribbon({ tab: docTab }: { tab: string }) {
           {tab === 'data' && <DataTab />}
           {tab === 'view' && <ViewTab tab={docTab} />}
           {tab === 'help' && <HelpTab />}
+          {tab === 'table' && <TableTab tab={docTab} />}
         </div>
       )}
     </div>
