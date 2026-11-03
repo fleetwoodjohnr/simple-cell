@@ -50,6 +50,14 @@ test('paste special (operation, transpose) and format painter', async () => {
     await expect.poll(async () => (await style(page, 1, 2)).bold).toBe(true)
     expect((await style(page, 0, 2)).bold).toBe(true)
     await expect(page.getByTestId('format-painter')).toHaveAttribute('aria-pressed', 'false')
+    // Cell styles: Good sets its fill and font colour; Normal clears formatting again.
+    await goto(page, 'A2')
+    await page.getByRole('button', { name: 'Cell styles' }).click()
+    await page.getByRole('button', { name: 'Good', exact: true }).click()
+    await expect.poll(async () => (await style(page, 1, 0)).fill).toBe('#C6EFCE')
+    await page.getByRole('button', { name: 'Cell styles' }).click()
+    await page.getByRole('button', { name: 'Normal', exact: true }).click()
+    await expect.poll(async () => (await style(page, 1, 0)).fill).toBeUndefined()
   } finally {
     await quit(app)
   }

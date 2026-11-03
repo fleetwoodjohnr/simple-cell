@@ -476,3 +476,12 @@ export async function applyPainter(c: Ctx) {
   if (!p.sticky) setView(c.tab, { painter: undefined })
   await edit(c, (b) => b.api.pasteSpecial(p.area, target, { what: 'formats' }))
 }
+
+/** Go To Special: select the matching cells (within the selection, or the used range from a single cell). */
+export async function goToSpecial(c: Ctx, kind: import('@/core/doc').GoToKind, types = 'ntle') {
+  const r = await c.book.api.goToSpecial(c.view.sheet, areasOf(c.view), kind, types)
+  if (!r.ok) return toast(r.error, 'info')
+  const ranges = r.areas.map(({ r0, c0, r1, c1 }) => ({ r0, c0, r1, c1 }))
+  const first = ranges[0]
+  setView(c.tab, { sel: { ranges, active: { r: first.r0, c: first.c0 }, focus: { r: first.r1, c: first.c1 } } })
+}

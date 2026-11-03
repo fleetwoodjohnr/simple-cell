@@ -177,3 +177,25 @@ describe('paste special', () => {
     expect(b.get('A21')).toBeNull()
   })
 })
+
+describe('go to special', () => {
+  it('blanks, constants and formulas by type, notes, visible cells, last cell', async () => {
+    const { book } = await import('./helpers/book')
+    const b = book({ A1: 1, B1: 'x', C1: '=A1*2', A2: '=1/0', C2: 'TRUE', A3: 5, C3: 7 })
+    const s = b.sheet
+    const names = (areas: { r0: number; c0: number; r1: number; c1: number }[]) => areas.map((a) => (a.r0 === a.r1 && a.c0 === a.c1 ? `${'ABC'[a.c0]}${a.r0 + 1}` : `${'ABC'[a.c0]}${a.r0 + 1}:${'ABC'[a.c1]}${a.r1 + 1}`))
+    const one = [{ sheet: s, r0: 0, c0: 0, r1: 0, c1: 0 }]
+    expect(names(b.doc.goToSpecial(s, one, 'blanks'))).toEqual(['B2:B3'])
+    expect(names(b.doc.goToSpecial(s, one, 'constants', 'n'))).toEqual(['A1', 'A3', 'C3'])
+    expect(names(b.doc.goToSpecial(s, one, 'constants', 't'))).toEqual(['B1'])
+    expect(names(b.doc.goToSpecial(s, one, 'constants', 'l'))).toEqual(['C2'])
+    expect(names(b.doc.goToSpecial(s, one, 'formulas'))).toEqual(['C1', 'A2'])
+    expect(names(b.doc.goToSpecial(s, one, 'formulas', 'e'))).toEqual(['A2'])
+    expect(names(b.doc.goToSpecial(s, one, 'lastCell'))).toEqual(['C3'])
+    b.doc.hide(s, 'row', [1], true)
+    expect(names(b.doc.goToSpecial(s, [{ sheet: s, r0: 0, c0: 0, r1: 2, c1: 2 }], 'visible'))).toEqual(['A1:C1', 'A3:C3'])
+    b.doc.setNote(s, 2, 1, 'n')
+    expect(names(b.doc.goToSpecial(s, one, 'notes'))).toEqual(['B3'])
+    expect(() => b.doc.goToSpecial(s, one, 'validation')).toThrow(/No cells/)
+  })
+})

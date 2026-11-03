@@ -9,7 +9,7 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 557 / 557 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 558 / 558 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
 | `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 13 / 13 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
@@ -121,12 +121,14 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | Notes (Shift+F2, hover popup, red marker) and hyperlinks (Ctrl+K, link chip, open web/mail links, jump to places); follow structure edits; XLSX (comments + VML + hyperlinks) and ODS (annotations, text links) round trips | unit `notes` (3), e2e `notes` |
 | Insert/Delete Cells with a shift (Ctrl+Plus/Minus dialog; Excel's reference rules) | unit `engine › insert and delete cells`, e2e `core › insert and delete rows…` |
 | Paste Special (10 kinds, add/subtract/multiply/divide, skip blanks, transpose; Ctrl+Alt+V) and Format Painter (double-click keeps it on) | unit `engine › paste special`, e2e `editing` |
+| Go To Special (blanks, constants/formulas by type, notes, conditional formats, validation, visible cells, last cell) and Find & Select shortcuts | unit `engine › go to special` |
+| Cell Styles gallery: Excel's built-in styles applied as formatting | e2e `editing` |
 | Data validation: all rule types, list dropdown (arrow and Alt+Down), input messages, Stop/Warning/Information alerts, Circle Invalid Data, Data ▸ Validation dialog; follows structure edits; XLSX round trip | unit `validation` (5), `xlsx › data validation…`; e2e `validation` |
 
 ### Still to do in M4
 
 - Calculated table columns, table auto-expansion.
-- Cell styles, Flash Fill, Go To Special.
+- Flash Fill.
 - Grouping and outline, split view.
 - The remaining shortcuts (KeyTips).
 

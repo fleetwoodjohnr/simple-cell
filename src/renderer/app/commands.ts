@@ -481,6 +481,13 @@ def({
 })
 def({ id: 'edit.pasteSpecial', label: 'Paste special…', keywords: 'transpose values operation skip blanks', run: (c) => (needsSelection(c), set({ dialog: { kind: 'paste-special' } })) })
 def({ id: 'fmt.painter', label: 'Format painter', keywords: 'copy formatting', run: (c) => A.startPainter(needsSelection(c), false) })
+def({ id: 'edit.gotoSpecial', label: 'Go to special…', keywords: 'select blanks constants formulas visible cells', run: () => set({ dialog: { kind: 'goto-special' } }) })
+def({ id: 'select.visible', label: 'Select visible cells only', run: (c) => A.goToSpecial(needsSelection(c), 'visible') })
+def({ id: 'select.formulas', label: 'Select formulas', run: (c) => A.goToSpecial(needsSelection(c), 'formulas') })
+def({ id: 'select.notes', label: 'Select notes', run: (c) => A.goToSpecial(needsSelection(c), 'notes') })
+def({ id: 'select.condFormats', label: 'Select conditional formatting', run: (c) => A.goToSpecial(needsSelection(c), 'condFormats') })
+def({ id: 'select.validation', label: 'Select data validation', run: (c) => A.goToSpecial(needsSelection(c), 'validation') })
+def({ id: 'select.constants', label: 'Select constants', run: (c) => A.goToSpecial(needsSelection(c), 'constants') })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

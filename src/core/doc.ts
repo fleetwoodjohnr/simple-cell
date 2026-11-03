@@ -129,6 +129,8 @@ export interface CfListItem {
   formulas?: string[]
 }
 
+export type GoToKind = 'blanks' | 'constants' | 'formulas' | 'notes' | 'condFormats' | 'validation' | 'visible' | 'lastCell'
+
 export interface PasteSpecialOptions {
   what: 'all' | 'formulas' | 'values' | 'formats' | 'notes' | 'validation' | 'allExceptBorders' | 'colWidths' | 'formulasNumFmt' | 'valuesNumFmt'
   op?: 'add' | 'subtract' | 'multiply' | 'divide'
@@ -489,6 +491,63 @@ export class Doc {
     const isRow = dir === 'up'
     const s: Shift = { sheet: area.sheet, axis: isRow ? 'row' : 'col', at: isRow ? area.r0 : area.c0, count: -(isRow ? area.r1 - area.r0 + 1 : area.c1 - area.c0 + 1), span: isRow ? [area.c0, area.c1] : [area.r0, area.r1] }
     return this.transact('Delete cells', (tx) => this.shiftTx(tx, s))
+  }
+
+  /**
+   * Go To Special: the cells of a kind within `within` (the used range when it is a single cell), as row runs.
+   * Types filter constants and formulas by value: n numbers, t text, l logicals, e errors.
+   */
+  goToSpecial(sheet: number, within: Area[], kind: GoToKind, types = 'ntle'): Area[] {
+    const sh = this.sheet(sheet)
+    const u = sh.used()
+    if (kind === 'lastCell') return u.r < 0 ? [{ sheet, r0: 0, c0: 0, r1: 0, c1: 0 }] : [{ sheet, r0: u.r, c0: u.c, r1: u.r, c1: u.c }]
+    const single = within.length === 1 && within[0].r0 === within[0].r1 && within[0].c0 === within[0].c1
+    const areas = single ? [{ sheet, r0: 0, c0: 0, r1: Math.max(0, u.r), c1: Math.max(0, u.c) }] : within.map((a) => ({ ...a, r1: Math.min(a.r1, Math.max(u.r, a.r0)), c1: Math.min(a.c1, Math.max(u.c, a.c0)) }))
+    const typeOf = (v: Scalar) => (typeof v === 'number' ? 'n' : typeof v === 'string' ? 't' : typeof v === 'boolean' ? 'l' : v instanceof CellError ? 'e' : '')
+    const hiddenRow = (r: number) => !!sh.rowInfo.get(r)?.hidden || sh.rowInfo.get(r)?.height === 0
+    const hiddenCol = (c: number) => !!sh.cols.get(c)?.hidden || sh.cols.get(c)?.width === 0
+    const test = (r: number, c: number): boolean => {
+      const cell = sh.get(r, c)
+      switch (kind) {
+        case 'blanks':
+          return !cell || (cell.v === null && !cell.f) || cell.v === ''
+        case 'constants':
+          return !!cell && !cell.f && cell.spillOf === undefined && cell.v !== null && types.includes(typeOf(cell.v))
+        case 'formulas':
+          return !!cell && (!!cell.f || cell.spillOf !== undefined) && types.includes(typeOf(cell.v))
+        case 'notes':
+          return sh.notes.has(r * 16384 + c)
+        case 'condFormats':
+          return sh.condFormats.some((b) => b.ranges.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1))
+        case 'validation':
+          return !!validationAt(sh, r, c)
+        case 'visible':
+          return !hiddenRow(r) && !hiddenCol(c)
+      }
+    }
+    const out: Area[] = []
+    let cells = 0
+    for (const a of areas)
+      for (let r = a.r0; r <= a.r1; r++) {
+        // Sparse kinds skip rows without content quickly.
+        if ((kind === 'constants' || kind === 'formulas') && !sh.rows.get(r)?.size) continue
+        let start = -1
+        for (let c = a.c0; c <= a.c1 + 1; c++) {
+          const ok = c <= a.c1 && test(r, c)
+          if (ok && start < 0) start = c
+          if (!ok && start >= 0) {
+            const prev = out[out.length - 1]
+            // Join with the run above when it spans the same columns.
+            if (prev && prev.r1 === r - 1 && prev.c0 === start && prev.c1 === c - 1) prev.r1 = r
+            else out.push({ sheet, r0: r, c0: start, r1: r, c1: c - 1 })
+            cells += c - start
+            start = -1
+          }
+        }
+        if (out.length > 5000 || cells > 2_000_000) throw new Error('Too many cells match to select them all.')
+      }
+    if (!out.length) throw new Error('No cells were found.')
+    return out
   }
 
   // ---------- notes and hyperlinks ----------

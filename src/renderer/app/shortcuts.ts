@@ -51,6 +51,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { command: 'edit.insertTime', win: ['Mod-Shift-;'], mac: ['Mod-;'], context: 'grid' },
   { command: 'edit.editCell', win: ['F2'], mac: ['Ctrl-u', 'F2'], context: 'grid' },
   { command: 'edit.pasteSpecial', win: ['Mod-Alt-v'], mac: ['Mod-Ctrl-v'], sheets: [], context: 'grid' },
+  { command: 'select.visible', win: ['Alt-;'], mac: [], sheets: [], context: 'grid' },
   { command: 'insert.link', win: ['Mod-k'], mac: ['Mod-k'], context: 'grid' },
   { command: 'insert.note', win: ['Shift-F2'], mac: ['Shift-F2'], context: 'grid' },
   { command: 'data.table', win: ['Mod-t', 'Mod-l'], mac: ['Mod-t'], context: 'grid' },

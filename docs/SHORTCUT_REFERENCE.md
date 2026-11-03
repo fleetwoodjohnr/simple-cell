@@ -32,6 +32,7 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Insert current time | `Ctrl+Shift+;` | `⌘;` | same |
 | Edit active cell | `F2` | `⌃U`, `F2` | same |
 | Paste special… | `Ctrl+Alt+V` | `⌘⌃V` |  |
+| Select visible cells only | `Alt+;` | — |  |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |

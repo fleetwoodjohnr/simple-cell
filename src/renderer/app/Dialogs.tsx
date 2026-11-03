@@ -18,7 +18,7 @@ import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
-import type { PasteSpecialOptions } from '@/core/doc'
+import type { GoToKind, PasteSpecialOptions } from '@/core/doc'
 
 const close = () => set({ dialog: null })
 
@@ -64,6 +64,8 @@ export function Dialogs() {
       return <ShiftCellsDialog mode={d.mode} />
     case 'paste-special':
       return <PasteSpecialDialog />
+    case 'goto-special':
+      return <GoToSpecialDialog />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':
@@ -201,6 +203,58 @@ function ExportWarnings({ d }: { d: Extract<Dialog, { kind: 'export-warnings' }>
       }
     >
       <WarningList title="What changes" icon={<AlertTriangle className="size-4 text-warn" />} items={d.warnings} />
+    </Modal>
+  )
+}
+
+// ---------- go to special ----------
+
+const GOTO_KINDS: [GoToKind, string][] = [
+  ['notes', 'Notes'],
+  ['constants', 'Constants'],
+  ['formulas', 'Formulas'],
+  ['blanks', 'Blanks'],
+  ['visible', 'Visible cells only'],
+  ['condFormats', 'Conditional formats'],
+  ['validation', 'Data validation'],
+  ['lastCell', 'Last cell']
+]
+
+function GoToSpecialDialog() {
+  const [kind, setKind] = useState<GoToKind>('constants')
+  const [types, setTypes] = useState('ntle')
+  const typed = kind === 'constants' || kind === 'formulas'
+  const ok = async () => {
+    const c = A.ctx()
+    if (!c) return
+    close()
+    afterDialog()
+    await A.goToSpecial(c, kind, types)
+  }
+  const box = (k: string, label: string) => (
+    <label className={cx('flex items-center gap-2 py-0.5 pl-6', !typed && 'opacity-50')}>
+      <input type="checkbox" disabled={!typed} checked={types.includes(k)} onChange={(e) => setTypes((t) => (e.target.checked ? t + k : t.replace(k, '')))} /> {label}
+    </label>
+  )
+  return (
+    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title="Go to special" width={380} footer={<><Btn onClick={() => (close(), afterDialog())}>Cancel</Btn><Btn variant="primary" disabled={typed && !types} onClick={() => void ok()}>OK</Btn></>}>
+      <div role="radiogroup" aria-label="Select" className="text-[12.5px]">
+        {GOTO_KINDS.map(([v, l]) => (
+          <div key={v}>
+            <label className="flex items-center gap-2 py-0.5">
+              <input type="radio" name="goto" checked={kind === v} onChange={() => setKind(v)} /> {l}
+            </label>
+            {v === 'formulas' && (
+              <>
+                {box('n', 'Numbers')}
+                {box('t', 'Text')}
+                {box('l', 'Logicals')}
+                {box('e', 'Errors')}
+              </>
+            )}
+          </div>
+        ))}
+      </div>
     </Modal>
   )
 }
@@ -390,7 +444,7 @@ function GotoDialog() {
     } else toast('Reference isn’t valid.', 'error')
   }
   return (
-    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title="Go to" width={400} footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={go}>OK</Btn></>}>
+    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title="Go to" width={400} footer={<><Btn className="mr-auto" onClick={() => set({ dialog: { kind: 'goto-special' } })}>Special…</Btn><Btn onClick={close}>Cancel</Btn><Btn variant="primary" onClick={go}>OK</Btn></>}>
       {names.length > 0 && (
         <ul className="mb-3 max-h-48 overflow-y-auto rounded-lg border border-border">
           {names.map((n) => (

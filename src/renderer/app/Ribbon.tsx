@@ -65,6 +65,7 @@ import * as A from './actions'
 import { ColorGrid, IconBtn, Menu, MenuContent, MenuItem, MenuSep, MenuLabel, Pop, PopContent, PopTrigger, SubMenu, Tip, cx, MenuTrigger } from '../ui'
 import { useBookVersion } from './hooks'
 import { CondFormatMenuItems } from './CondFormat'
+import { CellStylesButton } from './CellStyles'
 import { StyleGallery, StyleSwatch, openCreateTable, useActiveTable } from './Tables'
 import type { Style, BorderStyle } from '@/core/model/styles'
 
@@ -480,6 +481,7 @@ function HomeTab({ tab }: { tab: string }) {
           </MenuContent>
         </Menu>
         <FormatAsTable />
+        <CellStylesButton expanded={expandedLayout} />
       </Group>
       <Sep />
       <Group label="Cells">
@@ -579,6 +581,13 @@ function HomeTab({ tab }: { tab: string }) {
             <MenuItem shortcut={shortcutFor('edit.goto')} onSelect={() => runCommand('edit.goto')}>
               Go to…
             </MenuItem>
+            <MenuItem onSelect={() => runCommand('edit.gotoSpecial')}>Go to special…</MenuItem>
+            <MenuSep />
+            <MenuItem onSelect={() => runCommand('select.formulas')}>Formulas</MenuItem>
+            <MenuItem onSelect={() => runCommand('select.notes')}>Notes</MenuItem>
+            <MenuItem onSelect={() => runCommand('select.condFormats')}>Conditional formatting</MenuItem>
+            <MenuItem onSelect={() => runCommand('select.constants')}>Constants</MenuItem>
+            <MenuItem onSelect={() => runCommand('select.validation')}>Data validation</MenuItem>
           </MenuContent>
         </Menu>
       </Group>
