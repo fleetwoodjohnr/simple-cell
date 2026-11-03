@@ -55,7 +55,8 @@ import {
   ListChecks,
   Filter,
   FilterX,
-  PaintbrushVertical
+  PaintbrushVertical,
+  Wand2
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -551,6 +552,10 @@ function HomeTab({ tab }: { tab: string }) {
             </MenuItem>
             <MenuItem onSelect={() => runCommand('edit.fillUp')}>Up</MenuItem>
             <MenuItem onSelect={() => runCommand('edit.fillLeft')}>Left</MenuItem>
+            <MenuSep />
+            <MenuItem shortcut={shortcutFor('data.flashFill')} onSelect={() => runCommand('data.flashFill')}>
+              Flash Fill
+            </MenuItem>
           </MenuContent>
         </Menu>
         <Menu>
@@ -666,6 +671,7 @@ function DataTab() {
       </Group>
       <Sep />
       <Group label="Data tools">
+        <Cmd id="data.flashFill" label="Flash Fill" text="Flash Fill" icon={<Wand2 />} />
         <Menu>
           <DropBtn icon={<ListChecks />} label="Data validation" text="Validation" />
           <MenuContent>

@@ -485,3 +485,7 @@ export async function goToSpecial(c: Ctx, kind: import('@/core/doc').GoToKind, t
   const first = ranges[0]
   setView(c.tab, { sel: { ranges, active: { r: first.r0, c: first.c0 }, focus: { r: first.r1, c: first.c1 } } })
 }
+
+export function markDirtyTab(tab: string) {
+  markDirty(tab)
+}

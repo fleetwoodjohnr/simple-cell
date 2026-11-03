@@ -33,6 +33,7 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Edit active cell | `F2` | `⌃U`, `F2` | same |
 | Paste special… | `Ctrl+Alt+V` | `⌘⌃V` |  |
 | Select visible cells only | `Alt+;` | — |  |
+| Flash Fill | `Ctrl+E` | `⌘E` |  |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |
@@ -107,7 +108,6 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Cycle the reference at the cursor through absolute/relative | `F4` | `⌘T` | ✅ |
 | Point mode: insert and move a cell reference | `Arrow keys (in a formula)` | `Arrow keys (in a formula)` | ✅ |
 | Point mode: extend the inserted reference to a range | `Shift+Arrow (in a formula)` | `⇧Arrow (in a formula)` | ✅ |
-| Flash Fill | `Ctrl+E` | `⌘E` | Planned |
 | Select direct precedents | `Ctrl+[` | `⌘[` | Planned |
 | Select direct dependents | `Ctrl+]` | `⌘]` | Planned |
 | Insert a chart of the current data | `Alt+F1` | `⌥F1` | Planned |

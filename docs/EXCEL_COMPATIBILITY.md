@@ -19,7 +19,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Keyboard shortcuts | 🟡 | 64 command shortcuts registered + 24 built-in navigation/editing keys done; 11 planned ([SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md)) |
 | File formats | 🟡 | XLSX, XLSM, XLTX, ODS, CSV, TSV, JSON, HTML, XML 2003 ✅; XLS ✅ through LibreOffice; XLSB open only, untested; content not yet shown (charts, CF, comments…) 🔒 kept ([FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md)) |
 | Formatting | 🟡 | Cell formatting, Format Painter ✅; conditional formatting ✅ (all main rule types, shown, edited, saved); cell styles 🟡 (built-in styles applied as formatting; named styles in files are not linked) |
-| Editing | 🟡 | Insert/Delete Cells with a shift, Paste Special (all kinds, operations, skip blanks, transpose) ✅; Go To Special ✅; Flash Fill, grouping/outline 📋 |
+| Editing | 🟡 | Insert/Delete Cells with a shift, Paste Special (all kinds, operations, skip blanks, transpose) ✅; Go To Special ✅; Flash Fill 🟡 (words, initials, delimiters, case, joins; not digits inside numbers); grouping/outline 📋 |
 | Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
 | PivotTables | 📋 | |
 | Charts | 📋 | |

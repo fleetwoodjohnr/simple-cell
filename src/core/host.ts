@@ -401,6 +401,13 @@ export class Host {
       return { ok: false, error: (e as Error).message }
     }
   }
+  flashFill(sheet: number, r: number, c: number): { ok: true; filled: number } | { ok: false; error: string } {
+    try {
+      return { ok: true, filled: this.doc.flashFill(sheet, r, c) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
   pasteSpecial(src: Area, dst: Area, o: PasteSpecialOptions) {
     return this.run(() => this.doc.pasteSpecial(src, dst, o))
   }

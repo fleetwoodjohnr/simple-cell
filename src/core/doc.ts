@@ -16,6 +16,7 @@ import { CfEvaluator, newRuleId, type CfResult, type CfRule, type CondFormat } f
 import { alertFor, isValid, listItems, validationAt, type DataValidation, type DvAlert } from './validation'
 import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './filter'
 import { tableCellStyle } from './tablestyle'
+import { learn, run as runProgram } from './flashfill'
 import type { Link, Note, Table } from './model/workbook'
 
 setDateParser((s) => parseDateTime(s))
@@ -548,6 +549,52 @@ export class Doc {
       }
     if (!out.length) throw new Error('No cells were found.')
     return out
+  }
+
+  /**
+   * Flash Fill (Ctrl+E) for the column of (r, c): learns from the column's filled cells, using the neighbouring
+   * columns of the same rows as inputs, and fills the empty cells. Returns how many cells it filled.
+   */
+  flashFill(sheet: number, r: number, c: number): number {
+    const sh = this.sheet(sheet)
+    const has = (rr: number, cc: number) => {
+      const v = sh.get(rr, cc)?.v
+      return v !== null && v !== undefined && v !== ''
+    }
+    const text = (rr: number, cc: number) => this.display(sheet, rr, cc)?.t ?? ''
+    // Input columns: the filled columns next to this one (on this row or the one above).
+    const filled = (cc: number) => has(r, cc) || (r > 0 && has(r - 1, cc))
+    const srcCols: number[] = []
+    for (let cc = c - 1; cc >= 0 && filled(cc) && srcCols.length < 8; cc--) srcCols.unshift(cc)
+    for (let cc = c + 1; cc < MAX_COLS && filled(cc) && srcCols.length < 16; cc++) srcCols.push(cc)
+    if (!srcCols.length) throw new Error('Flash Fill needs data next to this column to learn from.')
+    const rowHas = (rr: number) => srcCols.some((cc) => has(rr, cc))
+    let r0 = r
+    while (r0 > 0 && rowHas(r0 - 1)) r0--
+    let r1 = r
+    while (r1 < MAX_ROWS - 1 && rowHas(r1 + 1)) r1++
+    // The first row is a header when its cell in this column is text and the inputs below are not like it.
+    const examples: { inputs: string[]; output: string; r: number }[] = []
+    for (let rr = r0; rr <= r1; rr++) if (has(rr, c)) examples.push({ r: rr, inputs: srcCols.map((cc) => text(rr, cc)), output: text(rr, c) })
+    if (!examples.length) throw new Error('Type an example of the result in this column first, then press Ctrl+E.')
+    let prog = learn(examples)
+    let start = r0
+    if (!prog && examples.length > 1 && examples[0].r === r0) {
+      prog = learn(examples.slice(1))
+      start = r0 + 1
+    }
+    if (!prog) throw new Error('Flash Fill couldn’t find a pattern. Type another example or two and try again.')
+    const todo: { r: number; v: string }[] = []
+    for (let rr = start; rr <= r1; rr++) {
+      if (has(rr, c) || !rowHas(rr)) continue
+      const v = runProgram(prog, srcCols.map((cc) => text(rr, cc)))
+      if (v !== null && v !== '') todo.push({ r: rr, v })
+    }
+    if (!todo.length) throw new Error('There are no empty cells in this column to fill.')
+    this.transact('Flash Fill', (tx) => {
+      for (const t of todo) this.inputTx(tx, sheet, t.r, c, "'" + t.v)
+    })
+    return todo.length
   }
 
   // ---------- notes and hyperlinks ----------

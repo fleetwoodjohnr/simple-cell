@@ -58,6 +58,13 @@ test('paste special (operation, transpose) and format painter', async () => {
     await page.getByRole('button', { name: 'Cell styles' }).click()
     await page.getByRole('button', { name: 'Normal', exact: true }).click()
     await expect.poll(async () => (await style(page, 1, 0)).fill).toBeUndefined()
+    // Flash Fill: one example, Ctrl+E fills the rest of the column.
+    for (const [i, n] of ['Ann Lee', 'Bo Zhang', 'Cy Ray'].entries()) await typeCell(page, `H${i + 1}`, n)
+    await typeCell(page, 'I1', 'Lee')
+    await goto(page, 'I2')
+    await page.keyboard.press(`${MOD}+e`)
+    await expect.poll(() => cell(page, 'I3')).toBe('Ray')
+    expect(await cell(page, 'I2')).toBe('Zhang')
   } finally {
     await quit(app)
   }

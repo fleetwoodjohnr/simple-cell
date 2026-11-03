@@ -488,6 +488,15 @@ def({ id: 'select.notes', label: 'Select notes', run: (c) => A.goToSpecial(needs
 def({ id: 'select.condFormats', label: 'Select conditional formatting', run: (c) => A.goToSpecial(needsSelection(c), 'condFormats') })
 def({ id: 'select.validation', label: 'Select data validation', run: (c) => A.goToSpecial(needsSelection(c), 'validation') })
 def({ id: 'select.constants', label: 'Select constants', run: (c) => A.goToSpecial(needsSelection(c), 'constants') })
+def({ id: 'data.flashFill', label: 'Flash Fill', keywords: 'fill by example pattern split names', run: async (c) => {
+    const x = needsSelection(c)
+    const { r, c: col } = x.view.sel.active
+    const res = await x.book.api.flashFill(x.view.sheet, r, col)
+    if (!res.ok) return toast(res.error, 'info')
+    A.markDirtyTab(x.tab)
+    toast(`Flash Fill filled ${res.filled} ${res.filled === 1 ? 'cell' : 'cells'}.`, 'success')
+  }
+})
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',
