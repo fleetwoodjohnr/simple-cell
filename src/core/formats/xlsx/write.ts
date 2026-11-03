@@ -7,11 +7,12 @@ import { CellError, MAX_COLS, MAX_ROWS, numberToText } from '../../engine/values
 import { areaName, cellKey, cellName, colName, fromKey } from '../../refs'
 import { BUILTIN_FORMATS } from '../../numfmt/format'
 import { bytes, text, writeZip } from '../zip'
-import { contentTypesXml, CT, esc, parseRels, REL, relsPath, relsXml, resolveTarget, unreachable, type Rel } from '../opc'
+import { contentTypesXml, CT, esc, escText, parseRels, REL, relsPath, relsXml, resolveTarget, unreachable, type Rel } from '../opc'
 import { Warnings, type ExportResult } from '../types'
 import type { SheetCarry, XlsxCarry } from './read'
 import type { CfRule } from '../../condfmt'
 import { condFormatsXml, dxfXml } from './condfmt'
+import { validationsXml } from './validation'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -551,6 +552,7 @@ function sheetXml(
   parts.set('sheetData', `<sheetData>${rowsXml.join('')}</sheetData>`)
   if (sh.merges.length) parts.set('mergeCells', `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${areaName(m)}"/>`).join('')}</mergeCells>`)
   if (sh.condFormats.length) parts.set('conditionalFormatting', condFormatsXml(sh.condFormats, (r) => styles.dxf(r), sheetName, fname))
+  if (sh.validations.length) parts.set('dataValidations', validationsXml(sh.validations, sheetName, fname))
   if (tableParts.length) parts.set('tableParts', `<tableParts count="${tableParts.length}">${tableParts.join('')}</tableParts>`)
   void w
   // Assemble in schema order, slotting the preserved elements in.
@@ -573,7 +575,14 @@ function sheetXml(
   let body = (after.get('') ?? []).join('')
   for (const name of ORDER) {
     // Generated elements first; preserved ones of the same kind (conditional formats that couldn't be read) after.
-    body += (parts.get(name) ?? '') + (byName.get(name) ?? []).join('')
+    const gen = parts.get(name) ?? ''
+    const kept = byName.get(name) ?? []
+    if (name === 'dataValidations' && gen && kept.length) {
+      // Only one <dataValidations> is allowed: the kept rules go inside the generated element.
+      const inner = kept.map((x) => x.replace(/^<[^>]*>/, '').replace(/<\/[^>]*>$/, '')).join('')
+      const merged = gen.replace('</dataValidations>', inner + '</dataValidations>')
+      body += merged.replace(/count="\d+"/, `count="${(merged.match(/<(?:\w+:)?dataValidation\b/g) ?? []).length}"`)
+    } else body += gen + kept.join('')
     body += (after.get(name) ?? []).join('')
   }
   const rootAttrs = `xmlns="${MAIN_NS}" xmlns:r="${R_NS}" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main" mc:Ignorable="x14ac xr"`
@@ -621,7 +630,6 @@ function cellXml(
 }
 
 /** Element text: only & < > need escaping (Excel writes quotes as they are). */
-const escText = (s: string) => esc(s).replace(/&quot;/g, '"')
 
 /** Shortest text that reads back as the same double. */
 function numStr(n: number): string {

@@ -13,6 +13,7 @@ import { parseInput } from './input'
 import { formatValue, isDateFormat } from './numfmt/format'
 import { parseDateTime } from './numfmt/dates'
 import { CfEvaluator, newRuleId, type CfResult, type CfRule, type CondFormat } from './condfmt'
+import { alertFor, isValid, listItems, validationAt, type DataValidation, type DvAlert } from './validation'
 
 setDateParser((s) => parseDateTime(s))
 
@@ -122,6 +123,10 @@ export interface CfListItem {
   dxf?: Style
   formulas?: string[]
 }
+
+/** A data validation rule as the UI describes it: formulas as text (a list may be "a,b,c"). */
+export type DvSpec = Omit<DataValidation, 'ranges' | 'formulas' | 'carry'> & { formulas?: string[] }
+export type DvInfo = Omit<DvSpec, never> & { ranges: string; anchor: { r: number; c: number }; items?: string[] }
 
 /** The parts of `a` outside `cut` (up to four rectangles). */
 export function subtractArea(a: Area, cut: Area): Area[] {
@@ -602,6 +607,17 @@ export class Doc {
       }
       tx.prop(sh, 'condFormats', next)
     }
+    if (sh.validations.length) {
+      const next: DataValidation[] = []
+      for (const v of sh.validations) {
+        const ranges = v.ranges.map((a) => shiftArea(a, s)).filter((a): a is Area => !!a)
+        if (!ranges.length) continue
+        const from = { row: v.ranges[0].r0, col: v.ranges[0].c0 }
+        const to = { row: ranges[0].r0, col: ranges[0].c0 }
+        next.push({ ...v, ranges, formulas: v.formulas?.map((f) => adjustFormula(f, sh.id, from, to, s)) })
+      }
+      tx.prop(sh, 'validations', next)
+    }
     for (const [key, fn] of Object.entries(this.carryShifters)) {
       void key
       fn(tx, s)
@@ -744,6 +760,71 @@ export class Doc {
   }
 
   // ---------- names ----------
+
+  // ---------- data validation ----------
+
+  /** Set the rule for the areas (replacing any rule there). `spec.type` 'none' with no messages clears them. */
+  setValidation(sheet: number, areas: Area[], spec: DvSpec) {
+    const sh = this.sheet(sheet)
+    const anchor = areas[0]
+    const formulas = spec.formulas?.filter((f) => f.trim() !== '').map((f) => {
+      const t = f.trim()
+      // A list typed as items ("Yes, No") rather than a reference or formula.
+      if (spec.type === 'list' && !t.startsWith('=')) return { t: 'str', v: t } as Node
+      return this.parse(t.startsWith('=') ? t : '=' + t, sheet, anchor.r0, anchor.c0)
+    })
+    return this.transact('Data validation', (tx) => {
+      const next: DataValidation[] = []
+      for (const v of sh.validations) {
+        let ranges = v.ranges
+        for (const cut of areas) ranges = ranges.flatMap((a) => subtractArea(a, cut))
+        if (ranges.length) next.push(ranges === v.ranges ? v : { ...v, ranges })
+      }
+      const keep = spec.type !== 'none' || spec.prompt || spec.promptTitle
+      if (keep) {
+        const dv: DataValidation = { ...spec, ranges: areas.map((a) => ({ ...a, sheet })), formulas }
+        if (!formulas?.length) delete dv.formulas
+        next.push(dv)
+      }
+      tx.prop(sh, 'validations', next)
+    })
+  }
+
+  /** The rule at a cell, with formulas as text (for the dialog), its dropdown items and input message. */
+  validationInfo(sheet: number, r: number, c: number): DvInfo | null {
+    const sh = this.sheet(sheet)
+    const dv = validationAt(sh, r, c)
+    if (!dv) return null
+    const a = dv.ranges[0]
+    const formulas = dv.formulas?.map((f) => (f.t === 'str' && dv.type === 'list' ? f.v : '=' + printFormula(f, { row: r, col: c, sheetName: this.sheetName })))
+    const { ranges: _r, formulas: _f, carry: _c, ...rest } = dv
+    void _r
+    void _f
+    void _c
+    const info: DvInfo = { ...rest, formulas, ranges: dv.ranges.map((x) => areaName(x)).join(' '), anchor: { r: a.r0, c: a.c0 } }
+    if (dv.type === 'list' && !dv.noDropdown) info.items = listItems(this.engine, sh, dv, r, c).map((x) => x.t)
+    return info
+  }
+
+  /** The alert to show if the cell's value breaks its rule (null when it is fine). */
+  checkValidation(sheet: number, r: number, c: number): DvAlert | null {
+    const sh = this.sheet(sheet)
+    const dv = validationAt(sh, r, c)
+    if (!dv || dv.showError === false || isValid(this.engine, sh, dv, r, c)) return null
+    return alertFor(dv)
+  }
+
+  /** Cells in the areas whose values break their rules (Circle Invalid Data). */
+  invalidCells(sheet: number): { r: number; c: number }[] {
+    const sh = this.sheet(sheet)
+    const out: { r: number; c: number }[] = []
+    for (const dv of sh.validations)
+      for (const a of dv.ranges)
+        sh.forEachIn(a, (r, c) => {
+          if (validationAt(sh, r, c) === dv && !isValid(this.engine, sh, dv, r, c)) out.push({ r, c })
+        })
+    return out
+  }
 
   // ---------- conditional formatting ----------
 

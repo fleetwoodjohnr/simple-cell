@@ -31,12 +31,13 @@
 - **Layout.** Column widths, row heights, hidden rows and columns, merged cells, frozen panes, gridlines, zoom, and the active sheet.
 - **Names and tables.** Defined names at workbook and sheet scope, tables (structured references calculate), and hidden and very-hidden sheets.
 - **Conditional formatting.** Every rule type of the main schema is read, shown and written back: cell value, formula, top/bottom, above/below average, duplicate/unique, text, dates, blanks/errors, colour scales, data bars and icon sets. Differential formats keep their original indexes, which tables and PivotTables also use. The Excel 2010 data-bar extensions stay linked to their rules. Tested: unit `xlsx › conditional formatting…` (3 tests, one with LibreOffice reading the result).
+- **Data validation.** Every rule type (whole number, decimal, list, date, time, text length, custom) with its operator, formulas, input message and error alert. Tested: unit `xlsx › data validation…`, which includes LibreOffice reading the result.
 
 ### Kept unchanged (not yet shown or editable)
 
 Simple Cell keeps every part and element of the file it doesn't understand, and writes them back in schema order. Examples:
 - Charts, pictures and shapes; comments and notes.
-- Conditional formats that exist only in the Excel 2010 extension list (for example icon sets with custom icons), data validation and hyperlinks.
+- Conditional formats and data validation that exist only in the Excel 2010 extension list (for example icon sets with custom icons, or lists that refer to other sheets in old files), and hyperlinks.
 - Sheet protection, AutoFilter settings, page setup.
 - PivotTables and their caches, external links.
 - `customXml`, `extLst` extensions and the VBA project.
@@ -44,7 +45,7 @@ Simple Cell keeps every part and element of the file it doesn't understand, and 
 When the file is opened, its compatibility notes list what was kept but not shown.
 
 When you insert or delete rows or columns, the ranges inside kept content are adjusted, and undo restores them. This covers:
-- Data validation ranges and formulas, hyperlinks and other `sqref`/`ref` ranges. Conditional formats are part of the model, so they move like cells.
+- Hyperlinks and other `sqref`/`ref` ranges. Conditional formats and data validation are part of the model, so they move like cells.
 - Drawing anchors, comment positions and note anchors.
 - Chart series formulas in every chart in the workbook.
 
@@ -55,7 +56,7 @@ Tested: unit `xlsx › keeps parts and elements…`.
 | Situation | What happens |
 |---|---|
 | Saving a workbook with macros as .xlsx | Warned; the VBA project is removed (as Excel does). Save as .xlsm to keep it. |
-| PivotTables, charts, data validation… | Kept and saved; the open notes say they aren't shown or editable yet |
+| PivotTables, charts, comments… | Kept and saved; the open notes say they aren't shown or editable yet |
 | "Precision as displayed" | Kept; Simple Cell calculates with full precision (noted on open) |
 | Links to other workbooks | Kept; formulas using them show the saved values |
 | Formulas that can't be parsed | Kept as values, with a warning |

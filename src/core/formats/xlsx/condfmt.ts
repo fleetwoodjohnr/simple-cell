@@ -4,7 +4,7 @@ import { newRuleId } from '../../condfmt'
 import { parseFormula, printFormula } from '../../engine/parser'
 import type { BorderSide, Style } from '../../model/styles'
 import { areaName, parseArea } from '../../refs'
-import { esc } from '../opc'
+import { esc, escText } from '../opc'
 import { attr, boolAttr, kid, kids, numAttr, parseXml, serialize, textOf, type El } from '../xml'
 
 const NS = 'xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"'
@@ -166,7 +166,7 @@ export function condFormatsXml(blocks: CondFormat[], dxf: (r: CfRule) => number 
           if (op) attrs.push(`operator="${op}"`)
           if (r.text !== undefined) attrs.push(`text="${esc(r.text)}"`)
           if (r.timePeriod) attrs.push(`timePeriod="${r.timePeriod}"`)
-          let inner = (r.formulas ?? []).map((f) => `<formula>${esc(printFormula(f, { row: a.r0, col: a.c0, sheetName, fileNames: fname }))}</formula>`).join('')
+          let inner = (r.formulas ?? []).map((f) => `<formula>${escText(printFormula(f, { row: a.r0, col: a.c0, sheetName, fileNames: fname }))}</formula>`).join('')
           if (r.colorScale) inner += `<colorScale>${r.colorScale.cfvo.map(cfvoXml).join('')}${r.colorScale.colors.map((c) => `<color rgb="${argb(c)}"/>`).join('')}</colorScale>`
           if (r.dataBar) {
             const d = r.dataBar

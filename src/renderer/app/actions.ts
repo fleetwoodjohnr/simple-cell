@@ -8,6 +8,8 @@ import { areasOf, cellSel, clampCell, getView, rectOf, setView, type Sel, type T
 import { markDirty } from '../state/documents'
 import { axesFor } from '@/grid/layout'
 import type { Book } from '../state/client'
+import type { DvAlert } from '@/core/validation'
+import { showValidationAlert } from './Validation'
 
 export interface Ctx {
   tab: string
@@ -206,18 +208,32 @@ export async function commitEdit(c: Ctx, dir: 'down' | 'up' | 'right' | 'left' |
     if (depth > 0 && !inStr) text += ')'.repeat(depth)
   }
   const areas = areasOf(c.view)
-  let res: { ok: boolean; error?: string; pos?: number }
+  let res: { ok: boolean; error?: string; pos?: number; alert?: DvAlert }
   if (mode === 'all') res = await c.book.api.inputAll(areas, text)
   else if (mode === 'array') {
     const a = areas[areas.length - 1]
     res = await c.book.api.input(c.view.sheet, a.r0, a.c0, text, a)
   } else res = await c.book.api.input(c.view.sheet, r, col, text)
+  // Data validation: a stop rule already undid the entry; warning and information rules ask whether to keep it.
+  if (res.alert) {
+    const choice = await showValidationAlert(res.alert)
+    if (res.alert.style === 'stop') {
+      if (choice === 'cancel') setView(c.tab, { editing: null })
+      return false
+    }
+    if (choice === 'no' || choice === 'cancel') {
+      await c.book.api.undo()
+      if (choice === 'cancel') setView(c.tab, { editing: null })
+      return false
+    }
+  }
   if (!res.ok) {
     set({ dialog: { kind: 'message', title: 'There’s a problem with this formula', body: `${res.error ?? 'The formula could not be read.'}\n\nTo type text that starts with “=”, begin it with an apostrophe: '=` } })
     return false
   }
   markDirty(c.tab)
   setView(c.tab, { editing: null })
+  if (getView(c.tab).circles?.length) void circleInvalid(c)
   const v = getView(c.tab)
   if (dir !== 'none') advance({ ...c, view: v }, dir)
   return true
@@ -410,3 +426,16 @@ export function activeBookOrNull() {
 }
 
 export { areaName, areasOf }
+
+// ---------- data validation ----------
+
+/** Circle Invalid Data: mark cells whose values break their rules (refreshed after each entry). */
+export async function circleInvalid(c: Ctx) {
+  const cells = await c.book.api.invalidCells(c.view.sheet)
+  setView(c.tab, { circles: cells })
+  return cells.length
+}
+
+export function clearCircles(c: Ctx) {
+  setView(c.tab, { circles: [] })
+}

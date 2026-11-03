@@ -1,4 +1,6 @@
 import type { CfPreset } from '../app/CondFormat'
+import type { DvAlert } from '@/core/validation'
+import type { AlertChoice } from '../app/Validation'
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS, type RecentFile, type RecoveryEntry, type Settings } from '@/shared/ipc-types'
 import type { FormatId, FormatWarning } from '@/core/formats/types'
@@ -36,6 +38,8 @@ export type Dialog =
   | { kind: 'sort' }
   | { kind: 'cf-rule'; preset: CfPreset }
   | { kind: 'cf-manage' }
+  | { kind: 'data-validation' }
+  | { kind: 'dv-alert'; alert: DvAlert; resolve: (c: AlertChoice) => void }
   | { kind: 'row-height' | 'col-width' }
   | { kind: 'csv-import'; name: string; path: string; data: Uint8Array }
   | { kind: 'history' }

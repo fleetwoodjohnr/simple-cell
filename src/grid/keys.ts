@@ -170,6 +170,8 @@ export function handleGridKey(e: React.KeyboardEvent<HTMLTextAreaElement>, c: A.
   const arrow = ARROWS[key]
   if (arrow) {
     e.preventDefault()
+    // Alt+Down opens the cell's validation dropdown.
+    if (e.altKey && key === 'ArrowDown' && !mod) return setView(c.tab, { listOpen: true })
     if (e.altKey) return
     if (mod) void A.jump(c, key === 'ArrowUp' ? 'up' : key === 'ArrowDown' ? 'down' : key === 'ArrowLeft' ? 'left' : 'right', e.shiftKey)
     else A.move(c, arrow[0], arrow[1], e.shiftKey)

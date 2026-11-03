@@ -11,6 +11,7 @@ import { readZip, text } from '../zip'
 import { contentTypes, parseRels, REL, resolveTarget, type Rel } from '../opc'
 import { attr, boolAttr, deep, kid, kids, numAttr, parseXml, tagAttrs, textOf, topLevel, xmlText, type El } from '../xml'
 import { readCondFormat, readDxf } from './condfmt'
+import { readValidations } from './validation'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -451,11 +452,16 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     const b = readCondFormat(e.xml, sh.id, ctx.styles.dxfs, (el) => colorOf(el, ctx.theme, undefined), ctx.sheetId)
     if (b) sh.condFormats.push(b)
     return !b
+  }).filter((e) => {
+    if (e.name !== 'dataValidations') return true
+    const list = readValidations(e.xml, sh.id, ctx.sheetId)
+    if (list) sh.validations.push(...list)
+    return !list
   })
   const kinds = new Set(sc.elements.map((e) => e.name))
   if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Some conditional formats could not be read; they are kept and saved, but not shown.')
   if (sc.elements.some((e) => e.name === 'extLst' && /<x14:cfRule\b(?![^>]*type="dataBar")/.test(e.xml))) ctx.w.add('info', 'Some conditional formats from newer Excel versions are kept and saved, but not shown.')
-  if (kinds.has('dataValidations')) ctx.w.add('info', 'Data validation rules are kept and saved, but not enforced or editable yet.')
+  if (kinds.has('dataValidations')) ctx.w.add('info', 'Some data validation rules could not be read; they are kept and saved, but not enforced.')
   if (kinds.has('drawing')) ctx.w.add('loss', 'Charts, pictures and shapes are kept and saved, but not shown yet.')
   if (kinds.has('legacyDrawing')) ctx.w.add('info', 'Comments and notes are kept and saved, but not shown yet.')
   if (kinds.has('autoFilter')) ctx.w.add('info', 'AutoFilter settings are kept; filtered rows stay hidden.')

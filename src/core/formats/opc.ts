@@ -128,3 +128,6 @@ export function esc(s: string): string {
 }
 
 export { unescapeXml }
+
+/** Escape element text (quotes may stay as they are, as Excel writes them). */
+export const escText = (s: string) => esc(s).replace(/&quot;/g, '"')

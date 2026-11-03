@@ -67,6 +67,18 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Copying or filling cells carries their conditional formats | 📋 | |
 | ODS conditional formats | 🔒 | Kept and saved, not shown |
 
+## Data validation
+
+| Feature | Status | Notes |
+|---|---|---|
+| Whole number, decimal, date, time, text length (all eight operators), list, custom formula | ✅ | Limits can be formulas (`=$D$1`) |
+| Lists from typed items or a range; in-cell dropdown (arrow button or Alt+Down) | ✅ | Matching is case-insensitive, as in Excel |
+| Ignore blank, input message, Stop / Warning / Information alerts with custom titles and messages | ✅ | Stop undoes the entry (Retry or Cancel); Warning asks Yes/No/Cancel |
+| Circle Invalid Data, Clear Validation Circles | ✅ | Circles disappear as cells are corrected |
+| Rules follow inserted and deleted rows and columns; saved in .xlsx | ✅ | |
+| Validation of pasted or filled values | ❌ | As in Excel, pasting replaces rules rather than checking values; Simple Cell doesn't check pasted values either |
+| ODS content validations | 🔒 | Kept and saved, not enforced |
+
 ## Keyboard shortcuts
 
 See [SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md) for the full list. Shortcuts follow Excel for Windows, and Excel for Mac on macOS. A Google Sheets preset changes the shortcuts that differ. Every shortcut can be rebound. Conflicting bindings are detected in the shortcut dialog and in a unit test of the registry.
@@ -84,4 +96,4 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | 📋 | M5 |
-| Charts, pictures, shapes, comments, data validation, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |
+| Charts, pictures, shapes, comments, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

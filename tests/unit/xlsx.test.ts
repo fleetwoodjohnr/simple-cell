@@ -250,6 +250,37 @@ describe('XLSX', () => {
     expect(xml).toContain(`<x14:cfRule type="dataBar" id="${id}">`)
   })
 
+  it('data validation: read, enforced, written back; LibreOffice reads it', async () => {
+    const doc = new Doc()
+    const s = doc.wb.sheets[0].id
+    doc.input(s, 0, 3, 'Red')
+    doc.input(s, 1, 3, 'Blue')
+    doc.setValidation(s, [{ sheet: s, r0: 0, c0: 0, r1: 9, c1: 0 }], { type: 'list', formulas: ['=$D$1:$D$2'], showInput: true, prompt: 'Pick a colour', errorStyle: 'warning', error: 'Not a colour' })
+    doc.setValidation(s, [{ sheet: s, r0: 0, c0: 1, r1: 9, c1: 1 }], { type: 'whole', operator: 'greaterThan', formulas: ['0'] })
+    doc.setValidation(s, [{ sheet: s, r0: 0, c0: 2, r1: 0, c1: 2 }], { type: 'list', formulas: ['Yes, No'], noDropdown: true })
+    const out = await new Host(doc).save('xlsx')
+    const xml = strFromU8(unzipSync(out.data)['xl/worksheets/sheet1.xml'])
+    expect(xml).toContain('<dataValidations count="3"><dataValidation type="list" errorStyle="warning" allowBlank="1" showInputMessage="1" showErrorMessage="1" error="Not a colour" prompt="Pick a colour" sqref="A1:A10"><formula1>$D$1:$D$2</formula1></dataValidation>')
+    expect(xml).toContain('<dataValidation type="whole" operator="greaterThan" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="B1:B10"><formula1>0</formula1></dataValidation>')
+    expect(xml).toContain('<dataValidation type="list" allowBlank="1" showDropDown="1" showInputMessage="1" showErrorMessage="1" sqref="C1"><formula1>"Yes, No"</formula1></dataValidation>')
+    const back = await open(out.data)
+    const bs = back.doc.wb.sheets[0].id
+    expect(back.validationInfo(bs, 3, 0)).toMatchObject({ type: 'list', items: ['Red', 'Blue'], prompt: 'Pick a colour', errorStyle: 'warning' })
+    expect(back.input(bs, 0, 1, '-3').ok).toBe(false)
+    expect(back.input(bs, 0, 2, 'no').ok).toBe(true)
+    expect(back.validationInfo(bs, 0, 2)?.items).toBeUndefined() // dropdown hidden
+    // Unchanged on a second save.
+    expect(strFromU8(unzipSync((await back.save('xlsx')).data)['xl/worksheets/sheet1.xml'])).toContain(xml.match(/<dataValidations[\s\S]*<\/dataValidations>/)![0])
+    if (!soffice) return
+    const dir = mkdtempSync(path.join(tmpdir(), 'sc-dv-'))
+    writeFileSync(path.join(dir, 'dv.xlsx'), out.data)
+    execFileSync(soffice, ['--headless', '--norestore', `-env:UserInstallation=${pathToFileURL(path.join(dir, 'p')).href}`, '--convert-to', 'ods', '--outdir', dir, path.join(dir, 'dv.xlsx')], { timeout: 120_000 })
+    const content = strFromU8(unzipSync(new Uint8Array(readFileSync(path.join(dir, 'dv.ods'))))['content.xml'])
+    expect(content).toContain('table:condition="of:cell-content-is-in-list([.$D$1:.$D$2])"')
+    expect(content).toContain('table:condition="of:cell-content-is-in-list(&quot;Yes&quot;;&quot;No&quot;)" table:allow-empty-cell="true" table:display-list="no"')
+    expect(content).toContain('of:cell-content-is-whole-number() and cell-content()&gt;0')
+  }, 150_000)
+
   it('refuses zip bombs and non-zip files', () => {
     expect(() => readXlsx(new Uint8Array([1, 2, 3, 4]))).toThrow(/not a valid workbook/)
     const big = new Uint8Array(30 * 1024 * 1024) // 30 MB of zeros compresses to ~30 KB

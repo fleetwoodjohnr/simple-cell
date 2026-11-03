@@ -51,7 +51,8 @@ import {
   BetweenHorizontalStart,
   Trash2,
   Square,
-  Highlighter
+  Highlighter,
+  ListChecks
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -521,6 +522,17 @@ function DataTab() {
         <Cmd id="data.sortAsc" label="Sort A to Z" text="A→Z" icon={<ArrowDownAZ />} />
         <Cmd id="data.sortDesc" label="Sort Z to A" text="Z→A" icon={<ArrowUpAZ />} />
         <Cmd id="data.sort" label="Custom sort" text="Sort…" icon={<ArrowDownWideNarrow />} />
+      </Group>
+      <Sep />
+      <Group label="Data tools">
+        <Menu>
+          <DropBtn icon={<ListChecks />} label="Data validation" text="Validation" />
+          <MenuContent>
+            <MenuItem onSelect={() => runCommand('data.validation')}>Data validation…</MenuItem>
+            <MenuItem onSelect={() => runCommand('data.circleInvalid')}>Circle invalid data</MenuItem>
+            <MenuItem onSelect={() => runCommand('data.clearCircles')}>Clear validation circles</MenuItem>
+          </MenuContent>
+        </Menu>
       </Group>
     </>
   )

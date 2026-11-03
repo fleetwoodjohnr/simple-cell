@@ -430,6 +430,16 @@ def({ id: 'sheet.prev', label: 'Previous sheet', run: (c) => cycleSheet(needsSel
 def({ id: 'data.sortAsc', label: 'Sort A to Z', run: (c) => quickSort(needsSelection(c), 1) })
 def({ id: 'data.sortDesc', label: 'Sort Z to A', run: (c) => quickSort(needsSelection(c), -1) })
 def({ id: 'data.sort', label: 'Custom sort…', run: () => set({ dialog: { kind: 'sort' } }) })
+def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
+def({
+  id: 'data.circleInvalid',
+  label: 'Circle invalid data',
+  run: async (c) => {
+    const n = await A.circleInvalid(needsSelection(c))
+    if (!n) toast('Every cell with a validation rule has a valid value.', 'info')
+  }
+})
+def({ id: 'data.clearCircles', label: 'Clear validation circles', run: (c) => A.clearCircles(needsSelection(c)) })
 
 async function quickSort(c: A.Ctx, order: 1 | -1) {
   let r = lastRange(c)

@@ -15,6 +15,7 @@ import type { Style, BorderStyle } from '@/core/model/styles'
 import { colName, parseCell } from '@/core/refs'
 import { guessHeader, currentRegion } from './commands'
 import { CfManageDialog, CfRuleDialog } from './CondFormat'
+import { ValidationAlert, ValidationDialog } from './Validation'
 
 const close = () => set({ dialog: null })
 
@@ -50,6 +51,10 @@ export function Dialogs() {
       return <CfRuleDialog preset={d.preset} />
     case 'cf-manage':
       return <CfManageDialog />
+    case 'data-validation':
+      return <ValidationDialog />
+    case 'dv-alert':
+      return <ValidationAlert d={d} />
     case 'row-height':
     case 'col-width':
       return <SizeDialog axis={d.kind === 'row-height' ? 'row' : 'col'} />

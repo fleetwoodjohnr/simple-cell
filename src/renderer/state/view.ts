@@ -38,6 +38,10 @@ export interface TabView {
   /** Scroll offsets per sheet (pixels at 100% zoom). */
   scroll: Record<number, { x: number; y: number }>
   zoom: number
+  /** The active cell's validation dropdown is open (Alt+Down). */
+  listOpen?: boolean
+  /** Circle Invalid Data: cells marked on the current sheet. */
+  circles?: { r: number; c: number }[]
 }
 
 export const rectOf = (a: { r: number; c: number }, b: { r: number; c: number }): Rect => ({ r0: Math.min(a.r, b.r), c0: Math.min(a.c, b.c), r1: Math.max(a.r, b.r), c1: Math.max(a.c, b.c) })

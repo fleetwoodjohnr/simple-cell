@@ -1,7 +1,8 @@
 // The document host: every operation the UI can ask of an open workbook. It runs inside the core Web Worker
 // (worker.ts) and directly in unit tests. All arguments and results are structured-clone friendly.
 
-import { Doc, type CfSpec, type ViewCell } from './doc'
+import { Doc, type CfSpec, type DvSpec, type ViewCell } from './doc'
+import type { DvAlert } from './validation'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -301,8 +302,24 @@ export class Host {
     }
   }
 
-  input(sheet: number, r: number, c: number, text: string, array?: Area) {
-    return this.run(() => this.doc.input(sheet, r, c, text, { array }))
+  /**
+   * Typing into a cell. A value that breaks the cell's data validation comes back with the alert to show: for a
+   * "stop" rule the entry is undone here; for "warning" and "information" it stays until the user says otherwise.
+   */
+  input(sheet: number, r: number, c: number, text: string, array?: Area): ReturnType<Host['run']> & { alert?: DvAlert } {
+    const before = this.doc.undoStack.length
+    const res = this.run(() => this.doc.input(sheet, r, c, text, { array }))
+    if (!res.ok || array) return res
+    const alert = this.doc.checkValidation(sheet, r, c)
+    if (!alert) return res
+    if (alert.style === 'stop') {
+      if (this.doc.undoStack.length > before) {
+        this.doc.undo()
+        this.doc.redoStack.pop()
+      }
+      return { ok: false, error: alert.message, alert }
+    }
+    return { ...res, alert }
   }
 
   /** Enter the same text into every cell of the areas (Ctrl+Enter); formulas adjust per cell. */
@@ -440,6 +457,15 @@ export class Host {
   }
   deleteName(name: string, scope: number | null) {
     return this.run(() => this.doc.deleteName(name, scope))
+  }
+  setValidation(sheet: number, areas: Area[], spec: DvSpec) {
+    return this.run(() => this.doc.setValidation(sheet, areas, spec))
+  }
+  validationInfo(sheet: number, r: number, c: number) {
+    return this.doc.validationInfo(sheet, r, c)
+  }
+  invalidCells(sheet: number) {
+    return this.doc.invalidCells(sheet)
   }
   addCondFormat(sheet: number, ranges: Area[], spec: CfSpec) {
     return this.run(() => this.doc.addCondFormat(sheet, ranges, spec))
