@@ -56,6 +56,17 @@ test('insert and delete rows, sheets, rename, navigation and status bar', async 
     await page.keyboard.press(`${MOD}+Minus`)
     await page.waitForTimeout(150)
     expect(await cell(page, 'A3')).toBe(30)
+    // Ctrl+Plus on a cell asks how to shift; shifting A2 down moves only column A, and the SUM grows.
+    await goto(page, 'A2')
+    await page.keyboard.press(`${MOD}+Shift+=`)
+    await page.getByLabel('Shift cells down').check()
+    await page.getByRole('button', { name: 'OK' }).click()
+    await expect.poll(() => cell(page, 'A3')).toBe(20)
+    expect(await cell(page, 'A2')).toBeNull()
+    await goto(page, 'C1')
+    await expect(page.getByTestId('formula-input')).toHaveValue('=SUM(A1:A6)')
+    await page.keyboard.press(`${MOD}+z`)
+    await expect.poll(() => cell(page, 'A2')).toBe(20)
     // Ctrl+Down jumps to the end of the data
     await goto(page, 'A1')
     await page.keyboard.press(`${MOD}+ArrowDown`)

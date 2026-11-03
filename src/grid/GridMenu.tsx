@@ -43,10 +43,12 @@ export function GridMenu({ tab, children }: { tab: string; children: ReactNode }
         ) : (
           <>
             <CtxSub label="Insert" icon={<Rows3 />}>
+              {item('edit.insertCells', 'Cells…')}
               {item('edit.insertRows', 'Entire row')}
               {item('edit.insertCols', 'Entire column')}
             </CtxSub>
             <CtxSub label="Delete" icon={<Trash2 />}>
+              {item('edit.deleteCells', 'Cells…')}
               {item('edit.deleteRows', 'Entire row')}
               {item('edit.deleteCols', 'Entire column')}
             </CtxSub>

@@ -470,6 +470,20 @@ export class Doc {
     })
   }
 
+  /** Insert Cells: shift the cells at and beyond the area down or right (Ctrl+Plus). */
+  insertCells(area: Area, dir: 'down' | 'right') {
+    const isRow = dir === 'down'
+    const s: Shift = { sheet: area.sheet, axis: isRow ? 'row' : 'col', at: isRow ? area.r0 : area.c0, count: isRow ? area.r1 - area.r0 + 1 : area.c1 - area.c0 + 1, span: isRow ? [area.c0, area.c1] : [area.r0, area.r1] }
+    return this.transact('Insert cells', (tx) => this.shiftTx(tx, s))
+  }
+
+  /** Delete Cells: remove the area and shift the cells beyond it up or left (Ctrl+Minus). */
+  deleteCells(area: Area, dir: 'up' | 'left') {
+    const isRow = dir === 'up'
+    const s: Shift = { sheet: area.sheet, axis: isRow ? 'row' : 'col', at: isRow ? area.r0 : area.c0, count: -(isRow ? area.r1 - area.r0 + 1 : area.c1 - area.c0 + 1), span: isRow ? [area.c0, area.c1] : [area.r0, area.r1] }
+    return this.transact('Delete cells', (tx) => this.shiftTx(tx, s))
+  }
+
   // ---------- notes and hyperlinks ----------
 
   /** Add, change or (with null) delete the note on a cell. */
@@ -581,12 +595,28 @@ export class Doc {
     }
     tx.structural = true
     const delEnd = s.count < 0 ? s.at - s.count - 1 : -1
+    const inBand = (r: number, c: number) => !s.span || ((isRow ? c : r) >= s.span[0] && (isRow ? c : r) <= s.span[1])
+    if (s.span) {
+      // Excel refuses to split merged cells or tables with a cell shift.
+      // Something straddling the band's edge, at or beyond the shift, would be split.
+      const crosses = (a: Area) => {
+        const [lo, hi] = isRow ? [a.c0, a.c1] : [a.r0, a.r1]
+        const partial = lo <= s.span![1] && hi >= s.span![0] && (lo < s.span![0] || hi > s.span![1])
+        return partial && (isRow ? a.r1 : a.c1) >= s.at
+      }
+      if (sh.merges.some(crosses)) throw new Error('Simple Cell can’t shift part of a merged cell. Unmerge it, or select whole merged cells.')
+      if (this.wb.tables.some((t) => t.sheet === sh.id && crosses(t.area))) throw new Error('That would shift cells in a table. Insert or delete table rows or columns instead.')
+    }
     // 1. Snapshot of every cell on this sheet with a new position, and formula rewrites everywhere.
     const moves: { from: [number, number]; to: [number, number] | null; cell: Cell }[] = []
     for (const [r, row] of sh.rows)
       for (const [c, cell] of row) {
         const idx = isRow ? r : c
         let to: [number, number] | null = [r, c]
+        if (!inBand(r, c)) {
+          moves.push({ from: [r, c], to, cell })
+          continue
+        }
         if (s.count > 0 && idx >= s.at) to = isRow ? [r + s.count, c] : [r, c + s.count]
         if (s.count < 0) {
           if (idx >= s.at && idx <= delEnd) to = null
@@ -637,8 +667,9 @@ export class Doc {
         () => (o.cell.f = before)
       )
     }
-    // 2. Row/column info shifts.
+    // 2. Row/column info shifts (whole rows/columns only).
     const info = (isRow ? sh.rowInfo : sh.cols) as Map<number, RowInfo | ColInfo>
+    if (!s.span) {
     const beforeInfo = new Map(info)
     const afterInfo = new Map<number, RowInfo | ColInfo>()
     for (const [i, v] of info) {
@@ -659,6 +690,7 @@ export class Doc {
       () => swapInfo(afterInfo),
       () => swapInfo(beforeInfo)
     )
+    }
     // 3. Merges, freeze panes, names, tables.
     const merges = sh.merges.map((m) => shiftArea(m, s)).filter((m): m is Area => !!m && !(m.r0 === m.r1 && m.c0 === m.c1))
     tx.prop(sh, 'merges', merges)
@@ -683,6 +715,10 @@ export class Doc {
       for (const [k, v] of m) {
         const r = Math.floor(k / 16384)
         const c = k % 16384
+        if (!inBand(r, c)) {
+          next.set(k, v)
+          continue
+        }
         const a = shiftArea({ sheet: sh.id, r0: r, c0: c, r1: r, c1: c }, s)
         if (a) next.set(a.r0 * 16384 + a.c0, v)
       }

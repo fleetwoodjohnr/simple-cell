@@ -114,3 +114,29 @@ describe('recalculation', () => {
     expect(b.get('A4')).toBe('007')
   })
 })
+
+describe('insert and delete cells (shift)', () => {
+  it('moves only the band of cells and adjusts references the way Excel does', async () => {
+    const { book } = await import('./helpers/book')
+    const b = book({ A1: 1, B1: 10, B2: 20, B3: 30, C1: 100, C3: 300, E1: '=SUM(B1:B3)', E2: '=B3', E3: '=SUM(A1:C3)', E4: '=C3' })
+    b.doc.insertCells({ sheet: b.sheet, r0: 1, c0: 1, r1: 1, c1: 1 }, 'down') // B2, shift down
+    expect([b.get('B2'), b.get('B3'), b.get('B4')]).toEqual([null, 20, 30])
+    expect(b.get('C3')).toBe(300) // other columns stay
+    expect(b.doc.formulaText(b.sheet, 0, 4)).toBe('=SUM(B1:B4)') // a range inside the band grows
+    expect(b.doc.formulaText(b.sheet, 1, 4)).toBe('=B4') // a reference to a moved cell follows it
+    expect(b.doc.formulaText(b.sheet, 2, 4)).toBe('=SUM(A1:C3)') // wider ranges stay
+    expect(b.doc.formulaText(b.sheet, 3, 4)).toBe('=C3')
+    b.doc.undo()
+    expect(b.doc.formulaText(b.sheet, 0, 4)).toBe('=SUM(B1:B3)')
+    b.doc.deleteCells({ sheet: b.sheet, r0: 0, c0: 1, r1: 0, c1: 1 }, 'up') // B1, shift up
+    expect([b.get('B1'), b.get('B2')]).toEqual([20, 30])
+    expect(b.doc.formulaText(b.sheet, 0, 4)).toBe('=SUM(B1:B2)')
+    expect(b.get('E1')).toBe(50)
+    b.doc.undo()
+    b.doc.insertCells({ sheet: b.sheet, r0: 0, c0: 0, r1: 1, c1: 0 }, 'right') // A1:A2, shift right
+    expect([b.get('A1'), b.get('B1'), b.get('C1'), b.get('D1')]).toEqual([null, 1, 10, 100])
+    expect(b.get('B3')).toBe(30) // row 3 is outside the band
+    b.doc.merge({ sheet: b.sheet, r0: 5, c0: 0, r1: 5, c1: 2 })
+    expect(() => b.doc.insertCells({ sheet: b.sheet, r0: 4, c0: 1, r1: 4, c1: 1 }, 'down')).toThrow(/merged/)
+  })
+})

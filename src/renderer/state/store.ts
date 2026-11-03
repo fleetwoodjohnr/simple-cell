@@ -40,6 +40,7 @@ export type Dialog =
   | { kind: 'cf-manage' }
   | { kind: 'data-validation' }
   | { kind: 'note' }
+  | { kind: 'shift-cells'; mode: 'insert' | 'delete' }
   | { kind: 'link' }
   | { kind: 'create-table'; area: { r0: number; c0: number; r1: number; c1: number }; headers: boolean; style?: string }
   | { kind: 'dv-alert'; alert: DvAlert; resolve: (c: AlertChoice) => void }

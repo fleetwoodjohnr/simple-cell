@@ -259,8 +259,8 @@ def({ id: 'edit.selectColumn', label: 'Select column', run: (c) => A.selectCols(
 def({ id: 'edit.insertDate', label: 'Insert current date', global: true, run: (c) => insertNow(needsSelection(c), 'date') })
 def({ id: 'edit.insertTime', label: 'Insert current time', global: true, run: (c) => insertNow(needsSelection(c), 'time') })
 def({ id: 'edit.editCell', label: 'Edit active cell', run: (c) => A.startEdit(needsSelection(c)) })
-def({ id: 'edit.insertCells', label: 'Insert rows or columns', run: (c) => insertForSelection(needsSelection(c)) })
-def({ id: 'edit.deleteCells', label: 'Delete rows or columns', run: (c) => deleteForSelection(needsSelection(c)) })
+def({ id: 'edit.insertCells', label: 'Insert cells…', run: (c) => insertForSelection(needsSelection(c)) })
+def({ id: 'edit.deleteCells', label: 'Delete cells…', run: (c) => deleteForSelection(needsSelection(c)) })
 def({ id: 'edit.insertRows', label: 'Insert sheet rows', run: (c) => A.insertAt(needsSelection(c), 'row') })
 def({ id: 'edit.insertCols', label: 'Insert sheet columns', run: (c) => A.insertAt(needsSelection(c), 'col') })
 def({ id: 'edit.deleteRows', label: 'Delete sheet rows', run: (c) => A.deleteAt(needsSelection(c), 'row') })
@@ -270,13 +270,13 @@ async function insertForSelection(c: A.Ctx) {
   const r = lastRange(c)
   if (r.c0 === 0 && r.c1 === MAX_COLS - 1) return A.insertAt(c, 'row')
   if (r.r0 === 0 && r.r1 === MAX_ROWS - 1) return A.insertAt(c, 'col')
-  // ponytail: Excel asks whether to shift cells down/right; Simple Cell inserts whole rows (shift cells comes with M4).
-  return A.insertAt(c, 'row')
+  set({ dialog: { kind: 'shift-cells', mode: 'insert' } })
 }
 async function deleteForSelection(c: A.Ctx) {
   const r = lastRange(c)
+  if (r.c0 === 0 && r.c1 === MAX_COLS - 1) return A.deleteAt(c, 'row')
   if (r.r0 === 0 && r.r1 === MAX_ROWS - 1) return A.deleteAt(c, 'col')
-  return A.deleteAt(c, 'row')
+  set({ dialog: { kind: 'shift-cells', mode: 'delete' } })
 }
 
 // Format

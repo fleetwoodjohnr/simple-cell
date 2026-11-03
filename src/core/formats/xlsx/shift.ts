@@ -112,6 +112,8 @@ export function shiftXlsxCarry(wb: Workbook, tx: Tx, s: Shift) {
       const before = carry.files[p]
       if (!before) continue
       let after: string | null = null
+      // ponytail: drawings and note shapes move only for whole rows/columns, not for Insert/Delete Cells.
+      if (s.span && !/\/comments$/.test(r.type)) continue
       if (/\/drawing$/.test(r.type)) after = shiftAnchors(text(before), s)
       else if (/\/comments$/.test(r.type)) after = shiftComments(text(before), s)
       else if (/\/vmlDrawing$/.test(r.type)) after = shiftVml(text(before), s)

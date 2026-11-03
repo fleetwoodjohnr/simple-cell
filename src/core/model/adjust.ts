@@ -9,6 +9,11 @@ export interface Shift {
   at: number
   /** Positive: inserted; negative: deleted. */
   count: number
+  /**
+   * Insert/Delete Cells: only this band of the other axis moves (columns for a row shift). Ranges move or grow
+   * only when they lie entirely inside the band; others stay as they are (as in Excel).
+   */
+  span?: [number, number]
 }
 
 /** New [lo, hi] of an index span after the shift, or null when it is deleted entirely. */
@@ -26,6 +31,10 @@ export function shiftSpan(lo: number, hi: number, at: number, count: number): [n
 
 export function shiftArea(a: Area, s: Shift): Area | null {
   if (a.sheet !== s.sheet) return a
+  if (s.span) {
+    const [lo, hi] = s.axis === 'row' ? [a.c0, a.c1] : [a.r0, a.r1]
+    if (lo < s.span[0] || hi > s.span[1]) return a
+  }
   if (s.axis === 'row') {
     if (a.r0 === 0 && a.r1 === MAX_ROWS - 1) return a
     const r = shiftSpan(a.r0, a.r1, s.at, s.count)

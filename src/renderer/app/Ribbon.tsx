@@ -464,6 +464,7 @@ function HomeTab({ tab }: { tab: string }) {
         <Menu>
           <DropBtn icon={<BetweenHorizontalStart />} label="Insert" text="Insert" />
           <MenuContent>
+            <MenuItem shortcut={shortcutFor('edit.insertCells')} onSelect={() => runCommand('edit.insertCells')}>Insert cells…</MenuItem>
             <MenuItem onSelect={() => runCommand('edit.insertRows')}>Insert sheet rows</MenuItem>
             <MenuItem onSelect={() => runCommand('edit.insertCols')}>Insert sheet columns</MenuItem>
             <MenuItem shortcut={shortcutFor('sheet.insert')} onSelect={() => runCommand('sheet.insert')}>
@@ -474,6 +475,7 @@ function HomeTab({ tab }: { tab: string }) {
         <Menu>
           <DropBtn icon={<Trash2 />} label="Delete" text="Delete" />
           <MenuContent>
+            <MenuItem shortcut={shortcutFor('edit.deleteCells')} onSelect={() => runCommand('edit.deleteCells')}>Delete cells…</MenuItem>
             <MenuItem onSelect={() => runCommand('edit.deleteRows')}>Delete sheet rows</MenuItem>
             <MenuItem onSelect={() => runCommand('edit.deleteCols')}>Delete sheet columns</MenuItem>
           </MenuContent>

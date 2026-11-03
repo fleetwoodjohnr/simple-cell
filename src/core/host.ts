@@ -522,6 +522,12 @@ export class Host {
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
   }
+  insertCells(area: Area, dir: 'down' | 'right') {
+    return this.run(() => this.doc.insertCells(area, dir))
+  }
+  deleteCells(area: Area, dir: 'up' | 'left') {
+    return this.run(() => this.doc.deleteCells(area, dir))
+  }
   setNote(sheet: number, r: number, c: number, text: string | null, author?: string) {
     return this.run(() => this.doc.setNote(sheet, r, c, text, author))
   }

@@ -59,6 +59,8 @@ export function Dialogs() {
       return <CreateTableDialog d={d} />
     case 'note':
       return <NoteDialog />
+    case 'shift-cells':
+      return <ShiftCellsDialog mode={d.mode} />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':
@@ -196,6 +198,35 @@ function ExportWarnings({ d }: { d: Extract<Dialog, { kind: 'export-warnings' }>
       }
     >
       <WarningList title="What changes" icon={<AlertTriangle className="size-4 text-warn" />} items={d.warnings} />
+    </Modal>
+  )
+}
+
+// ---------- insert / delete cells ----------
+
+function ShiftCellsDialog({ mode }: { mode: 'insert' | 'delete' }) {
+  const c = A.ctx()
+  const r = c?.view.sel.ranges[c.view.sel.ranges.length - 1]
+  const tall = r ? r.r1 - r.r0 > r.c1 - r.c0 : false
+  const opts = mode === 'insert' ? ([['right', 'Shift cells right'], ['down', 'Shift cells down'], ['row', 'Entire row'], ['col', 'Entire column']] as const) : ([['left', 'Shift cells left'], ['up', 'Shift cells up'], ['row', 'Entire row'], ['col', 'Entire column']] as const)
+  const [choice, setChoice] = useState<string>(tall ? opts[0][0] : opts[1][0])
+  if (!c || !r) return null
+  const ok = async () => {
+    close()
+    afterDialog()
+    if (choice === 'row' || choice === 'col') return mode === 'insert' ? A.insertAt(c, choice) : A.deleteAt(c, choice)
+    const area = { sheet: c.view.sheet, ...r }
+    await A.edit(c, (b) => (mode === 'insert' ? b.api.insertCells(area, choice as 'down' | 'right') : b.api.deleteCells(area, choice as 'up' | 'left')))
+  }
+  return (
+    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title={mode === 'insert' ? 'Insert' : 'Delete'} width={300} footer={<><Btn onClick={() => (close(), afterDialog())}>Cancel</Btn><Btn variant="primary" onClick={() => void ok()}>OK</Btn></>}>
+      <div role="radiogroup" aria-label={mode === 'insert' ? 'Insert' : 'Delete'} className="space-y-1.5 text-[13px]">
+        {opts.map(([v, l]) => (
+          <label key={v} className="flex items-center gap-2">
+            <input type="radio" name="shift" checked={choice === v} onChange={() => setChoice(v)} onKeyDown={(e) => e.key === 'Enter' && void ok()} autoFocus={choice === v} /> {l}
+          </label>
+        ))}
+      </div>
     </Modal>
   )
 }
