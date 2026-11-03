@@ -17,6 +17,8 @@ import { autoFilterXml, filterColumnsXml } from './filter'
 import { tableSig } from './read'
 import { commentsXml, hyperlinksXml, notesSig, vmlHasShapes, vmlXml } from './notes'
 import { pageSetupXml } from './pagesetup'
+import { CT_CHART, CT_DRAWING, DRAWING_HEAD, REL_CHART, anchorXml, chartXml, drawingAnchors } from './charts'
+import { chartSig } from '../../charts'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -279,6 +281,8 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   }
   let tableFile = 1
   let commentFile = 1
+  let drawingFile = 1
+  let chartFile = 1
   let vmlFile = 1
   for (const sh of wb.sheets) {
     const sc = carry?.sheets[sh.id]
@@ -359,6 +363,62 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
       // Threads would no longer match the notes.
       for (const r of sheetRels.filter((x) => /\/threadedComment$/.test(x.type))) sheetRels.splice(sheetRels.indexOf(r), 1)
     }
+    // Charts: unchanged ones keep their parts; moved ones get a new anchor; new or edited ones a new chart part.
+    {
+      const dpOld = sc?.drawingPath
+      const mine = (c: (typeof sh.charts)[number]) => !!c.carry?.rid && c.carry.drawing === dpOld
+      const needAnchor = sh.charts.filter((c) => !mine(c) || c.carry!.anchorSig !== JSON.stringify(c.anchor))
+      const deleted = (sc?.chartRids ?? []).filter((rid) => !sh.charts.some((c) => mine(c) && c.carry!.rid === rid))
+      const edited = sh.charts.filter((c) => mine(c) && c.carry!.sig !== chartSig(c))
+      if (needAnchor.length || deleted.length || edited.length) {
+        let dp = dpOld
+        let dxml = dp && files[dp] ? text(files[dp]) : ''
+        let drels = dp ? parseRels(files, dp) : []
+        if (!dp || !dxml) {
+          while (files[`${dir}drawings/drawing${drawingFile}.xml`]) drawingFile++
+          dp = `${dir}drawings/drawing${drawingFile++}.xml`
+          dxml = DRAWING_HEAD + '</xdr:wsDr>'
+          drels = []
+        }
+        const drop = new Set([...deleted, ...needAnchor.filter(mine).map((c) => c.carry!.rid!)])
+        for (const a of drawingAnchors(dxml)) if (a.rid && drop.has(a.rid)) dxml = dxml.replace(a.xml, '')
+        drels = drels.filter((r) => !deleted.includes(r.id))
+        const taken = new Set(drels.map((r) => r.id))
+        let n = drawingAnchors(dxml).length
+        for (const c of sh.charts) {
+          let rid = mine(c) ? c.carry!.rid! : ''
+          let part = mine(c) ? c.carry!.part! : ''
+          if (!rid || !part) {
+            while (files[`${dir}charts/chart${chartFile}.xml`]) chartFile++
+            part = `${dir}charts/chart${chartFile++}.xml`
+            let k = 1
+            while (taken.has(`rId${k}`)) k++
+            rid = `rId${k}`
+            taken.add(rid)
+            drels.push({ id: rid, type: REL_CHART, target: relTarget(dp, part) })
+            files[part] = bytes(chartXml(c))
+          } else if (c.carry!.sig !== chartSig(c)) files[part] = bytes(chartXml(c))
+          if (needAnchor.includes(c)) {
+            n++
+            dxml = dxml.replace(/<\/(\w+:)?wsDr>\s*$/, (m) => anchorXml(c.anchor, rid, n, `Chart ${n}`) + m)
+          }
+        }
+        const dRel = sheetRels.find((r) => r.type === REL.drawing)
+        if (!drawingAnchors(dxml).length) {
+          delete files[dp]
+          if (dRel) sheetRels.splice(sheetRels.indexOf(dRel), 1)
+          extra.drawing = ''
+        } else {
+          files[dp] = bytes(dxml)
+          files[relsPath(dp)] = bytes(relsXml(drels))
+          if (!dRel) {
+            const id = sheetRid()
+            sheetRels.push({ id, type: REL.drawing, target: relTarget(path, dp) })
+            extra.drawing = `<drawing r:id="${id}"/>`
+          }
+        }
+      }
+    }
     const { xml, dynamic } = sheetXml(sh, wb, sc, styles, sharedString, sheetName, fname, tableParts, w, extra)
     if (dynamic) anyDynamic = true
     files[path] = bytes(xml)
@@ -426,6 +486,8 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   else delete overrides[ssPath]
   if (anyDynamic) overrides[metaPath] = CT.metadata
   for (const p of Object.keys(files)) if (/\/tables\/table\d+\.xml$/.test(p)) overrides[p] = CT.table
+  for (const p of Object.keys(files)) if (/\/charts\/chart\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_CHART
+  for (const p of Object.keys(files)) if (/\/drawings\/drawing\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_DRAWING
   for (const p of Object.keys(files)) if (/\/comments\d*\.xml$/.test(p)) overrides[p] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml'
   if (Object.keys(files).some((p) => p.endsWith('.vml'))) defaults.vml = 'application/vnd.openxmlformats-officedocument.vmlDrawing'
   overrides['docProps/app.xml'] = CT.app

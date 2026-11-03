@@ -19,6 +19,7 @@ import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
 import { PrintDialog } from './Print'
+import { ChartDialog } from './Charts'
 import type { GoToKind, PasteSpecialOptions } from '@/core/doc'
 
 const close = () => set({ dialog: null })
@@ -69,6 +70,8 @@ export function Dialogs() {
       return <GoToSpecialDialog />
     case 'print':
       return <PrintDialog />
+    case 'chart':
+      return <ChartDialog d={d} />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':

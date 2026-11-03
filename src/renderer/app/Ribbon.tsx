@@ -78,6 +78,7 @@ import { useBookVersion } from './hooks'
 import { CondFormatMenuItems } from './CondFormat'
 import { CellStylesButton } from './CellStyles'
 import { PAPER } from '@/core/print'
+import { CHART_TYPES, ChartTypeIcon, insertChart } from './Charts'
 import { StyleGallery, StyleSwatch, openCreateTable, useActiveTable } from './Tables'
 import type { Style, BorderStyle } from '@/core/model/styles'
 
@@ -617,6 +618,22 @@ function InsertTab() {
     <>
       <Group label="Tables">
         <Cmd id="data.table" label="Table" text="Table" icon={<Table2 />} />
+      </Group>
+      <Sep />
+      <Group label="Charts">
+        {CHART_TYPES.map(([t, label]) => (
+          <button
+            key={t}
+            type="button"
+            aria-label={`Insert ${label.toLowerCase()} chart`}
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => void insertChart(t)}
+            className={cx('flex shrink-0 flex-col items-center justify-center gap-1 rounded-md px-1.5 text-[11.5px] text-text-2 hover:bg-hover hover:text-text', expandedLayout ? 'h-[58px] min-w-[46px] [&>svg]:size-5' : 'h-7 [&>svg]:size-4')}
+          >
+            <ChartTypeIcon type={t} />
+            {expandedLayout && <span className="leading-tight">{label}</span>}
+          </button>
+        ))}
       </Group>
       <Sep />
       <Group label="Cells">

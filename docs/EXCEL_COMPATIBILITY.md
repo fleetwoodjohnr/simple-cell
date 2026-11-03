@@ -22,11 +22,11 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Editing | 🟡 | Insert/Delete Cells with a shift, Paste Special (all kinds, operations, skip blanks, transpose) ✅; Go To Special ✅; Flash Fill 🟡 (words, initials, delimiters, case, joins; not digits inside numbers); grouping/outline ✅ (Auto Outline and Data ▸ Subtotal 📋) |
 | Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
 | PivotTables | 📋 | |
-| Charts | 📋 | |
+| Charts | 🟡 | Column, bar, line, area, pie, doughnut, scatter (clustered, stacked, 100%) ✅ shown, created, edited and saved; other types kept 🔒; sparklines 📋 |
 | Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
 | Automation | 📋 | |
 | Data connectors | 📋 | |
-| Printing and PDF | 🟡 | Page setup, print area/titles, breaks, headers/footers, fit to page, preview, PDF ✅; charts/pictures on printed pages 📋 |
+| Printing and PDF | 🟡 | Page setup, print area/titles, breaks, headers/footers, fit to page, preview, PDF, charts on pages ✅; pictures on printed pages 📋 |
 
 ## Calculation semantics
 
@@ -122,4 +122,4 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | ✅ | Save as PDF from the Print dialog (text stays selectable) |
-| Charts, pictures, shapes, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |
+| Pictures, shapes, PivotTables, chart types other than the seven drawn | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

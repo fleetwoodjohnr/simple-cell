@@ -15,6 +15,7 @@ import { readValidations } from './validation'
 import { readAutoFilter, readFilterColumns } from './filter'
 import { notesSig, readComments, readHyperlinks } from './notes'
 import { PAGE_ELEMENTS, readPageSetup } from './pagesetup'
+import { drawingAnchors, readAnchors, readChart } from './charts'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -49,6 +50,9 @@ export interface SheetCarry {
   commentsPath?: string
   vmlPath?: string
   notesSig?: string
+  /** The sheet's drawing part and the chart relationships in it that became model charts. */
+  drawingPath?: string
+  chartRids?: string[]
 }
 
 const INDEXED = ['000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080', '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF', '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF', '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99', '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99', '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696', '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333']
@@ -512,11 +516,38 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     }
   })
   if (!sc.elements.some((e) => e.name === 'hyperlinks')) sc.rels = sc.rels.filter((r) => r.type !== REL.hyperlink)
+  // Charts in the sheet's drawing.
+  let unshown = 0
+  const dEl = sc.elements.find((e) => e.name === 'drawing')
+  const dRel = dEl ? rels.find((r) => r.id === /r:id="([^"]+)"/.exec(dEl.xml)?.[1]) : undefined
+  if (dRel) {
+    const dp = resolveTarget(path, dRel.target)
+    sc.drawingPath = dp
+    sc.chartRids = []
+    const dxml = ctx.files[dp] ? text(ctx.files[dp]) : ''
+    const drels = parseRels(ctx.files, dp)
+    try {
+      const found = readAnchors(dxml)
+      for (const { rid, anchor } of found) {
+        const rel = drels.find((r) => r.id === rid)
+        const part = rel ? resolveTarget(dp, rel.target) : ''
+        const chart = part && ctx.files[part] ? readChart(text(ctx.files[part]), anchor, { part, drawing: dp, rid }) : null
+        if (chart) {
+          sh.charts.push(chart)
+          sc.chartRids.push(rid)
+          if (chart.carry?.note === 'combo') ctx.w.add('info', 'Combination charts are shown with their first chart type; they are saved as they are unless you edit them.')
+        }
+      }
+      unshown = drawingAnchors(dxml).length - sc.chartRids.length
+    } catch {
+      unshown = 1
+    }
+  }
   const kinds = new Set(sc.elements.map((e) => e.name))
   if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Some conditional formats could not be read; they are kept and saved, but not shown.')
   if (sc.elements.some((e) => e.name === 'extLst' && /<x14:cfRule\b(?![^>]*type="dataBar")/.test(e.xml))) ctx.w.add('info', 'Some conditional formats from newer Excel versions are kept and saved, but not shown.')
   if (kinds.has('dataValidations')) ctx.w.add('info', 'Some data validation rules could not be read; they are kept and saved, but not enforced.')
-  if (kinds.has('drawing')) ctx.w.add('loss', 'Charts, pictures and shapes are kept and saved, but not shown yet.')
+  if (kinds.has('drawing') && unshown > 0) ctx.w.add('loss', 'Pictures, shapes and some charts are kept and saved, but not shown yet.')
   if (kinds.has('sheetProtection')) ctx.w.add('info', 'Sheet protection is kept in the file, but Simple Cell doesn’t enforce it yet.')
   for (const e of top) {
     if (e.name === 'sheetPr') {

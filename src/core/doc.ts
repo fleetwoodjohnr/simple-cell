@@ -18,6 +18,8 @@ import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './
 import { tableCellStyle } from './tablestyle'
 import { learn, run as runProgram } from './flashfill'
 import { paginate, type PageSetup, type PrintJob } from './print'
+import { chartSig, newChartId, plotNumber, seriesFromRange, type Chart, type ChartData, type ChartType } from './charts'
+import { evaluate } from './engine/evaluate'
 import type { Link, Note, Table } from './model/workbook'
 
 setDateParser((s) => parseDateTime(s))
@@ -598,6 +600,101 @@ export class Doc {
     return todo.length
   }
 
+  // ---------- charts ----------
+
+  /** Insert a chart of a range (Insert ▸ Chart, Alt+F1): Excel's choice of series, placed beside the data. */
+  addChartFromRange(sheet: number, area: Area, type: ChartType = 'column'): number {
+    const sh = this.sheet(sheet)
+    const text = (r: number, c: number) => this.display(sheet, r, c)?.t ?? ''
+    const isNum = (r: number, c: number) => typeof sh.get(r, c)?.v === 'number'
+    let numbers = false
+    sh.forEachIn(area, (_r, _c, cell) => {
+      if (typeof cell.v === 'number') numbers = true
+    })
+    const series = numbers ? seriesFromRange(area, sh.name, text, isNum) : []
+    if (!series.length) throw new Error('Select the data to chart first: a range with numbers.')
+    // About 480 × 288 px, starting two columns right of the data.
+    const c0 = area.c1 + 2
+    let c1 = c0
+    for (let w = 0; w < 480 && c1 < MAX_COLS - 1; c1++) w += sh.colWidth(c1) || 0
+    let r1 = area.r0
+    for (let h = 0; h < 288 && r1 < MAX_ROWS - 1; r1++) h += sh.rowHeight(r1) || 0
+    const chart: Chart = { id: newChartId(), type, grouping: 'clustered', series, legend: series.length > 1 || type === 'pie' || type === 'doughnut' ? 'right' : 'none', anchor: { r0: area.r0, c0, dx0: 0, dy0: 0, r1, c1, dx1: 0, dy1: 0 } }
+    this.transact('Insert chart', (tx) => tx.prop(sh, 'charts', [...sh.charts, chart]))
+    return chart.id
+  }
+
+  updateChart(sheet: number, id: number, patch: Partial<Omit<Chart, 'id'>>) {
+    const sh = this.sheet(sheet)
+    if (!sh.charts.some((c) => c.id === id)) throw new Error('That chart is no longer there.')
+    // Values and categories must be references (a union of ranges is fine); names may also be text in quotes.
+    const isRef = (n: Node): boolean => n.t === 'ref' || (n.t === 'bin' && n.op === ',' && isRef(n.a) && isRef(n.b))
+    for (const s of patch.series ?? [])
+      for (const [f, what] of [[s.val, 'values'], [s.cat, 'categories'], [s.name, 'name']] as const) {
+        if (!f || (what === 'name' && /^".*"$/.test(f.trim()))) continue
+        let ok = false
+        try {
+          ok = isRef(this.engine.parseAt(f, sheet, 0, 0))
+        } catch {
+          ok = false
+        }
+        if (!ok) throw new Error(`The series ${what} “${f}” isn’t a reference such as Sheet1!$B$2:$B$10.`)
+      }
+    return this.transact(patch.anchor && Object.keys(patch).length === 1 ? 'Move chart' : 'Chart', (tx) => tx.prop(sh, 'charts', sh.charts.map((c) => (c.id === id ? { ...c, ...patch } : c))))
+  }
+
+  deleteChart(sheet: number, id: number) {
+    const sh = this.sheet(sheet)
+    return this.transact('Delete chart', (tx) => tx.prop(sh, 'charts', sh.charts.filter((c) => c.id !== id)))
+  }
+
+  /** The values a chart plots: categories as shown, series values as numbers (gaps for text and blanks). */
+  chartData(sheet: number, id: number): ChartData | null {
+    const chart = this.sheet(sheet).charts.find((c) => c.id === id)
+    if (!chart) return null
+    const cells = (f: string | undefined): { v: Scalar; t: string }[] => {
+      if (!f) return []
+      try {
+        const ast = this.engine.parseAt(f, sheet, 0, 0)
+        const v = evaluate(ast, this.engine.contextAt(sheet, 0, 0))
+        if (v && typeof v === 'object' && 'kind' in v && v.kind === 'ref') {
+          const out: { v: Scalar; t: string }[] = []
+          for (const a of v.areas) {
+            const sh = this.wb.sheetById(a.sheet)
+            if (!sh) continue
+            this.engine.ensure(a)
+            // ponytail: a chart plots at most 10,000 points per series.
+            for (let r = a.r0; r <= a.r1 && out.length < 10_000; r++)
+              for (let c = a.c0; c <= a.c1; c++) {
+                if (sh.rowInfo.get(r)?.hidden || sh.cols.get(c)?.hidden) continue // hidden cells aren't plotted (Excel's default)
+                out.push({ v: sh.get(r, c)?.v ?? null, t: this.display(a.sheet, r, c)?.t ?? '' })
+              }
+          }
+          return out
+        }
+        const s = v && typeof v === 'object' && 'kind' in v ? null : (v as Scalar)
+        return [{ v: s, t: s === null ? '' : String(s instanceof CellError ? s.code : s) }]
+      } catch {
+        return []
+      }
+    }
+    const first = chart.series[0]
+    const catCells = cells(first?.cat)
+    const n = Math.max(0, ...chart.series.map((s) => cells(s.val).length))
+    const categories = catCells.length ? catCells.map((x) => x.t) : Array.from({ length: n }, (_, i) => String(i + 1))
+    return {
+      categories,
+      series: chart.series.map((s, i) => {
+        const name = s.name ? cells(s.name).map((x) => x.t).join(' ') : `Series${i + 1}`
+        const values = cells(s.val).map((x) => plotNumber(x.v))
+        const out: ChartData['series'][number] = { name, values }
+        if (chart.type === 'scatter') out.x = cells(s.cat).map((x) => plotNumber(x.v))
+        if (s.color) out.color = s.color
+        return out
+      })
+    }
+  }
+
   // ---------- printing ----------
 
   /** The sheet's print area (_xlnm.Print_Area) and print titles (_xlnm.Print_Titles), if set. */
@@ -624,8 +721,11 @@ export class Doc {
     const u = sh.used()
     let a = area ?? names.area
     if (!a) {
-      if (u.r < 0) return null
-      a = { sheet, r0: 0, c0: 0, r1: u.r, c1: u.c }
+      // The used range, grown to take in the charts (as Excel prints them).
+      const r1 = Math.max(u.r, ...sh.charts.map((c) => c.anchor.r1))
+      const c1 = Math.max(u.c, ...sh.charts.map((c) => c.anchor.c1))
+      if (r1 < 0) return null
+      a = { sheet, r0: 0, c0: 0, r1, c1: Math.max(0, c1) }
     }
     return paginate(sh, sh.pageSetup, a, names.titles)
   }
@@ -933,6 +1033,38 @@ export class Doc {
       if (t.sheet !== sh.id) continue
       const a = shiftArea(t.area, s)
       if (a) tx.prop(t, 'area', a)
+    }
+    // Charts: series references follow (on every sheet), and charts on this sheet move with the cells under them.
+    for (const o of this.wb.sheets) {
+      if (!o.charts.length) continue
+      const fix = (f: string | undefined) => {
+        if (!f || /^".*"$/.test(f.trim())) return f
+        try {
+          const ast = this.engine.parseAt(f, o.id, 0, 0)
+          const next = adjustFormula(ast, o.id, { row: 0, col: 0 }, { row: 0, col: 0 }, s)
+          return next === ast ? f : printFormula(next, { row: 0, col: 0, sheetName: this.sheetName })
+        } catch {
+          return f
+        }
+      }
+      const charts = o.charts.map((ch) => {
+        let anchor = ch.anchor
+        if (o.id === sh.id && !s.span) {
+          const move = (i: number) => (s.count > 0 ? (i >= s.at ? i + s.count : i) : i > delEnd ? i + s.count : i >= s.at ? s.at : i)
+          anchor = isRow ? { ...anchor, r0: move(anchor.r0), r1: Math.max(move(anchor.r0), move(anchor.r1)) } : { ...anchor, c0: move(anchor.c0), c1: Math.max(move(anchor.c0), move(anchor.c1)) }
+        }
+        const series = ch.series.map((x) => ({ ...x, val: fix(x.val)!, cat: fix(x.cat), name: fix(x.name) }))
+        const next: Chart = { ...ch, anchor, series }
+        // The XLSX shifter makes the same change to the kept chart part and drawing: they stay "unchanged".
+        if (ch.carry && this.carryShifters.xlsx) {
+          const carry = { ...ch.carry }
+          if (carry.sig === chartSig(ch)) carry.sig = chartSig(next)
+          if (carry.anchorSig === JSON.stringify(ch.anchor) && !s.span) carry.anchorSig = JSON.stringify(anchor)
+          next.carry = carry
+        }
+        return next
+      })
+      if (JSON.stringify(charts) !== JSON.stringify(o.charts)) tx.prop(o, 'charts', charts)
     }
     // Notes and hyperlinks move with their cells; those on deleted cells go.
     for (const m of [sh.notes, sh.links] as Map<number, unknown>[]) {

@@ -39,6 +39,7 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Select direct precedents | `Ctrl+[` | `⌘[` |  |
 | Select direct dependents | `Ctrl+]` | `⌘]` |  |
 | Expand or collapse the formula bar | `Ctrl+Shift+U` | `⌃⇧U` | same |
+| Insert chart | `Alt+F1` | `⌥F1` |  |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |
@@ -113,7 +114,6 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Cycle the reference at the cursor through absolute/relative | `F4` | `⌘T` | ✅ |
 | Point mode: insert and move a cell reference | `Arrow keys (in a formula)` | `Arrow keys (in a formula)` | ✅ |
 | Point mode: extend the inserted reference to a range | `Shift+Arrow (in a formula)` | `⇧Arrow (in a formula)` | ✅ |
-| Insert a chart of the current data | `Alt+F1` | `⌥F1` | Planned |
 | Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names | `Alt (ribbon KeyTips)` | `Alt (ribbon KeyTips)` | ✅ |
 
 ## Reserved by the operating system

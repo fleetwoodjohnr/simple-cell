@@ -6,6 +6,7 @@ import type { DvAlert } from './validation'
 import type { FilterColumn } from './filter'
 import type { Link } from './model/workbook'
 import type { PageSetup } from './print'
+import type { Chart, ChartType } from './charts'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -47,6 +48,7 @@ export interface SheetMeta {
   /** Outline (group) levels by row / column index. */
   outlineRows: [number, number][]
   outlineCols: [number, number][]
+  charts: Omit<Chart, 'carry'>[]
 }
 
 export interface WorkbookMeta {
@@ -185,7 +187,8 @@ export class Host {
       cf: s.condFormats.length > 0,
       filters: this.doc.filtersOn(s.id),
       outlineRows,
-      outlineCols
+      outlineCols,
+      charts: s.charts.map(({ carry: _c, ...c }) => c)
     }
   }
 
@@ -548,6 +551,22 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  addChartFromRange(sheet: number, area: Area, type?: ChartType): { ok: true; id: number } | { ok: false; error: string } {
+    try {
+      return { ok: true, id: this.doc.addChartFromRange(sheet, area, type) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+  updateChart(sheet: number, id: number, patch: Partial<Omit<Chart, 'id'>>) {
+    return this.run(() => this.doc.updateChart(sheet, id, patch))
+  }
+  deleteChart(sheet: number, id: number) {
+    return this.run(() => this.doc.deleteChart(sheet, id))
+  }
+  chartData(sheet: number, id: number) {
+    return this.doc.chartData(sheet, id)
   }
   printJob(sheet: number, area?: Area) {
     return this.doc.printJob(sheet, area)

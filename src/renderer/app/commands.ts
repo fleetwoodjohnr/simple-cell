@@ -4,6 +4,7 @@ import { areasOf } from '../state/view'
 import { openCreateTable, toggleFilter } from './Tables'
 import { keyTipsKeydown } from './KeyTips'
 import { runPrint } from './Print'
+import { insertChart } from './Charts'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -526,6 +527,7 @@ async function selectTrace(c: A.Ctx, which: 'precedents' | 'dependents') {
 }
 def({ id: 'select.precedents', label: 'Select direct precedents', run: (c) => selectTrace(needsSelection(c), 'precedents') })
 def({ id: 'select.dependents', label: 'Select direct dependents', run: (c) => selectTrace(needsSelection(c), 'dependents') })
+def({ id: 'insert.chart', label: 'Insert chart', keywords: 'graph plot column bar line pie', run: (c) => (needsSelection(c), void insertChart('column')) })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

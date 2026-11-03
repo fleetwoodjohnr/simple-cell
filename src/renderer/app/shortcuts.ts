@@ -58,6 +58,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { command: 'select.precedents', win: ['Mod-['], mac: ['Mod-['], sheets: [], context: 'grid' },
   { command: 'select.dependents', win: ['Mod-]'], mac: ['Mod-]'], sheets: [], context: 'grid' },
   { command: 'view.formulaBarTall', win: ['Mod-Shift-u'], mac: ['Ctrl-Shift-u'], context: 'global' },
+  { command: 'insert.chart', win: ['Alt-F1'], mac: ['Alt-F1'], sheets: [], context: 'grid' },
   { command: 'insert.link', win: ['Mod-k'], mac: ['Mod-k'], context: 'grid' },
   { command: 'insert.note', win: ['Shift-F2'], mac: ['Shift-F2'], context: 'grid' },
   { command: 'data.table', win: ['Mod-t', 'Mod-l'], mac: ['Mod-t'], context: 'grid' },
@@ -134,7 +135,6 @@ export const BUILTIN: BuiltinShortcut[] = [
   { keys: 'F4', mac: 'Mod-t', action: 'Cycle the reference at the cursor through absolute/relative', context: 'editing', status: 'done' },
   { keys: 'Arrow keys (in a formula)', action: 'Point mode: insert and move a cell reference', context: 'editing', status: 'done' },
   { keys: 'Shift-Arrow (in a formula)', action: 'Point mode: extend the inserted reference to a range', context: 'editing', status: 'done' },
-  { keys: 'Alt-F1', action: 'Insert a chart of the current data', context: 'grid', status: 'planned' },
   { keys: 'Alt (ribbon KeyTips)', action: 'Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names', context: 'global', status: 'done' }
 ]
 

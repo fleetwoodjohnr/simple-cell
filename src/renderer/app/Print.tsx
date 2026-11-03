@@ -6,6 +6,8 @@ import { create } from 'zustand'
 import type { ViewCell } from '@/core/doc'
 import type { SheetMeta } from '@/core/host'
 import type { PageSetup, PrintJob, PrintPage } from '@/core/print'
+import type { ChartAnchor } from '@/core/charts'
+import { chartSvg } from './Charts'
 import { PAPER, headerFooterText } from '@/core/print'
 import type { Area } from '@/core/engine/values'
 import type { BorderSide, Style } from '@/core/model/styles'
@@ -21,6 +23,8 @@ interface Prepared {
   meta: SheetMeta
   name: string
   cells: Map<number, ViewCell>
+  /** Charts on the sheet as SVG data URLs, by id. */
+  charts: Map<number, string>
 }
 
 const usePrint = create<{ docs: Prepared[] | null }>(() => ({ docs: null }))
@@ -46,9 +50,27 @@ export async function preparePrint(book: Book, tab: string, scope: PrintScope): 
       const list = await book.api.viewport(id, Math.min(...rows), Math.max(...rows), Math.min(...cols), Math.max(...cols))
       for (const v of list) cells.set(v.r * 16384 + v.c, v)
     }
-    out.push({ job, meta, name: meta.name, cells })
+    const charts = new Map<number, string>()
+    for (const ch of meta.charts) {
+      const data = await book.api.chartData(id, ch.id)
+      if (!data) continue
+      const w = anchorSize(meta, ch.anchor)
+      charts.set(ch.id, 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(chartSvg(ch, data, Math.round(w.w), Math.round(w.h))))
+    }
+    out.push({ job, meta, name: meta.name, cells, charts })
   }
   return out
+}
+
+/** A chart anchor's size in pixels (hidden rows/columns count as 0). */
+function anchorSize(meta: SheetMeta, a: ChartAnchor) {
+  const colW = sizeOf(meta.cols, meta.defaultColWidth)
+  const rowH = sizeOf(meta.rows, meta.defaultRowHeight)
+  let w = a.dx1 - a.dx0
+  for (let c = a.c0; c < a.c1; c++) w += colW(c)
+  let h = a.dy1 - a.dy0
+  for (let r = a.r0; r < a.r1; r++) h += rowH(r)
+  return { w: Math.max(40, w), h: Math.max(30, h) }
 }
 
 const sizeOf = (list: [number, number][], dflt: number) => {
@@ -119,6 +141,12 @@ export function PageView({ p, page, total, styles, defaultFont, defaultSize, fil
               ))}
             </>
           )}
+          {meta.charts
+            .filter((ch) => xs.has(ch.anchor.c0) && ys.has(ch.anchor.r0) && p.charts.has(ch.id))
+            .map((ch) => {
+              const sz = anchorSize(meta, ch.anchor)
+              return <img key={`chart${ch.id}`} alt={ch.title ?? 'Chart'} src={p.charts.get(ch.id)} className="absolute z-[1]" style={{ left: xs.get(ch.anchor.c0)! + ch.anchor.dx0, top: ys.get(ch.anchor.r0)! + ch.anchor.dy0, width: sz.w, height: sz.h }} />
+            })}
           {rows.flatMap((r) =>
             cols.map((c) => {
               const k = r * 16384 + c
@@ -201,6 +229,8 @@ export async function runPrint(mode: 'pdf' | 'print', scope: PrintScope) {
   usePrint.setState({ docs })
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
   await document.fonts.ready
+  // Charts are images: wait until they are decoded.
+  await Promise.all([...document.querySelectorAll<HTMLImageElement>('.print-host img')].map((i) => i.decode().catch(() => undefined)))
   try {
     if (mode === 'print') {
       await window.simpleCell.print()

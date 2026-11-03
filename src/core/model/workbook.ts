@@ -6,6 +6,7 @@ import type { CondFormat } from '../condfmt'
 import type { DataValidation } from '../validation'
 import type { AutoFilter, FilterColumn } from '../filter'
 import { defaultPageSetup, type PageSetup } from '../print'
+import type { Chart } from '../charts'
 
 export interface Formula {
   /** Parsed formula; references are relative to the cell (shared by every cell a formula was filled into). */
@@ -117,6 +118,8 @@ export class Sheet {
   /** Notes and hyperlinks by cell (key r * 16384 + c). */
   notes = new Map<number, Note>()
   links = new Map<number, Link>()
+  /** Charts drawn over the sheet. */
+  charts: Chart[] = []
   /** Page Layout: paper, margins, scaling, headers and footers, breaks. */
   pageSetup: PageSetup = defaultPageSetup()
   /** The sheet's AutoFilter (Ctrl+Shift+L), separate from tables' filters. */

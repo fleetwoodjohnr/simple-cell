@@ -46,6 +46,8 @@ export interface TabView {
   filterMenu?: { key: string; col: number }
   /** Format Painter: formats to apply to the next selection. */
   painter?: { area: Area; sticky: boolean }
+  /** The selected chart (its id), when a chart rather than cells has the focus. */
+  chart?: number
 }
 
 export const rectOf = (a: { r: number; c: number }, b: { r: number; c: number }): Rect => ({ r0: Math.min(a.r, b.r), c0: Math.min(a.c, b.c), r1: Math.max(a.r, b.r), c1: Math.max(a.c, b.c) })

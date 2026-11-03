@@ -133,7 +133,9 @@ describe('XLSX', () => {
     const bytes = zipSync(files)
     const h = await Host.open(bytes, 'xlsm')
     expect(h.warnings.some((w) => /VBA macros/.test(w.message))).toBe(true)
-    expect(h.warnings.some((w) => /Charts, pictures and shapes are kept/.test(w.message))).toBe(true)
+    // The bar chart in the drawing is now shown; nothing else in the drawing goes unshown.
+    expect(h.doc.wb.sheets[0].charts.map((c) => [c.type, c.series[0].val])).toEqual([['column', 'Sheet1!$A$1:$A$2']])
+    expect(h.warnings.some((w) => /are kept and saved, but not shown/.test(w.message) && /Pictures/.test(w.message))).toBe(false)
     h.doc.input(h.doc.wb.sheets[0].id, 1, 0, '5')
     const out = unzipSync((await h.save('xlsm')).data)
     const names = Object.keys(out)

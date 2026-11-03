@@ -20,6 +20,7 @@ src/core/        The document core: pure TypeScript with no DOM and no UI. It ru
                  translation), csv, json, html, xml2003; registry.ts picks the adapter by format
   doc.ts         Transactions (every edit is undoable), typed input, structure edits, copy/fill
   host.ts        Everything the UI can ask of an open workbook; worker.ts exposes it over postMessage
+src/renderer/app/Charts.tsx  ECharts adapter: chart option builder, on-grid chart overlay, editor; SVG for printing
 src/grid/        Canvas grid: layout (axis.ts, layout.ts), painting (paint.ts), interaction (Grid.tsx, keys.ts)
 src/renderer/    React UI: title bar, ribbon, formula bar, sheet tabs, status bar, dialogs, command registry
 tests/           unit/ (vitest, against the core) · e2e/ (Playwright drives the real Electron app)
@@ -77,4 +78,5 @@ A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled rang
 | Inter (UI font); Carlito, Liberation Sans/Serif/Mono (bundled metric-compatible fonts) | SIL OFL 1.1 |
 | Caladea (bundled) | Apache-2.0 |
 | electron-updater | MIT |
+| Apache ECharts (charts) | Apache-2.0 |
 | LibreOffice (optional, not bundled; used for XLS/XLSB) | MPL-2.0 |
