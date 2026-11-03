@@ -30,6 +30,7 @@
 - **Styles.** Fonts, fills, borders, alignment, wrap, rotation, indent, protection flags, number formats (built-in and custom) and theme colours with tint.
 - **Layout.** Column widths, row heights, hidden rows and columns, merged cells, frozen panes, gridlines, zoom, and the active sheet.
 - **Names and tables.** Defined names at workbook and sheet scope, and hidden and very-hidden sheets. Tables keep their name, columns, total row, style options and filter criteria. A table Simple Cell didn't change is written back exactly as it was read; a changed table is regenerated, and its extension elements are dropped.
+- **Notes and hyperlinks.** Notes are read from Excel's legacy comments part and shown. A sheet whose notes change gets a new comments part and VML shapes; shapes that aren't notes, such as form controls, are kept. Threaded comments (Excel 365) are shown through their legacy note copy; changing a sheet's notes turns its threads into notes, with a warning. Hyperlinks are read and written, both external addresses (stored as relationships) and places in the workbook. Tested: unit `notes` (3 tests, one with LibreOffice reading the result).
 - **AutoFilter.** Value lists, blanks, custom conditions and top 10 are read, applied and written, for sheets and tables. Other filter kinds are kept as they are but not re-applied: date grouping, colour, icon and dynamic filters. Excel's hidden `_FilterDatabase` name is regenerated. Tested: unit `xlsx › tables and filters…`, which includes LibreOffice reading the result.
 - **Conditional formatting.** Every rule type of the main schema is read, shown and written back: cell value, formula, top/bottom, above/below average, duplicate/unique, text, dates, blanks/errors, colour scales, data bars and icon sets. Differential formats keep their original indexes, which tables and PivotTables also use. The Excel 2010 data-bar extensions stay linked to their rules. Tested: unit `xlsx › conditional formatting…` (3 tests, one with LibreOffice reading the result).
 - **Data validation.** Every rule type (whole number, decimal, list, date, time, text length, custom) with its operator, formulas, input message and error alert. Tested: unit `xlsx › data validation…`, which includes LibreOffice reading the result.
@@ -37,7 +38,7 @@
 ### Kept unchanged (not yet shown or editable)
 
 Simple Cell keeps every part and element of the file it doesn't understand, and writes them back in schema order. Examples:
-- Charts, pictures and shapes; comments and notes.
+- Charts, pictures and shapes; threaded comment parts (until the sheet's notes change).
 - Conditional formats and data validation that exist only in the Excel 2010 extension list (for example icon sets with custom icons, or lists that refer to other sheets in old files), and hyperlinks.
 - Sheet protection, sort state, page setup.
 - PivotTables and their caches, external links.
@@ -46,7 +47,7 @@ Simple Cell keeps every part and element of the file it doesn't understand, and 
 When the file is opened, its compatibility notes list what was kept but not shown.
 
 When you insert or delete rows or columns, the ranges inside kept content are adjusted, and undo restores them. This covers:
-- Hyperlinks and other `sqref`/`ref` ranges. Conditional formats and data validation are part of the model, so they move like cells.
+- Other `sqref`/`ref` ranges. Conditional formats, data validation, notes and hyperlinks are part of the model, so they move like cells.
 - Drawing anchors, comment positions and note anchors.
 - Chart series formulas in every chart in the workbook.
 
@@ -57,7 +58,7 @@ Tested: unit `xlsx › keeps parts and elements…`.
 | Situation | What happens |
 |---|---|
 | Saving a workbook with macros as .xlsx | Warned; the VBA project is removed (as Excel does). Save as .xlsm to keep it. |
-| PivotTables, charts, comments… | Kept and saved; the open notes say they aren't shown or editable yet |
+| PivotTables, charts, pictures… | Kept and saved; the open notes say they aren't shown or editable yet |
 | "Precision as displayed" | Kept; Simple Cell calculates with full precision (noted on open) |
 | Links to other workbooks | Kept; formulas using them show the saved values |
 | Formulas that can't be parsed | Kept as values, with a warning |
@@ -86,7 +87,7 @@ Tested: unit `xlsx › keeps parts and elements…`.
 
 The following are written back as they were:
 - Shapes, pictures and embedded charts (the `Pictures/` and `Object N/` entries).
-- Conditional formats, content validations, comments and forms.
+- Conditional formats, content validations and forms. Annotations (notes) and text links are read into the model and written back from it.
 - `styles.xml` and `meta.xml`, apart from the date and generator.
 
 Tested: unit `ods › keeps shapes, pictures…`.

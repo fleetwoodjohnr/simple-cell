@@ -17,6 +17,7 @@ import { guessHeader, currentRegion } from './commands'
 import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
+import { LinkDialog, NoteDialog } from './Notes'
 
 const close = () => set({ dialog: null })
 
@@ -56,6 +57,10 @@ export function Dialogs() {
       return <ValidationDialog />
     case 'create-table':
       return <CreateTableDialog d={d} />
+    case 'note':
+      return <NoteDialog />
+    case 'link':
+      return <LinkDialog d={d} />
     case 'dv-alert':
       return <ValidationAlert d={d} />
     case 'row-height':

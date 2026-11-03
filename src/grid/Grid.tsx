@@ -2,6 +2,7 @@
 // keyboard (invisible over the active cell until you type, then it becomes the in-cell editor).
 import { ValidationOverlay } from '@/renderer/app/Validation'
 import { FilterOverlay } from '@/renderer/app/Tables'
+import { NotesOverlay, reportHover } from '@/renderer/app/Notes'
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react'
 import { useShallow } from 'zustand/react/shallow'
 import { MAX_COLS, MAX_ROWS } from '@/core/engine/values'
@@ -299,6 +300,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
     if (!d) {
       // Cursor hints
       const h = hit(L, x, y)
+      if (h.zone === 'cell') reportHover(tab, h.r, h.c)
       const cur = h.zone === 'colhdr' && nearEdge(L, x, 'col') !== null ? 'col-resize' : h.zone === 'rowhdr' && nearEdge(L, y, 'row') !== null ? 'row-resize' : h.zone === 'colhdr' ? 's-resize' : h.zone === 'rowhdr' ? 'e-resize' : 'cell'
       el.style.cursor = cur === 'cell' ? (nearFillHandle(L, x, y) ? 'crosshair' : 'cell') : cur
       return
@@ -427,7 +429,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
         textAlign: 'left',
         zIndex: 5
       }
-    } else editorStyle = { left: x0, top: y0, width: Math.max(4, w), height: Math.max(4, h), opacity: 0, zIndex: 1 }
+    } else editorStyle = { left: x0, top: y0, width: Math.max(4, w), height: Math.max(4, h), opacity: 0, zIndex: 1, pointerEvents: 'none' }
   }
 
   return (
@@ -499,6 +501,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
         }}
       />
       {L && <FilterOverlay tab={tab} book={book} L={L} />}
+      {L && <NotesOverlay tab={tab} book={book} L={L} />}
       {L && <ValidationOverlay tab={tab} book={book} L={L} />}
       {guide && <div className="pointer-events-none absolute z-10 bg-accent" style={guide.x !== undefined ? { left: guide.x, top: 0, width: 1, height: '100%' } : { top: guide.y, left: 0, height: 1, width: '100%' }} />}
       <LiveRegion tab={tab} />

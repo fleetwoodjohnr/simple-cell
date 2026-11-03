@@ -93,6 +93,17 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Filter by colour, by date groups (year/month), dynamic date filters | 🔒 | Kept from files and saved; not applied by Simple Cell |
 | Calculated columns, auto-expanding tables, slicers | 📋 | |
 
+## Notes and hyperlinks
+
+| Feature | Status | Notes |
+|---|---|---|
+| Notes: new/edit (Shift+F2, context menu), delete, red corner marker, shown on hover | ✅ | Edited in a dialog rather than in place |
+| Notes follow inserted/deleted rows and columns; Clear All removes them | ✅ | Copying or sorting cells doesn't carry notes yet |
+| Threaded comments (Excel 365) | 🟡 | Shown as notes; replies can't be added |
+| Hyperlinks: insert/edit (Ctrl+K), web, email and in-workbook addresses, ScreenTip, remove | ✅ | Excel's blue underlined style is applied to new links |
+| Following links | ✅ | From the link chip under the selected cell. Only http, https and mailto addresses open outside the app; places in the workbook are selected |
+| HYPERLINK() function | ✅ | Calculates its display value; clicking it is 📋 |
+
 ## Keyboard shortcuts
 
 See [SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md) for the full list. Shortcuts follow Excel for Windows, and Excel for Mac on macOS. A Google Sheets preset changes the shortcuts that differ. Every shortcut can be rebound. Conflicting bindings are detected in the shortcut dialog and in a unit test of the registry.
@@ -110,4 +121,4 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | 📋 | M5 |
-| Charts, pictures, shapes, comments, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |
+| Charts, pictures, shapes, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

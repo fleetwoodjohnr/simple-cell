@@ -31,6 +31,21 @@ export interface Cell {
   rich?: unknown
 }
 
+/** A note (Excel's classic comment). */
+export interface Note {
+  author: string
+  text: string
+  /** File details kept while the note is unchanged (rich text runs, shape). */
+  carry?: Record<string, string>
+}
+
+/** A hyperlink: an address outside the workbook, or a place inside it ("Sheet2!A1", a name). */
+export interface Link {
+  url?: string
+  location?: string
+  tooltip?: string
+}
+
 export interface ColInfo {
   width?: number
   hidden?: boolean
@@ -95,6 +110,9 @@ export class Sheet {
   condFormats: CondFormat[] = []
   /** Data validation rules, in file order. */
   validations: DataValidation[] = []
+  /** Notes and hyperlinks by cell (key r * 16384 + c). */
+  notes = new Map<number, Note>()
+  links = new Map<number, Link>()
   /** The sheet's AutoFilter (Ctrl+Shift+L), separate from tables' filters. */
   autoFilter: AutoFilter | null = null
   freeze = { rows: 0, cols: 0 }

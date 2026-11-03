@@ -15,6 +15,7 @@ import { condFormatsXml, dxfXml } from './condfmt'
 import { validationsXml } from './validation'
 import { autoFilterXml, filterColumnsXml } from './filter'
 import { tableSig } from './read'
+import { commentsXml, hyperlinksXml, notesSig, vmlHasShapes, vmlXml } from './notes'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -276,6 +277,8 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
     delete files[relsPath(sc.path)]
   }
   let tableFile = 1
+  let commentFile = 1
+  let vmlFile = 1
   for (const sh of wb.sheets) {
     const sc = carry?.sheets[sh.id]
     let path = sc?.path
@@ -310,7 +313,52 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
       sheetRels.push({ id, type: REL.table, target: relTarget(path, tp) })
       tableParts.push(`<tablePart r:id="${id}"/>`)
     }
-    const { xml, dynamic } = sheetXml(sh, wb, sc, styles, sharedString, sheetName, fname, tableParts, w)
+    // Hyperlinks (external addresses are relationships) and notes (a comments part plus VML shapes).
+    const extra: Record<string, string> = {}
+    const links = hyperlinksXml(sh.links, (url) => {
+      const id = sheetRid()
+      sheetRels.push({ id, type: REL.hyperlink, target: url, external: true })
+      return id
+    })
+    if (links || sc?.elements.some((e) => e.name === 'hyperlinks')) extra.hyperlinks = links
+    if ((!sc || sc.notesSig !== notesSig(sh.notes)) && (sh.notes.size || sc?.commentsPath)) {
+      let cp = sc?.commentsPath
+      const cRel = sheetRels.find((r) => r.type === REL.comments)
+      if (sh.notes.size) {
+        if (!cp) {
+          while (files[`${dir}comments${commentFile}.xml`]) commentFile++
+          cp = `${dir}comments${commentFile++}.xml`
+        }
+        files[cp] = bytes(commentsXml(sh.notes))
+        if (!cRel) sheetRels.push({ id: sheetRid(), type: REL.comments, target: relTarget(path, cp) })
+      } else {
+        if (cp) delete files[cp]
+        if (cRel) sheetRels.splice(sheetRels.indexOf(cRel), 1)
+      }
+      let vp = sc?.vmlPath
+      const vml = vmlXml(sh.notes, vp && files[vp] ? text(files[vp]) : undefined)
+      const vRel = sheetRels.find((r) => r.type === REL.vml)
+      if (vmlHasShapes(vml)) {
+        if (!vp) {
+          while (files[`${dir}drawings/vmlDrawing${vmlFile}.vml`]) vmlFile++
+          vp = `${dir}drawings/vmlDrawing${vmlFile++}.vml`
+        }
+        files[vp] = bytes(vml)
+        let rid = vRel?.id
+        if (!rid) {
+          rid = sheetRid()
+          sheetRels.push({ id: rid, type: REL.vml, target: relTarget(path, vp) })
+        }
+        extra.legacyDrawing = `<legacyDrawing r:id="${rid}"/>`
+      } else {
+        if (vp) delete files[vp]
+        if (vRel) sheetRels.splice(sheetRels.indexOf(vRel), 1)
+        extra.legacyDrawing = ''
+      }
+      // Threads would no longer match the notes.
+      for (const r of sheetRels.filter((x) => /\/threadedComment$/.test(x.type))) sheetRels.splice(sheetRels.indexOf(r), 1)
+    }
+    const { xml, dynamic } = sheetXml(sh, wb, sc, styles, sharedString, sheetName, fname, tableParts, w, extra)
     if (dynamic) anyDynamic = true
     files[path] = bytes(xml)
     if (sheetRels.length) files[relsPath(path)] = bytes(relsXml(sheetRels))
@@ -377,6 +425,8 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   else delete overrides[ssPath]
   if (anyDynamic) overrides[metaPath] = CT.metadata
   for (const p of Object.keys(files)) if (/\/tables\/table\d+\.xml$/.test(p)) overrides[p] = CT.table
+  for (const p of Object.keys(files)) if (/\/comments\d*\.xml$/.test(p)) overrides[p] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml'
+  if (Object.keys(files).some((p) => p.endsWith('.vml'))) defaults.vml = 'application/vnd.openxmlformats-officedocument.vmlDrawing'
   overrides['docProps/app.xml'] = CT.app
   if (files['docProps/core.xml']) overrides['docProps/core.xml'] = CT.core
   for (const p of Object.keys(overrides)) if (!files[p]) delete overrides[p]
@@ -479,9 +529,10 @@ function sheetXml(
   sheetName: (id: number) => string | null,
   fname: (n: string) => string,
   tableParts: string[],
-  w: Warnings
+  w: Warnings,
+  extra: Record<string, string> = {}
 ): { xml: string; dynamic: boolean } {
-  const parts = new Map<string, string>()
+  const parts = new Map<string, string>(Object.entries(extra))
   // sheetPr
   const [prAttrs, prInner] = (sc?.sheetPr ?? '').split('\u0000')
   const tab = sh.tabColor ? `<tabColor rgb="${rgb(sh.tabColor)}"/>` : ''
@@ -582,7 +633,8 @@ function sheetXml(
   for (const name of ORDER) {
     // Generated elements first; preserved ones of the same kind (conditional formats that couldn't be read) after.
     const gen = parts.get(name) ?? ''
-    const kept = byName.get(name) ?? []
+    // Elements regenerated from the model replace the kept ones (an empty string removes them).
+    const kept = name in extra ? [] : (byName.get(name) ?? [])
     if (name === 'dataValidations' && gen && kept.length) {
       // Only one <dataValidations> is allowed: the kept rules go inside the generated element.
       const inner = kept.map((x) => x.replace(/^<[^>]*>/, '').replace(/<\/[^>]*>$/, '')).join('')

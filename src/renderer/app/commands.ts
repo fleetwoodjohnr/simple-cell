@@ -1,5 +1,6 @@
 // Central command registry. Ribbon buttons, menus, the command palette and keyboard shortcuts all dispatch through
 // here. Shortcuts follow Microsoft Excel (docs/SHORTCUT_REFERENCE.md); users can rebind any of them.
+import { areasOf } from '../state/view'
 import { openCreateTable, toggleFilter } from './Tables'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
@@ -458,6 +459,24 @@ def({
     const t = x.book.meta.tables.find((t) => t.sheet === x.view.sheet && r >= t.area.r0 && r <= t.area.r1 && col >= t.area.c0 && col <= t.area.c1)
     if (!t) return toast('Select a cell in a table first.', 'info')
     void A.edit(x, (b) => b.api.convertTableToRange(t.name))
+  }
+})
+def({ id: 'insert.note', label: 'New or edit note', keywords: 'comment annotation', run: (c) => (needsSelection(c), set({ dialog: { kind: 'note' } })) })
+def({
+  id: 'note.delete',
+  label: 'Delete note',
+  run: (c) => {
+    const x = needsSelection(c)
+    void A.edit(x, (b) => b.api.setNote(x.view.sheet, x.view.sel.active.r, x.view.sel.active.c, null))
+  }
+})
+def({ id: 'insert.link', label: 'Insert link…', keywords: 'hyperlink url web address', run: (c) => (needsSelection(c), set({ dialog: { kind: 'link' } })) })
+def({
+  id: 'link.remove',
+  label: 'Remove link',
+  run: (c) => {
+    const x = needsSelection(c)
+    void A.edit(x, (b) => b.api.setLink(areasOf(x.view), null))
   }
 })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })

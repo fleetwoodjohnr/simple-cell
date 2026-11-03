@@ -1,6 +1,6 @@
 // Right-click menu for cells, rows and columns. It adapts to what is selected.
 import type { ReactNode } from 'react'
-import { ClipboardPaste, Copy, Eraser, EyeOff, Eye, Scissors, Rows3, Columns3, Trash2, ArrowDownAZ, ArrowUpAZ, Tag, Paintbrush, Merge } from 'lucide-react'
+import { ClipboardPaste, Copy, Eraser, EyeOff, Eye, Scissors, Rows3, Columns3, Trash2, ArrowDownAZ, ArrowUpAZ, Tag, Paintbrush, Merge, StickyNote, Link2 } from 'lucide-react'
 import { MAX_COLS, MAX_ROWS } from '@/core/engine/values'
 import { CtxContent, CtxItem, CtxMenu, CtxSep, CtxSub, CtxTrigger } from '@/renderer/ui'
 import { runCommand, shortcutFor } from '@/renderer/app/commands'
@@ -79,6 +79,15 @@ export function GridMenu({ tab, children }: { tab: string; children: ReactNode }
           </>
         )}
         <CtxSep />
+        {!rows && !cols && (
+          <>
+            {item('insert.note', 'New or edit note', <StickyNote />)}
+            {item('note.delete', 'Delete note')}
+            {item('insert.link', 'Link…', <Link2 />)}
+            {item('link.remove', 'Remove link')}
+            <CtxSep />
+          </>
+        )}
         <CtxItem icon={<Tag />} onSelect={() => set({ dialog: { kind: 'names' } })}>
           Define name…
         </CtxItem>

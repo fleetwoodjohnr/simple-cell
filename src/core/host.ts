@@ -4,6 +4,7 @@
 import { Doc, type CfSpec, type DvSpec, type ViewCell } from './doc'
 import type { DvAlert } from './validation'
 import type { FilterColumn } from './filter'
+import type { Link } from './model/workbook'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -193,6 +194,15 @@ export class Host {
       seen.add(k)
       out.push(this.doc.viewOf(cell, r, c, chars(c), cf.get(k), ts(r, c)))
     })
+    // Notes and links on empty cells still show (red corner, link style).
+    for (const m of [s.notes, s.links] as Map<number, unknown>[])
+      for (const k of m.keys()) {
+        const r = Math.floor(k / 16384)
+        const c = k % 16384
+        if (r < r0 || r > r1 || c < c0 || c > c1 || seen.has(k) || cf.has(k)) continue
+        seen.add(k)
+        out.push(this.doc.viewOf({ v: null }, r, c, 1, undefined, ts(r, c)))
+      }
     // Empty cells that conditional formatting or a table style colours.
     for (const [k, res] of cf) if (!seen.has(k)) {
       seen.add(k)
@@ -206,6 +216,12 @@ export class Host {
           seen.add(k)
           out.push(this.doc.viewOf({ v: null }, r, c, 1, undefined, ts(r, c)))
         }
+    if (s.notes.size || s.links.size)
+      for (const v of out) {
+        const k = v.r * 16384 + v.c
+        if (s.notes.has(k)) v.note = 1
+        if (s.links.has(k)) v.link = 1
+      }
     return out
   }
 
@@ -221,8 +237,13 @@ export class Host {
       const cell = s.get(r, c)
       const cf = s.condFormats.length ? this.doc.condFormatsIn(sheet, { sheet, r0: r, r1: r, c0: c, c1: c }).get(r * 16384 + c) : undefined
       const ts = this.doc.tableStyleAt(sheet, r, c)
-      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7)), cf, ts))
-      else if (cf || ts) e.cells.push(this.doc.viewOf({ v: null }, r, c, 1, cf, ts))
+      const marks = s.notes.has(r * 16384 + c) || s.links.has(r * 16384 + c)
+      if (cell || cf || ts || marks) {
+        const v = this.doc.viewOf(cell ?? { v: null }, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7)), cf, ts)
+        if (s.notes.has(r * 16384 + c)) v.note = 1
+        if (s.links.has(r * 16384 + c)) v.link = 1
+        e.cells.push(v)
+      }
       else e.cleared.push([r, c])
     }
     return [...by].map(([sheet, e]) => ({ sheet, ...e }))
@@ -500,6 +521,18 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  setNote(sheet: number, r: number, c: number, text: string | null, author?: string) {
+    return this.run(() => this.doc.setNote(sheet, r, c, text, author))
+  }
+  setLink(areas: Area[], link: Link | null, display?: string) {
+    return this.run(() => this.doc.setLink(areas, link, display))
+  }
+  noteAt(sheet: number, r: number, c: number) {
+    return this.doc.noteAt(sheet, r, c)
+  }
+  linkAt(sheet: number, r: number, c: number) {
+    return this.doc.linkAt(sheet, r, c)
   }
   setValidation(sheet: number, areas: Area[], spec: DvSpec) {
     return this.run(() => this.doc.setValidation(sheet, areas, spec))

@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 552 / 552 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 555 / 555 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 11 / 11 (every test also fails on a CSP violation or an uncaught renderer error). One intermittent failure of `smoke` was seen once on 2026-11-03 and did not reproduce in 6 repeats and 2 further full runs. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 12 / 12 (every test also fails on a CSP violation or an uncaught renderer error). One intermittent failure of `smoke` was seen once on 2026-11-03 and did not reproduce in 6 repeats and 2 further full runs. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -104,7 +104,7 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 
 ### Known limitations
 
-- **Shown read-only or not at all.** Charts, pictures, comments, hyperlinks, PivotTables and sheet protection from files are kept and saved, but not shown or enforced. They arrive in M4–M6.
+- **Shown read-only or not at all.** Charts, pictures, hyperlinks, PivotTables and sheet protection from files are kept and saved, but not shown or enforced. They arrive in M4–M6.
 - **ODS structure edits.** Kept ODS content (shapes, conditional formats) is not adjusted when rows or columns are inserted or deleted.
 - **XLSB.** Untested, because no XLSB file can be produced without Excel. It can't be saved, since LibreOffice doesn't write it.
 - **Not checked against Excel itself.** Files are checked against LibreOffice and by round trip.
@@ -120,12 +120,12 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | Conditional formats in XLSX read and written (dxf indexes kept, Excel 2010 data-bar links kept); LibreOffice reads them | unit `xlsx › conditional formatting…` |
 | Tables: Ctrl+T, 60 generated table styles, total row, Table Design tab (name, options, style gallery, convert to range); structured references; header edits rename columns | unit `tables` (6), e2e `tables` |
 | AutoFilter for tables and ranges: header buttons, value checklist with search, blanks, conditions, top N, sort, clear, reapply; SUBTOTAL follows row visibility; XLSX round trip with `_FilterDatabase` | unit `tables`, `xlsx › tables and filters…`; e2e `tables` |
+| Notes (Shift+F2, hover popup, red marker) and hyperlinks (Ctrl+K, link chip, open web/mail links, jump to places); follow structure edits; XLSX (comments + VML + hyperlinks) and ODS (annotations, text links) round trips | unit `notes` (3), e2e `notes` |
 | Data validation: all rule types, list dropdown (arrow and Alt+Down), input messages, Stop/Warning/Information alerts, Circle Invalid Data, Data ▸ Validation dialog; follows structure edits; XLSX round trip | unit `validation` (5), `xlsx › data validation…`; e2e `validation` |
 
 ### Still to do in M4
 
 - Calculated table columns, table auto-expansion.
-- Comments and notes, hyperlinks.
 - The Paste Special dialog, Format Painter, cell styles, Flash Fill, Go To Special.
 - Grouping and outline, split view.
 - Inserting and deleting cells with a shift.

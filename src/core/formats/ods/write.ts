@@ -276,10 +276,16 @@ function tableXml(sh: Sheet, wb: Workbook, ts: string, carry: OdsCarry | undefin
     if (pendingEmpty) rows.push(`<table:table-row table:style-name="${ctx.rowStyle(null)}"${pendingEmpty > 1 ? ` table:number-rows-repeated="${pendingEmpty}"` : ''}><table:table-cell${lastCol > 0 ? ` table:number-columns-repeated="${lastCol + 1}"` : ''}/></table:table-row>`)
     pendingEmpty = 0
   }
+  // Notes and links on empty cells need a cell to hang on.
+  const marked = new Map<number, number[]>()
+  for (const k of [...sh.notes.keys(), ...sh.links.keys()]) {
+    const r = Math.floor(k / 16384)
+    marked.set(r, [...(marked.get(r) ?? []), k % 16384])
+  }
   for (let r = 0; r <= lastRow; r++) {
     const row = sh.rows.get(r)
     const ri = sh.rowInfo.get(r)
-    if (!row?.size && !ri && !sh.merges.some((m) => m.r0 <= r && m.r1 >= r)) {
+    if (!row?.size && !ri && !marked.has(r) && !sh.merges.some((m) => m.r0 <= r && m.r1 >= r)) {
       pendingEmpty++
       continue
     }
@@ -290,9 +296,9 @@ function tableXml(sh: Sheet, wb: Workbook, ts: string, carry: OdsCarry | undefin
       if (blank) cells.push(`<table:table-cell${blank > 1 ? ` table:number-columns-repeated="${blank}"` : ''}/>`)
       blank = 0
     }
-    const rowLast = Math.max(row ? Math.max(...row.keys()) : -1, ...sh.merges.filter((m) => m.r0 <= r && m.r1 >= r).map((m) => m.c1))
+    const rowLast = Math.max(row ? Math.max(...row.keys()) : -1, ...(marked.get(r) ?? []), ...sh.merges.filter((m) => m.r0 <= r && m.r1 >= r).map((m) => m.c1))
     for (let c = 0; c <= rowLast; c++) {
-      const cell = row?.get(c)
+      const cell = row?.get(c) ?? (sh.notes.has(r * 16384 + c) || sh.links.has(r * 16384 + c) ? { v: null } : undefined)
       if (covered.has(`${r},${c}`)) {
         flushBlank()
         cells.push(`<table:covered-table-cell${cell?.s ? ` table:style-name="${ctx.cellStyle(cell.s)}"` : ''}/>`)
@@ -303,7 +309,7 @@ function tableXml(sh: Sheet, wb: Workbook, ts: string, carry: OdsCarry | undefin
         continue
       }
       flushBlank()
-      cells.push(cellXml(cell, r, c, wb, mergeAt.get(`${r},${c}`), ctx))
+      cells.push(cellXml(cell, r, c, wb, mergeAt.get(`${r},${c}`), ctx, sh))
     }
     flushBlank()
     const h = ri?.hidden ? null : (ri?.height ?? null)
@@ -321,7 +327,7 @@ function tableXml(sh: Sheet, wb: Workbook, ts: string, carry: OdsCarry | undefin
   return `<table:table table:name="${esc(sh.name)}" table:style-name="${ts}"${attrs}>${head}${cols.join('') || '<table:table-column/>'}${rows.join('')}${tail}</table:table>`
 }
 
-function cellXml(cell: Cell, r: number, c: number, wb: Workbook, merge: { r1: number; c1: number } | undefined, ctx: TableWriteCtx): string {
+function cellXml(cell: Cell, r: number, c: number, wb: Workbook, merge: { r1: number; c1: number } | undefined, ctx: TableWriteCtx, sh: Sheet): string {
   const a: string[] = []
   const style = ctx.cellStyle(cell.s)
   if (style) a.push(`table:style-name="${style}"`)
@@ -354,8 +360,16 @@ function cellXml(cell: Cell, r: number, c: number, wb: Workbook, merge: { r1: nu
     shown = v
   }
   const extra = (cell.rich as { ods?: string } | undefined)?.ods ?? ''
-  const paras = shown === '' && v === null ? '' : shown.split('\n').map((l) => `<text:p>${esc(l).replace(/ {2,}/g, (m) => ` <text:s text:c="${m.length - 1}"/>`)}</text:p>`).join('')
-  return `<table:table-cell${a.length ? ' ' + a.join(' ') : ''}>${extra}${paras}</table:table-cell>`
+  const link = sh.links.get(r * 16384 + c)
+  const href = link ? (link.url ?? '#' + (link.location ?? '').replace(/^'?(.*?)'?!/, (_m, n: string) => `${n.replace(/''/g, "'")}.`)) : ''
+  const para = (l: string) => {
+    const t = esc(l).replace(/ {2,}/g, (m) => ` <text:s text:c="${m.length - 1}"/>`)
+    return `<text:p>${link ? `<text:a xlink:href="${esc(href)}" xlink:type="simple">${t}</text:a>` : t}</text:p>`
+  }
+  const paras = shown === '' && v === null ? '' : shown.split('\n').map(para).join('')
+  const note = sh.notes.get(r * 16384 + c)
+  const ann = note ? `<office:annotation>${note.author ? `<dc:creator>${esc(note.author)}</dc:creator>` : ''}${note.text.split('\n').map((l) => `<text:p>${esc(l)}</text:p>`).join('')}</office:annotation>` : ''
+  return `<table:table-cell${a.length ? ' ' + a.join(' ') : ''}>${ann}${extra}${paras}</table:table-cell>`
 }
 
 function settingsXml(wb: Workbook): string {

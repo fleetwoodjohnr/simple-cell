@@ -16,7 +16,7 @@ import { CfEvaluator, newRuleId, type CfResult, type CfRule, type CondFormat } f
 import { alertFor, isValid, listItems, validationAt, type DataValidation, type DvAlert } from './validation'
 import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './filter'
 import { tableCellStyle } from './tablestyle'
-import type { Table } from './model/workbook'
+import type { Link, Note, Table } from './model/workbook'
 
 setDateParser((s) => parseDateTime(s))
 
@@ -171,6 +171,9 @@ export interface ViewCell {
   icon?: { set: string; i: number }
   /** The rule hides the value (data bar or icon only). */
   hide?: 1
+  /** The cell has a note (red corner) or a hyperlink. */
+  note?: 1
+  link?: 1
 }
 
 export class Doc {
@@ -455,8 +458,66 @@ export class Doc {
           else if (what === 'formats') tx.setCell(a.sheet, r, c, { ...cell, s: undefined })
           else tx.setCell(a.sheet, r, c, undefined)
         }
+        // Clear All also removes notes and hyperlinks.
+        if (what === 'all')
+          for (const m of [sh.notes, sh.links] as Map<number, unknown>[])
+            for (const k of [...m.keys()]) {
+              const r = Math.floor(k / 16384)
+              const c = k % 16384
+              if (r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1) tx.mapSet(m, k, undefined)
+            }
       }
     })
+  }
+
+  // ---------- notes and hyperlinks ----------
+
+  /** Add, change or (with null) delete the note on a cell. */
+  setNote(sheet: number, r: number, c: number, text: string | null, author = '') {
+    const sh = this.sheet(sheet)
+    const k = r * 16384 + c
+    const cur = sh.notes.get(k)
+    return this.transact(text === null ? 'Delete note' : cur ? 'Edit note' : 'New note', (tx) => {
+      tx.refetch = true
+      tx.mapSet(sh.notes, k, text === null ? undefined : { author: cur?.author ?? author, text })
+    })
+  }
+
+  /** Link the areas' cells (or remove links with null). `display` replaces the text of an empty or linked cell. */
+  setLink(areas: Area[], link: Link | null, display?: string) {
+    return this.transact(link ? 'Hyperlink' : 'Remove hyperlink', (tx) => {
+      tx.refetch = true
+      for (const a of areas) {
+        const sh = this.sheet(a.sheet)
+        if ((a.r1 - a.r0 + 1) * (a.c1 - a.c0 + 1) > 10_000) throw new Error('Select fewer cells to link (at most 10,000).')
+        for (let r = a.r0; r <= a.r1; r++)
+          for (let c = a.c0; c <= a.c1; c++) {
+            tx.mapSet(sh.links, r * 16384 + c, link ?? undefined)
+            const cell = sh.get(r, c)
+            if (link) {
+              const text = display ?? (cell && cell.v !== null ? undefined : (link.url ?? link.location ?? '').replace(/^mailto:/, ''))
+              if (text !== undefined && !cell?.f) this.inputTx(tx, a.sheet, r, c, "'" + text)
+              // The Hyperlink cell style: blue, underlined.
+              const own = this.wb.styles.get(sh.get(r, c)?.s)
+              if (!own.color && !own.underline) {
+                const s = this.wb.styles.derive(sh.get(r, c)?.s, { color: '#0563C1', underline: 'single' })
+                tx.setCell(a.sheet, r, c, { ...(sh.get(r, c) ?? { v: null }), s })
+              }
+            } else if (cell?.s) {
+              const own = this.wb.styles.get(cell.s)
+              if (own.color === '#0563C1' && own.underline === 'single') tx.setCell(a.sheet, r, c, { ...cell, s: this.wb.styles.derive(cell.s, { color: undefined, underline: undefined }) })
+            }
+          }
+      }
+    })
+  }
+
+  noteAt(sheet: number, r: number, c: number): Note | null {
+    return this.sheet(sheet).notes.get(r * 16384 + c) ?? null
+  }
+
+  linkAt(sheet: number, r: number, c: number): Link | null {
+    return this.sheet(sheet).links.get(r * 16384 + c) ?? null
   }
 
   /** Apply a style patch to areas. Whole rows/columns also set the row/column default style. */
@@ -614,6 +675,28 @@ export class Doc {
       if (t.sheet !== sh.id) continue
       const a = shiftArea(t.area, s)
       if (a) tx.prop(t, 'area', a)
+    }
+    // Notes and hyperlinks move with their cells; those on deleted cells go.
+    for (const m of [sh.notes, sh.links] as Map<number, unknown>[]) {
+      if (!m.size) continue
+      const next = new Map<number, unknown>()
+      for (const [k, v] of m) {
+        const r = Math.floor(k / 16384)
+        const c = k % 16384
+        const a = shiftArea({ sheet: sh.id, r0: r, c0: c, r1: r, c1: c }, s)
+        if (a) next.set(a.r0 * 16384 + a.c0, v)
+      }
+      const before = new Map(m)
+      tx.custom(
+        () => {
+          m.clear()
+          for (const [k, v] of next) m.set(k, v)
+        },
+        () => {
+          m.clear()
+          for (const [k, v] of before) m.set(k, v)
+        }
+      )
     }
     // Conditional formats: ranges move with the cells; formulas are relative to the first range's top-left cell.
     if (sh.condFormats.length) {

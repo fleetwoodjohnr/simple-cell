@@ -5,7 +5,7 @@ import { parseFormula, type Node as AstNode } from '../../engine/parser'
 import { CellError, ERROR_CODES, MAX_COLS, MAX_ROWS } from '../../engine/values'
 import { dateSerial } from '../../numfmt/dates'
 import { readZip, text } from '../zip'
-import { attr, elements, kid, kids, parseXml, serialize, textOf, type El } from '../xml'
+import { attr, deep, elements, kid, kids, parseXml, serialize, textOf, type El } from '../xml'
 import { Warnings, type ImportResult } from '../types'
 import { odfRefToA1, odfToExcel } from './formula'
 
@@ -380,8 +380,18 @@ function readRow(el: El, sh: Sheet, r: number, ctx: TableCtx, colDefault: (numbe
     const formula = attr(cel, 'formula')
     const spanC = Number(attr(cel, 'number-columns-spanned') ?? 1)
     const spanR = Number(attr(cel, 'number-rows-spanned') ?? 1)
-    const extras = elements(cel).filter((x) => x.localName !== 'p')
+    const all = elements(cel).filter((x) => x.localName !== 'p')
+    const ann = all.find((x) => x.localName === 'annotation')
+    const extras = all.filter((x) => x !== ann)
+    const anchor = covered ? undefined : deep(cel, 'a')[0]
+    const href = anchor ? attr(anchor, 'href') : null
     if (!covered && (spanC > 1 || spanR > 1)) sh.merges.push({ sheet: sh.id, r0: r, c0: c, r1: r + spanR - 1, c1: c + spanC - 1 })
+    if (!covered)
+      for (let k = 0; k < Math.min(rep, 256); k++) {
+        const key = r * 16384 + c + k
+        if (ann) sh.notes.set(key, { author: textOf(kid(ann, 'creator')), text: kids(ann, 'p').map((p) => textOf(p)).join('\n') })
+        if (href) sh.links.set(key, href.startsWith('#') ? { location: odfRefToA1(href.slice(1)) } : { url: href })
+      }
     const content = covered ? false : type !== null || formula !== null || extras.length > 0
     if (content || s) {
       // Large repeated blocks of empty styled cells are skipped (column default style covers them).
@@ -415,7 +425,6 @@ function readRow(el: El, sh: Sheet, r: number, ctx: TableCtx, colDefault: (numbe
         }
         if (extras.length) {
           cell.rich = { ods: extras.map((x) => serialize(x)).join('') }
-          if (extras.some((x) => x.localName === 'annotation')) ctx.w.add('info', 'Comments are kept and saved, but not shown yet.')
         }
         if (cell.v !== null || cell.f || cell.s || cell.rich) sh.set(r, c + k, cell)
       }

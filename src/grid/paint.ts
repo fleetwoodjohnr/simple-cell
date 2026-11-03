@@ -347,6 +347,22 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
       ctx.restore()
     }
   }
+  // Note markers: a red triangle in the top-right corner.
+  for (let r = pane.r0; r <= pane.r1; r++)
+    for (let c = pane.c0; c <= pane.c1; c++) {
+      if (!P.cell(r, c)?.note) continue
+      const m = mergeAt(r, c)
+      if (m && (m.r0 !== r || m.c0 !== c)) continue
+      const rect = m ? areaRect(L, m) : cellRect(L, r, c)
+      const s = Math.min(6 * z, rect.h / 2)
+      ctx.fillStyle = '#d93025'
+      ctx.beginPath()
+      ctx.moveTo(rect.x + rect.w - 1 - s, rect.y)
+      ctx.lineTo(rect.x + rect.w - 1, rect.y)
+      ctx.lineTo(rect.x + rect.w - 1, rect.y + s)
+      ctx.closePath()
+      ctx.fill()
+    }
   // 4. Borders
   for (let r = pane.r0; r <= pane.r1; r++)
     for (let c = pane.c0; c <= pane.c1; c++) {

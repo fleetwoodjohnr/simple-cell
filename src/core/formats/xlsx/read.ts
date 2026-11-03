@@ -13,6 +13,7 @@ import { attr, boolAttr, deep, kid, kids, numAttr, parseXml, tagAttrs, textOf, t
 import { readCondFormat, readDxf } from './condfmt'
 import { readValidations } from './validation'
 import { readAutoFilter, readFilterColumns } from './filter'
+import { notesSig, readComments, readHyperlinks } from './notes'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -43,6 +44,10 @@ export interface SheetCarry {
   sheetView?: Record<string, string>
   sheetViewExtra?: string
   sheetFormatPr?: Record<string, string>
+  /** Notes: their comments part, VML drawing, and what they were when read (unchanged notes keep their parts). */
+  commentsPath?: string
+  vmlPath?: string
+  notesSig?: string
 }
 
 const INDEXED = ['000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '000000', 'FFFFFF', 'FF0000', '00FF00', '0000FF', 'FFFF00', 'FF00FF', '00FFFF', '800000', '008000', '000080', '808000', '800080', '008080', 'C0C0C0', '808080', '9999FF', '993366', 'FFFFCC', 'CCFFFF', '660066', 'FF8080', '0066CC', 'CCCCFF', '000080', 'FF00FF', 'FFFF00', '00FFFF', '800080', '800000', '008080', '0000FF', '00CCFF', 'CCFFFF', 'CCFFCC', 'FFFF99', '99CCFF', 'FF99CC', 'CC99FF', 'FFCC99', '3366FF', '33CCCC', '99CC00', 'FFCC00', 'FF9900', 'FF6600', '666699', '969696', '003366', '339966', '003300', '333300', '993300', '993366', '333399', '333333']
@@ -474,14 +479,40 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     sh.autoFilter = readAutoFilter(e.xml, sh.id)
     return !sh.autoFilter
   })
+  // Notes (legacy comments) and hyperlinks.
+  const cRel = rels.find((r) => r.type === REL.comments)
+  if (cRel) {
+    const p = resolveTarget(path, cRel.target)
+    if (ctx.files[p]) {
+      try {
+        sh.notes = readComments(text(ctx.files[p]))
+        sc.commentsPath = p
+      } catch {
+        ctx.w.add('loss', 'Some notes could not be read; they are kept in the file but not shown.')
+      }
+    }
+  }
+  const ld = sc.elements.find((e) => e.name === 'legacyDrawing')
+  const vRel = ld ? rels.find((r) => r.id === /r:id="([^"]+)"/.exec(ld.xml)?.[1]) : undefined
+  if (vRel) sc.vmlPath = resolveTarget(path, vRel.target)
+  sc.notesSig = notesSig(sh.notes)
+  if (rels.some((r) => /\/threadedComment$/.test(r.type))) ctx.w.add('info', 'Threaded comments are shown as notes. Changing a sheet’s notes turns its threads into notes.')
+  sc.elements = sc.elements.filter((e) => {
+    if (e.name !== 'hyperlinks') return true
+    try {
+      sh.links = readHyperlinks(e.xml, rels)
+      return false
+    } catch {
+      return true
+    }
+  })
+  if (!sc.elements.some((e) => e.name === 'hyperlinks')) sc.rels = sc.rels.filter((r) => r.type !== REL.hyperlink)
   const kinds = new Set(sc.elements.map((e) => e.name))
   if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Some conditional formats could not be read; they are kept and saved, but not shown.')
   if (sc.elements.some((e) => e.name === 'extLst' && /<x14:cfRule\b(?![^>]*type="dataBar")/.test(e.xml))) ctx.w.add('info', 'Some conditional formats from newer Excel versions are kept and saved, but not shown.')
   if (kinds.has('dataValidations')) ctx.w.add('info', 'Some data validation rules could not be read; they are kept and saved, but not enforced.')
   if (kinds.has('drawing')) ctx.w.add('loss', 'Charts, pictures and shapes are kept and saved, but not shown yet.')
-  if (kinds.has('legacyDrawing')) ctx.w.add('info', 'Comments and notes are kept and saved, but not shown yet.')
   if (kinds.has('sheetProtection')) ctx.w.add('info', 'Sheet protection is kept in the file, but Simple Cell doesn’t enforce it yet.')
-  if (kinds.has('hyperlinks')) ctx.w.add('info', 'Hyperlinks are kept and saved; clicking them arrives with the next milestone.')
   for (const e of top) {
     if (e.name === 'sheetPr') {
       const a = tagAttrs(e.xml.slice(0, e.xml.indexOf('>') + 1))
