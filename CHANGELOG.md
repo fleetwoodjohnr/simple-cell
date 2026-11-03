@@ -15,3 +15,4 @@
   - Tables (Ctrl+T) with styles, a total row and Table Design options; filters on tables and ranges (Ctrl+Shift+L).
   - Notes (Shift+F2) and hyperlinks (Ctrl+K), kept in .xlsx and .ods files.
   - Insert and Delete Cells with a shift, Paste Special, Format Painter, Go To Special, Cell Styles, Flash Fill, grouping and outline.
+  - Printing and PDF: page setup, print area and titles, page breaks, headers and footers, fit to page, preview.

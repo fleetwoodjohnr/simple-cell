@@ -5,6 +5,7 @@ import { Doc, type CfSpec, type DvSpec, type GoToKind, type PasteSpecialOptions,
 import type { DvAlert } from './validation'
 import type { FilterColumn } from './filter'
 import type { Link } from './model/workbook'
+import type { PageSetup } from './print'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -547,6 +548,18 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  printJob(sheet: number, area?: Area) {
+    return this.doc.printJob(sheet, area)
+  }
+  setPageSetup(sheet: number, patch: Partial<PageSetup>) {
+    return this.run(() => this.doc.setPageSetup(sheet, patch))
+  }
+  setPrintName(sheet: number, which: 'area' | 'titles', text: string | null) {
+    return this.run(() => this.doc.setPrintName(sheet, which, text))
+  }
+  pageSetup(sheet: number) {
+    return { ...this.doc.sheet(sheet).pageSetup, ...this.doc.printNames(sheet) }
   }
   group(sheet: number, axis: 'row' | 'col', from: number, to: number, delta: 1 | -1) {
     return this.run(() => this.doc.group(sheet, axis, from, to, delta))

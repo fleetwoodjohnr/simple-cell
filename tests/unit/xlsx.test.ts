@@ -143,7 +143,7 @@ describe('XLSX', () => {
     expect(strFromU8(out['customXml/item1.xml'])).toContain('keep me')
     expect([...out['xl/vbaProject.bin']]).toEqual([0xd0, 0xcf, 0x11, 0xe0, 1, 2, 3, 4])
     const sheet = strFromU8(out['xl/worksheets/sheet1.xml'])
-    expect(sheet).toMatch(/<sheetData>.*<\/sheetData><conditionalFormatting sqref="A1:A2">.*<\/conditionalFormatting><drawing r:id="rId1"\/><extLst>/)
+    expect(sheet).toMatch(/<sheetData>.*<\/sheetData><conditionalFormatting sqref="A1:A2">.*<\/conditionalFormatting><pageMargins [^>]*\/><pageSetup [^>]*\/><drawing r:id="rId1"\/><extLst>/)
     expect(strFromU8(out['[Content_Types].xml'])).toContain('application/vnd.ms-excel.sheet.macroEnabled.main+xml')
     expect(strFromU8(out['xl/workbook.xml'])).toContain('codeName="ThisWorkbook"')
     expect(strFromU8(out['xl/workbook.xml'])).toContain('chartTrackingRefBase')

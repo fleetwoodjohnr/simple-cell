@@ -60,7 +60,13 @@ import {
   ListTree,
   ListX,
   Plus,
-  Minus
+  Minus,
+  Printer,
+  FileDown,
+  RectangleVertical,
+  File,
+  Scan,
+  SeparatorHorizontal
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -71,12 +77,14 @@ import { ColorGrid, IconBtn, Menu, MenuContent, MenuItem, MenuSep, MenuLabel, Po
 import { useBookVersion } from './hooks'
 import { CondFormatMenuItems } from './CondFormat'
 import { CellStylesButton } from './CellStyles'
+import { PAPER } from '@/core/print'
 import { StyleGallery, StyleSwatch, openCreateTable, useActiveTable } from './Tables'
 import type { Style, BorderStyle } from '@/core/model/styles'
 
 const TABS: { id: RibbonTab; label: string }[] = [
   { id: 'home', label: 'Home' },
   { id: 'insert', label: 'Insert' },
+  { id: 'page', label: 'Page Layout' },
   { id: 'formulas', label: 'Formulas' },
   { id: 'data', label: 'Data' },
   { id: 'view', label: 'View' },
@@ -659,6 +667,72 @@ function FormulasTab({ tab }: { tab: string }) {
   )
 }
 
+function PageTab({ tab }: { tab: string }) {
+  const book = books.get(tab)
+  const sheet = useViews((s) => s.views[tab]?.sheet)
+  const [ps, setPs] = useState<{ orientation: string; paper: number; gridlines: boolean; headings: boolean } | null>(null)
+  const v = book?.version
+  useEffect(() => {
+    if (book && sheet !== undefined) void book.api.pageSetup(sheet).then(setPs)
+  }, [book, sheet, v])
+  const change = (patch: Record<string, unknown>) => withCtx((c) => A.edit(c, (b) => b.api.setPageSetup(c.view.sheet, patch)))
+  return (
+    <>
+      <Group label="Print">
+        <Cmd id="file.print" label="Print" text="Print" icon={<Printer />} />
+        <Cmd id="file.exportPdf" label="Save as PDF" text="PDF" icon={<FileDown />} />
+      </Group>
+      <Sep />
+      <Group label="Page setup">
+        <Menu>
+          <DropBtn icon={<RectangleVertical />} label="Orientation" text="Orientation" />
+          <MenuContent>
+            <MenuItem onSelect={() => change({ orientation: 'portrait' })}>Portrait{ps?.orientation === 'portrait' ? ' ✓' : ''}</MenuItem>
+            <MenuItem onSelect={() => change({ orientation: 'landscape' })}>Landscape{ps?.orientation === 'landscape' ? ' ✓' : ''}</MenuItem>
+          </MenuContent>
+        </Menu>
+        <Menu>
+          <DropBtn icon={<File />} label="Size" text="Size" />
+          <MenuContent>
+            {Object.entries(PAPER).map(([k, p]) => (
+              <MenuItem key={k} onSelect={() => change({ paper: Number(k) })}>
+                {p.name}
+                {ps?.paper === Number(k) ? ' ✓' : ''}
+              </MenuItem>
+            ))}
+          </MenuContent>
+        </Menu>
+        <Menu>
+          <DropBtn icon={<Scan />} label="Print area" text="Print area" />
+          <MenuContent>
+            <MenuItem onSelect={() => runCommand('page.setPrintArea')}>Set print area</MenuItem>
+            <MenuItem onSelect={() => runCommand('page.clearPrintArea')}>Clear print area</MenuItem>
+          </MenuContent>
+        </Menu>
+        <Menu>
+          <DropBtn icon={<SeparatorHorizontal />} label="Breaks" text="Breaks" />
+          <MenuContent>
+            <MenuItem onSelect={() => runCommand('page.breakRow')}>Insert page break above the active row</MenuItem>
+            <MenuItem onSelect={() => runCommand('page.resetBreaks')}>Reset all page breaks</MenuItem>
+          </MenuContent>
+        </Menu>
+        <Cmd id="page.printTitles" label="Print the selected rows at the top of every page" text="Titles" icon={<Rows3 />} />
+      </Group>
+      <Sep />
+      <Group label="Sheet options">
+        <div className="flex flex-col gap-1 px-1 text-[12px] text-text-2">
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={!!ps?.gridlines} onChange={(e) => change({ gridlines: e.target.checked })} /> Print gridlines
+          </label>
+          <label className="flex items-center gap-1.5">
+            <input type="checkbox" checked={!!ps?.headings} onChange={(e) => change({ headings: e.target.checked })} /> Print headings
+          </label>
+        </div>
+      </Group>
+    </>
+  )
+}
+
 function DataTab() {
   return (
     <>
@@ -794,6 +868,7 @@ export function Ribbon({ tab: docTab }: { tab: string }) {
         <div className={cx('flex items-stretch overflow-x-auto overflow-y-hidden px-2 [scrollbar-width:none]', expandedLayout ? 'py-1' : 'h-11 items-center gap-0.5')} role="toolbar" aria-label={`${tab} tools`}>
           {tab === 'home' && <HomeTab tab={docTab} />}
           {tab === 'insert' && <InsertTab />}
+          {tab === 'page' && <PageTab tab={docTab} />}
           {tab === 'formulas' && <FormulasTab tab={docTab} />}
           {tab === 'data' && <DataTab />}
           {tab === 'view' && <ViewTab tab={docTab} />}

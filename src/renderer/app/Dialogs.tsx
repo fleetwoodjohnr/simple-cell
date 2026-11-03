@@ -18,6 +18,7 @@ import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
+import { PrintDialog } from './Print'
 import type { GoToKind, PasteSpecialOptions } from '@/core/doc'
 
 const close = () => set({ dialog: null })
@@ -66,6 +67,8 @@ export function Dialogs() {
       return <PasteSpecialDialog />
     case 'goto-special':
       return <GoToSpecialDialog />
+    case 'print':
+      return <PrintDialog />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':

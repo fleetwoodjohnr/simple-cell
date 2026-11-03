@@ -15,6 +15,7 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
 - **Tables and filters.** Ctrl+T tables with styles and a total row; filters by value, condition or top N.
 - **Notes and links.** Cell notes and hyperlinks, kept in .xlsx and .ods files.
 - **Data validation.** Dropdown lists, number, date, text-length and formula rules, input messages and error alerts.
+- **Printing and PDF.** Page setup, print areas and titles, page breaks, headers and footers, fit to page, a preview, and Save as PDF.
 - **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
 - **Files.** Excel (.xlsx, .xlsm, templates) and OpenDocument (.ods), read and written by Simple Cell itself. Charts, comments, conditional formatting and other content it can't show yet are kept and saved unchanged.
   - .xls through LibreOffice when it is installed.

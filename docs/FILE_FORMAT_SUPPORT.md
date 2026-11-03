@@ -14,7 +14,7 @@
 | JSON | ✅ | ✅ | Own | unit `interchange › JSON…` |
 | HTML table | ✅ | ✅ | Own | unit `interchange › HTML…` |
 | XML Spreadsheet 2003 | ✅ | ✅ | Own | unit `interchange › XML Spreadsheet 2003…` |
-| PDF | — | 📋 | Planned for M5 (printing) | |
+| PDF | — | ✅ | Print dialog ▸ Save as PDF, through Electron's PDF engine | e2e `print` (pdftotext checks the text) |
 
 ## XLSX, XLSM, XLTX, XLTM
 
@@ -40,7 +40,7 @@
 Simple Cell keeps every part and element of the file it doesn't understand, and writes them back in schema order. Examples:
 - Charts, pictures and shapes; threaded comment parts (until the sheet's notes change).
 - Conditional formats and data validation that exist only in the Excel 2010 extension list (for example icon sets with custom icons, or lists that refer to other sheets in old files), and hyperlinks.
-- Sheet protection, sort state, page setup.
+- Sheet protection, sort state, the printer-settings part. (Page setup, margins, headers/footers and breaks are read into the model and written back.)
 - PivotTables and their caches, external links.
 - `customXml`, `extLst` extensions and the VBA project.
 

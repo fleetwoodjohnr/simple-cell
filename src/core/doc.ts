@@ -8,7 +8,7 @@ import { CellError, ERR, MAX_COLS, MAX_ROWS, isError, numberToText, setDateParse
 import { Sheet, Workbook, type Cell, type ColInfo, type DefinedName, type RowInfo } from './model/workbook'
 import type { Style } from './model/styles'
 import { adjustFormula, relocate, shiftArea, transposeRefs, type Shift } from './model/adjust'
-import { areaName, cellKey, cellName, fromKey, quoteSheet } from './refs'
+import { areaName, cellKey, cellName, colIndex, fromKey, parseArea, quoteSheet } from './refs'
 import { parseInput } from './input'
 import { formatValue, isDateFormat } from './numfmt/format'
 import { parseDateTime } from './numfmt/dates'
@@ -17,6 +17,7 @@ import { alertFor, isValid, listItems, validationAt, type DataValidation, type D
 import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './filter'
 import { tableCellStyle } from './tablestyle'
 import { learn, run as runProgram } from './flashfill'
+import { paginate, type PageSetup, type PrintJob } from './print'
 import type { Link, Note, Table } from './model/workbook'
 
 setDateParser((s) => parseDateTime(s))
@@ -595,6 +596,54 @@ export class Doc {
       for (const t of todo) this.inputTx(tx, sheet, t.r, c, "'" + t.v)
     })
     return todo.length
+  }
+
+  // ---------- printing ----------
+
+  /** The sheet's print area (_xlnm.Print_Area) and print titles (_xlnm.Print_Titles), if set. */
+  printNames(sheet: number): { area: Area | null; titles: { rows?: [number, number]; cols?: [number, number] } } {
+    const sh = this.sheet(sheet)
+    const named = (n: string) => this.wb.names.find((x) => x.name.toLowerCase() === n && x.scope === sheet)?.text ?? ''
+    const parts = (t: string) => t.split(',').map((p) => p.replace(/^.*!/, '').replace(/\$/g, '').trim()).filter(Boolean)
+    const area = parts(named('_xlnm.print_area')).map((p) => parseArea(p, sheet)).find((a) => !!a) ?? null
+    const titles: { rows?: [number, number]; cols?: [number, number] } = {}
+    for (const p of parts(named('_xlnm.print_titles'))) {
+      const rm = /^(\d+):(\d+)$/.exec(p)
+      const cm = /^([A-Z]+):([A-Z]+)$/i.exec(p)
+      if (rm) titles.rows = [Number(rm[1]) - 1, Number(rm[2]) - 1]
+      if (cm) titles.cols = [colIndex(cm[1].toUpperCase()), colIndex(cm[2].toUpperCase())]
+    }
+    void sh
+    return { area, titles }
+  }
+
+  /** Pages to print for a sheet: its print area (or `area`, or the used range), with its page setup. */
+  printJob(sheet: number, area?: Area): PrintJob | null {
+    const sh = this.sheet(sheet)
+    const names = this.printNames(sheet)
+    const u = sh.used()
+    let a = area ?? names.area
+    if (!a) {
+      if (u.r < 0) return null
+      a = { sheet, r0: 0, c0: 0, r1: u.r, c1: u.c }
+    }
+    return paginate(sh, sh.pageSetup, a, names.titles)
+  }
+
+  setPageSetup(sheet: number, patch: Partial<PageSetup>) {
+    const sh = this.sheet(sheet)
+    return this.transact('Page setup', (tx) => tx.prop(sh, 'pageSetup', { ...sh.pageSetup, ...patch, margins: { ...sh.pageSetup.margins, ...(patch.margins ?? {}) } }))
+  }
+
+  /** Set or clear (null) the print area or print titles (sheet-scoped built-in names). */
+  setPrintName(sheet: number, which: 'area' | 'titles', text: string | null) {
+    const name = which === 'area' ? '_xlnm.Print_Area' : '_xlnm.Print_Titles'
+    const sn = quoteSheet(this.sheet(sheet).name)
+    const full = text === null ? null : text.split(',').map((p) => `${sn}!${p.trim().replace(/^.*!/, '')}`).join(',')
+    return this.transact(which === 'area' ? 'Print area' : 'Print titles', (tx) => {
+      const others = this.wb.names.filter((n) => !(n.name.toLowerCase() === name.toLowerCase() && n.scope === sheet))
+      tx.prop(this.wb, 'names', full === null ? others : [...others, { name, scope: sheet, text: full }])
+    })
   }
 
   // ---------- grouping and outline ----------

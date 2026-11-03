@@ -3,6 +3,7 @@
 import { areasOf } from '../state/view'
 import { openCreateTable, toggleFilter } from './Tables'
 import { keyTipsKeydown } from './KeyTips'
+import { runPrint } from './Print'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -232,7 +233,13 @@ def({ id: 'file.saveAs', label: 'Save as…', global: true, run: () => docs.save
 def({ id: 'file.close', label: 'Close workbook', global: true, needsBook: false, run: () => (get().active !== HOME ? docs.closeTab(get().active) : undefined) })
 def({ id: 'file.home', label: 'Home', needsBook: false, global: true, run: () => set({ active: HOME, backstage: false }) })
 def({ id: 'file.backstage', label: 'File menu', run: () => set((s) => ({ backstage: !s.backstage })) })
-def({ id: 'file.print', label: 'Print…', global: true, run: () => toast('Printing arrives with the page layout engine (see IMPLEMENTATION_STATUS.md).', 'info') })
+def({ id: 'file.print', label: 'Print…', global: true, run: (c) => (needsSelection(c), set({ dialog: { kind: 'print' } })) })
+def({ id: 'file.exportPdf', label: 'Save as PDF', keywords: 'export pdf print', run: (c) => (needsSelection(c), void runPrint('pdf', 'sheet')) })
+def({ id: 'page.setPrintArea', label: 'Set print area', run: (c) => { const x = needsSelection(c); return A.edit(x, (b) => b.api.setPrintName(x.view.sheet, 'area', A.areaName(lastRange(x)).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2'))) } })
+def({ id: 'page.clearPrintArea', label: 'Clear print area', run: (c) => { const x = needsSelection(c); return A.edit(x, (b) => b.api.setPrintName(x.view.sheet, 'area', null)) } })
+def({ id: 'page.breakRow', label: 'Insert page break', run: async (c) => { const x = needsSelection(c); const ps = await x.book.api.pageSetup(x.view.sheet); const r = x.view.sel.active.r; if (r > 0) return A.edit(x, (b) => b.api.setPageSetup(x.view.sheet, { rowBreaks: [...new Set([...ps.rowBreaks, r])] })) } })
+def({ id: 'page.printTitles', label: 'Print titles (repeat the selected rows)', run: (c) => { const x = needsSelection(c); const r = lastRange(x); return A.edit(x, (b) => b.api.setPrintName(x.view.sheet, 'titles', '$' + (r.r0 + 1) + ':$' + (r.r1 + 1))) } })
+def({ id: 'page.resetBreaks', label: 'Reset all page breaks', run: (c) => { const x = needsSelection(c); return A.edit(x, (b) => b.api.setPageSetup(x.view.sheet, { rowBreaks: [], colBreaks: [] })) } })
 def({ id: 'tab.next', label: 'Next workbook', group: 'view', global: true, needsBook: false, run: () => cycleTab(1) })
 def({ id: 'tab.prev', label: 'Previous workbook', group: 'view', global: true, needsBook: false, run: () => cycleTab(-1) })
 

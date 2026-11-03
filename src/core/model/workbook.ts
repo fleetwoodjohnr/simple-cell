@@ -5,6 +5,7 @@ import { StyleTable } from './styles'
 import type { CondFormat } from '../condfmt'
 import type { DataValidation } from '../validation'
 import type { AutoFilter, FilterColumn } from '../filter'
+import { defaultPageSetup, type PageSetup } from '../print'
 
 export interface Formula {
   /** Parsed formula; references are relative to the cell (shared by every cell a formula was filled into). */
@@ -116,6 +117,8 @@ export class Sheet {
   /** Notes and hyperlinks by cell (key r * 16384 + c). */
   notes = new Map<number, Note>()
   links = new Map<number, Link>()
+  /** Page Layout: paper, margins, scaling, headers and footers, breaks. */
+  pageSetup: PageSetup = defaultPageSetup()
   /** The sheet's AutoFilter (Ctrl+Shift+L), separate from tables' filters. */
   autoFilter: AutoFilter | null = null
   freeze = { rows: 0, cols: 0 }

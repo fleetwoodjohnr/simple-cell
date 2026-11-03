@@ -9,6 +9,7 @@ import { Ribbon } from './Ribbon'
 import { Dashboard, Backstage } from './Dashboard'
 import { Dialogs } from './Dialogs'
 import { KeyTipsLayer, keyTipsKeyup } from './KeyTips'
+import { PrintHost } from './Print'
 import { FormulaBar } from './FormulaBar'
 import { StatusBar } from './SheetBar'
 import { TooltipProvider } from '../ui'
@@ -158,6 +159,7 @@ export function App() {
         </div>
         <Dialogs />
         <KeyTipsLayer />
+        <PrintHost />
         <Toasts />
         <DropOverlay />
       </div>

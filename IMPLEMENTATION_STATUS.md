@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed); M4 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M4 complete (with the limits listed); M5 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 563 / 563 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 566 / 566 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 15 / 15 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 16 / 16 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -46,7 +46,6 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 
 ### Known limitations
 
-- **Printing and PDF.** Not available yet (M5).
 
 ## M2 — Calculation engine ✅
 
@@ -107,7 +106,7 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 - **XLSB.** Untested, because no XLSB file can be produced without Excel. It can't be saved, since LibreOffice doesn't write it.
 - **Not checked against Excel itself.** Files are checked against LibreOffice and by round trip.
 
-## M4 — Editing depth (in progress)
+## M4 — Editing depth ✅
 
 ### Done
 
@@ -128,12 +127,30 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | Flash Fill (Ctrl+E): learns from examples (words by position, initials, text before/after a delimiter, case changes, joined columns) | unit `flashfill` (3), e2e `editing` |
 | Data validation: all rule types, list dropdown (arrow and Alt+Down), input messages, Stop/Warning/Information alerts, Circle Invalid Data, Data ▸ Validation dialog; follows structure edits; XLSX round trip | unit `validation` (5), `xlsx › data validation…`; e2e `validation` |
 
-### Still to do in M4
+### Known limitations
 
 - Calculated table columns, table auto-expansion.
 - Flash Fill for patterns inside numbers (phone numbers, digit groups) — the learner works on whole words and delimiters only.
 - Split view; Subtotal (Data ▸ Subtotal) and Auto Outline.
 - Command KeyTip letters matching Excel's exactly (they are assigned from command names).
+
+## M5 — Charts, printing and PDF (in progress)
+
+### Done
+
+| Feature | Test |
+|---|---|
+| Page setup per sheet: orientation, paper (Letter, Legal, Tabloid, Executive, A3, A4, A5), margins, scale or fit to pages, gridlines, headings, centring, page order, manual breaks, header/footer codes (&P &N &A &F &D &T, left/centre/right) | unit `print` (3) |
+| Print area and print titles (Excel's built-in names); Page Layout tab | unit `print` |
+| Pagination like Excel's (down then over, titles repeated, hidden rows/columns skipped, fit to page) | unit `print › paginates…` |
+| Print dialog with live page previews; Save as PDF (Electron's PDF engine, text stays text); Print through the system dialog | e2e `print` (checks the PDF with pdftotext and pdfinfo) |
+| XLSX keeps page setup (printer-settings link, other header variants) and writes it back | unit `print › XLSX keeps page setup…` |
+
+### Still to do in M5
+
+- Charts (model, drawing, chart editor, XLSX chart reading/writing).
+- Sparklines.
+- Printing: icons from conditional formatting, pictures and charts on printed pages; a different paper size per sheet in one PDF (the first sheet's size is used).
 
 ## Next
 

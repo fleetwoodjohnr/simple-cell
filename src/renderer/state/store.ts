@@ -42,6 +42,7 @@ export type Dialog =
   | { kind: 'note' }
   | { kind: 'paste-special' }
   | { kind: 'goto-special' }
+  | { kind: 'print' }
   | { kind: 'shift-cells'; mode: 'insert' | 'delete' }
   | { kind: 'link' }
   | { kind: 'create-table'; area: { r0: number; c0: number; r1: number; c1: number }; headers: boolean; style?: string }

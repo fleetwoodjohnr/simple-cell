@@ -16,6 +16,7 @@ import { validationsXml } from './validation'
 import { autoFilterXml, filterColumnsXml } from './filter'
 import { tableSig } from './read'
 import { commentsXml, hyperlinksXml, notesSig, vmlHasShapes, vmlXml } from './notes'
+import { pageSetupXml } from './pagesetup'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -314,7 +315,7 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
       tableParts.push(`<tablePart r:id="${id}"/>`)
     }
     // Hyperlinks (external addresses are relationships) and notes (a comments part plus VML shapes).
-    const extra: Record<string, string> = {}
+    const extra: Record<string, string> = { ...pageSetupXml(sh.pageSetup) }
     const links = hyperlinksXml(sh.links, (url) => {
       const id = sheetRid()
       sheetRels.push({ id, type: REL.hyperlink, target: url, external: true })
@@ -534,9 +535,12 @@ function sheetXml(
 ): { xml: string; dynamic: boolean } {
   const parts = new Map<string, string>(Object.entries(extra))
   // sheetPr
-  const [prAttrs, prInner] = (sc?.sheetPr ?? '').split('\u0000')
+  const [prAttrs, prRaw] = (sc?.sheetPr ?? '').split('\u0000')
   const tab = sh.tabColor ? `<tabColor rgb="${rgb(sh.tabColor)}"/>` : ''
-  if (prAttrs || tab || prInner) parts.set('sheetPr', `<sheetPr${prAttrs ? ' ' + prAttrs : ''}>${tab}${prInner ?? ''}</sheetPr>`)
+  // Fit to page lives in sheetPr/pageSetUpPr (after outlinePr).
+  let prInner = (prRaw ?? '').replace(/<(?:\w+:)?pageSetUpPr\b[^>]*\/>/, '')
+  if (sh.pageSetup.fitToPage) prInner += '<pageSetUpPr fitToPage="1"/>'
+  if (prAttrs || tab || prInner) parts.set('sheetPr', `<sheetPr${prAttrs ? ' ' + prAttrs : ''}>${tab}${prInner}</sheetPr>`)
   // dimension
   const u = sh.used()
   parts.set('dimension', `<dimension ref="${u.r < 0 ? 'A1' : areaName({ r0: 0, c0: 0, r1: Math.max(0, u.r), c1: Math.max(0, u.c) })}"/>`)

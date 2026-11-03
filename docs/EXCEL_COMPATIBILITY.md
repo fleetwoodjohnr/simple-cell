@@ -26,7 +26,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
 | Automation | 📋 | |
 | Data connectors | 📋 | |
-| Printing and PDF | 📋 | |
+| Printing and PDF | 🟡 | Page setup, print area/titles, breaks, headers/footers, fit to page, preview, PDF ✅; charts/pictures on printed pages 📋 |
 
 ## Calculation semantics
 
@@ -121,5 +121,5 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | XLSB | 🟡 | ❌ | Opened through LibreOffice when installed; untested (no fixture can be made without Excel) |
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
-| PDF | — | 📋 | M5 |
+| PDF | — | ✅ | Save as PDF from the Print dialog (text stays selectable) |
 | Charts, pictures, shapes, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

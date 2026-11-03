@@ -14,6 +14,7 @@ import { readCondFormat, readDxf } from './condfmt'
 import { readValidations } from './validation'
 import { readAutoFilter, readFilterColumns } from './filter'
 import { notesSig, readComments, readHyperlinks } from './notes'
+import { PAGE_ELEMENTS, readPageSetup } from './pagesetup'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -479,6 +480,10 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     sh.autoFilter = readAutoFilter(e.xml, sh.id)
     return !sh.autoFilter
   })
+  // Page layout: modelled; the elements are regenerated.
+  const fit = /<(?:\w+:)?pageSetUpPr\b[^>]*\bfitToPage="(1|true)"/.test(top.find((e) => e.name === 'sheetPr')?.xml ?? '')
+  sh.pageSetup = readPageSetup(sc.elements, fit)
+  sc.elements = sc.elements.filter((e) => !PAGE_ELEMENTS.has(e.name))
   // Notes (legacy comments) and hyperlinks.
   const cRel = rels.find((r) => r.type === REL.comments)
   if (cRel) {
