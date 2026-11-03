@@ -8,6 +8,7 @@ import { TitleBar } from './TitleBar'
 import { Ribbon } from './Ribbon'
 import { Dashboard, Backstage } from './Dashboard'
 import { Dialogs } from './Dialogs'
+import { KeyTipsLayer, keyTipsKeyup } from './KeyTips'
 import { FormulaBar } from './FormulaBar'
 import { StatusBar } from './SheetBar'
 import { TooltipProvider } from '../ui'
@@ -125,11 +126,13 @@ export function App() {
     void boot()
     const api = window.simpleCell
     window.addEventListener('keydown', handleKeydown, true)
+    window.addEventListener('keyup', keyTipsKeyup, true)
     const offs = [api.onOpenFiles((f) => void docs.openFiles(f)), api.onCloseRequest(() => docs.requestQuit()), api.onMenuCommand((id) => void runCommand(id))]
     // Test/automation hook (renderer-only; exposes nothing the page could not already reach).
     ;(window as unknown as Record<string, unknown>).__sc = { get, set, books, docs, runCommand, getView, A, toast }
     return () => {
       window.removeEventListener('keydown', handleKeydown, true)
+      window.removeEventListener('keyup', keyTipsKeyup, true)
       offs.forEach((o) => o())
     }
   }, [])
@@ -154,6 +157,7 @@ export function App() {
           {!home && <Backstage />}
         </div>
         <Dialogs />
+        <KeyTipsLayer />
         <Toasts />
         <DropOverlay />
       </div>

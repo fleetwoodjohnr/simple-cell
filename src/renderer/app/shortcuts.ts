@@ -134,7 +134,7 @@ export const BUILTIN: BuiltinShortcut[] = [
   { keys: 'Mod-[', action: 'Select direct precedents', context: 'grid', status: 'planned' },
   { keys: 'Mod-]', action: 'Select direct dependents', context: 'grid', status: 'planned' },
   { keys: 'Alt-F1', action: 'Insert a chart of the current data', context: 'grid', status: 'planned' },
-  { keys: 'Alt (ribbon KeyTips)', action: 'Show KeyTips for the ribbon', context: 'global', status: 'planned' },
+  { keys: 'Alt (ribbon KeyTips)', action: 'Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names', context: 'global', status: 'done' },
   { keys: 'Mod-Shift-u', action: 'Expand or collapse the formula bar', context: 'grid', status: 'planned' }
 ]
 

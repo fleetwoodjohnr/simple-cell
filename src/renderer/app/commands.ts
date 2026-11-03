@@ -2,6 +2,7 @@
 // here. Shortcuts follow Microsoft Excel (docs/SHORTCUT_REFERENCE.md); users can rebind any of them.
 import { areasOf } from '../state/view'
 import { openCreateTable, toggleFilter } from './Tables'
+import { keyTipsKeydown } from './KeyTips'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -121,6 +122,7 @@ export function eventToShortcut(e: KeyboardEvent): string {
 /** Keydown handler installed at window level (capture), so registry shortcuts win. */
 export function handleKeydown(e: KeyboardEvent) {
   if (e.isComposing) return
+  if (keyTipsKeydown(e)) return
   const combo = eventToShortcut(e)
   const target = e.target as HTMLElement | null
   const inGridInput = !!target?.hasAttribute?.('data-grid-focus')

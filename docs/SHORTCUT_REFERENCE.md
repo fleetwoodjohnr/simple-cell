@@ -113,7 +113,7 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Select direct precedents | `Ctrl+[` | `⌘[` | Planned |
 | Select direct dependents | `Ctrl+]` | `⌘]` | Planned |
 | Insert a chart of the current data | `Alt+F1` | `⌥F1` | Planned |
-| Show KeyTips for the ribbon | `Alt (ribbon KeyTips)` | `Alt (ribbon KeyTips)` | Planned |
+| Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names | `Alt (ribbon KeyTips)` | `Alt (ribbon KeyTips)` | ✅ |
 | Expand or collapse the formula bar | `Ctrl+Shift+U` | `⌘⇧U` | Planned |
 
 ## Reserved by the operating system
