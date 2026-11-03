@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed); M4 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 527 / 527 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 3 LibreOffice re-read tests run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 539 / 539 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 8 / 8 (every test also fails on a CSP violation or an uncaught renderer error) |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 9 / 9 (every test also fails on a CSP violation or an uncaught renderer error) |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -104,12 +104,31 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 
 ### Known limitations
 
-- **Shown read-only or not at all.** Charts, pictures, comments, conditional formatting, data validation, hyperlinks, PivotTables and sheet protection from files are kept and saved, but not shown or enforced. They arrive in M4–M6.
+- **Shown read-only or not at all.** Charts, pictures, comments, data validation, hyperlinks, PivotTables and sheet protection from files are kept and saved, but not shown or enforced. They arrive in M4–M6.
 - **ODS structure edits.** Kept ODS content (shapes, conditional formats) is not adjusted when rows or columns are inserted or deleted.
 - **XLSB.** Untested, because no XLSB file can be produced without Excel. It can't be saved, since LibreOffice doesn't write it.
 - **Not checked against Excel itself.** Files are checked against LibreOffice and by round trip.
 
+## M4 — Editing depth (in progress)
+
+### Done
+
+| Feature | Test |
+|---|---|
+| Conditional formatting: every main rule type, evaluated in the core for the cells on screen (including empty cells); fills, fonts, borders and number formats from the rule; colour scales, data bars and 20 icon sets drawn on the grid | unit `condfmt` (9), e2e `condfmt` |
+| Home ▸ Conditional menu with Excel's presets, rule dialog, formula rules, Manage Rules (reorder, delete), Clear Rules; undoable | e2e `condfmt` |
+| Conditional formats in XLSX read and written (dxf indexes kept, Excel 2010 data-bar links kept); LibreOffice reads them | unit `xlsx › conditional formatting…` |
+
+### Still to do in M4
+
+- Data validation (lists, enforcement).
+- Tables (Ctrl+T) and AutoFilter.
+- Comments and notes, hyperlinks.
+- The Paste Special dialog, Format Painter, cell styles, Flash Fill, Go To Special.
+- Grouping and outline, split view.
+- Inserting and deleting cells with a shift.
+- The remaining shortcuts (KeyTips).
+
 ## Next
 
-- **M4 — Editing depth.** Conditional formatting, data validation, tables, filters, comments, Paste Special, Flash Fill and the remaining shortcuts.
 - **M5 onward.** See the plan in ARCHITECTURE.md.

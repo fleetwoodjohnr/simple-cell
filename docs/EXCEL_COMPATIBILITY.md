@@ -18,7 +18,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Calculation semantics | 🟡 | See below |
 | Keyboard shortcuts | 🟡 | 64 command shortcuts registered + 24 built-in navigation/editing keys done; 11 planned ([SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md)) |
 | File formats | 🟡 | XLSX, XLSM, XLTX, ODS, CSV, TSV, JSON, HTML, XML 2003 ✅; XLS ✅ through LibreOffice; XLSB open only, untested; content not yet shown (charts, CF, comments…) 🔒 kept ([FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md)) |
-| Formatting | 🟡 | Cell formatting ✅; conditional formatting, cell styles, Format Painter 📋 |
+| Formatting | 🟡 | Cell formatting ✅; conditional formatting ✅ (all main rule types, shown, edited, saved); cell styles, Format Painter 📋 |
 | Tables | 📋 | Structured references parse and calculate; creating and editing tables is planned |
 | PivotTables | 📋 | |
 | Charts | 📋 | |
@@ -52,6 +52,21 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | External workbook references (`[Book.xlsx]Sheet!A1`) | 🔒 | Kept; formulas using them show the saved result |
 | Unsupported functions | 🔒 | Kept; the saved result is shown and flagged, never replaced by 0 |
 
+## Conditional formatting
+
+| Feature | Status | Notes |
+|---|---|---|
+| Cell value rules (greater/less than, between, equal…), formula rules | ✅ | Blank cells compare as 0, as in Excel |
+| Top/bottom N and N%, above/below average (with standard deviations), duplicate/unique values | ✅ | Ties included in top/bottom |
+| Text contains / begins / ends, dates occurring (yesterday … next month), blanks, errors | ✅ | Excel's own formulas are generated for new rules |
+| 2- and 3-colour scales, data bars, icon sets (all 20 sets) | ✅ | Min, max, number, percent, percentile and formula thresholds |
+| Rule priority, Stop If True, Manage Rules (reorder, delete), Clear Rules (selection or sheet) | ✅ | |
+| Rules follow inserted and deleted rows and columns | ✅ | |
+| Custom formats in the rule dialog (any font, fill and border) | 🟡 | Seven presets (Excel's six plus bold); custom formats are kept from files |
+| Data bar options from Excel 2010 (negative bars, axis, solid fill) | 🔒 | Kept in the file; drawn as Excel 2007 gradient bars |
+| Copying or filling cells carries their conditional formats | 📋 | |
+| ODS conditional formats | 🔒 | Kept and saved, not shown |
+
 ## Keyboard shortcuts
 
 See [SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md) for the full list. Shortcuts follow Excel for Windows, and Excel for Mac on macOS. A Google Sheets preset changes the shortcuts that differ. Every shortcut can be rebound. Conflicting bindings are detected in the shortcut dialog and in a unit test of the registry.
@@ -69,4 +84,4 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | 📋 | M5 |
-| Charts, pictures, shapes, comments, conditional formatting, data validation, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |
+| Charts, pictures, shapes, comments, data validation, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

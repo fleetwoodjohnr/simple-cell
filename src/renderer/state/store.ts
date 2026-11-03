@@ -1,3 +1,4 @@
+import type { CfPreset } from '../app/CondFormat'
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS, type RecentFile, type RecoveryEntry, type Settings } from '@/shared/ipc-types'
 import type { FormatId, FormatWarning } from '@/core/formats/types'
@@ -33,6 +34,8 @@ export type Dialog =
   | { kind: 'insert-function'; initial?: string }
   | { kind: 'format-cells'; tab?: string }
   | { kind: 'sort' }
+  | { kind: 'cf-rule'; preset: CfPreset }
+  | { kind: 'cf-manage' }
   | { kind: 'row-height' | 'col-width' }
   | { kind: 'csv-import'; name: string; path: string; data: Uint8Array }
   | { kind: 'history' }

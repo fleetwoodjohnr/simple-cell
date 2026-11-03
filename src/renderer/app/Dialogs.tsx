@@ -14,6 +14,7 @@ import { formatValue } from '@/core/numfmt/format'
 import type { Style, BorderStyle } from '@/core/model/styles'
 import { colName, parseCell } from '@/core/refs'
 import { guessHeader, currentRegion } from './commands'
+import { CfManageDialog, CfRuleDialog } from './CondFormat'
 
 const close = () => set({ dialog: null })
 
@@ -45,6 +46,10 @@ export function Dialogs() {
       return <FormatCellsDialog initial={d.tab} />
     case 'sort':
       return <SortDialog />
+    case 'cf-rule':
+      return <CfRuleDialog preset={d.preset} />
+    case 'cf-manage':
+      return <CfManageDialog />
     case 'row-height':
     case 'col-width':
       return <SizeDialog axis={d.kind === 'row-height' ? 'row' : 'col'} />

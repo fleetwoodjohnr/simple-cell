@@ -118,11 +118,9 @@ export class Book {
     if (this.fetched.get(sheet) !== want) return // a newer request replaced this one
     let map = this.cells.get(sheet)
     if (!map) this.cells.set(sheet, (map = new Map()))
-    for (const k of map.keys()) {
-      const r = Math.floor(k / 16384)
-      const c = k % 16384
-      if (!want.some((w) => r >= w.r0 && r <= w.r1 && c >= w.c0 && c <= w.c1)) map.delete(k)
-    }
+    // The fetched windows replace what was cached there (cells emptied since are dropped too); cells outside every
+    // window are dropped to bound memory.
+    map.clear()
     for (const cells of results) for (const v of cells) map.set(v.r * 16384 + v.c, v)
     this.emit()
   }
@@ -140,6 +138,7 @@ export class Book {
 
   applyChanges(changes: { sheet: number; cells: ViewCell[]; cleared: [number, number][] }[], meta: WorkbookMeta) {
     const structural = meta.structureVersion !== this.meta.structureVersion
+    if (meta.viewVersion !== this.meta.viewVersion) this.fetched.clear()
     const widths = (m: WorkbookMeta) => new Map(m.sheets.map((s) => [s.id, JSON.stringify(s.cols)]))
     const before = widths(this.meta)
     this.meta = meta
@@ -152,6 +151,8 @@ export class Book {
         if (!map) continue
         for (const v of ch.cells) map.set(v.r * 16384 + v.c, v)
         for (const [r, c] of ch.cleared) map.delete(r * 16384 + c)
+        // Conditional formats depend on other cells: refetch the visible windows (patched cells show meanwhile).
+        if (meta.sheets.find((s) => s.id === ch.sheet)?.cf) this.fetched.delete(ch.sheet)
       }
     this.emit()
   }

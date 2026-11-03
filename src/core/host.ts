@@ -1,7 +1,7 @@
 // The document host: every operation the UI can ask of an open workbook. It runs inside the core Web Worker
 // (worker.ts) and directly in unit tests. All arguments and results are structured-clone friendly.
 
-import { Doc, type ViewCell } from './doc'
+import { Doc, type CfSpec, type ViewCell } from './doc'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -36,6 +36,8 @@ export interface SheetMeta {
   spills: Area[]
   /** Rows hidden by an AutoFilter (to draw the filter state). */
   filtered: number[]
+  /** The sheet has conditional formatting: any change may restyle other cells, so the client refetches. */
+  cf: boolean
 }
 
 export interface WorkbookMeta {
@@ -50,6 +52,8 @@ export interface WorkbookMeta {
   circular: { sheet: number; r: number; c: number }[]
   version: number
   structureVersion: number
+  /** Bumped when the display changed beyond the edited cells (conditional formats). */
+  viewVersion: number
   date1904: boolean
 }
 
@@ -129,6 +133,7 @@ export class Host {
       circular: [...this.doc.engine.circular].map(fromKey),
       version: this.doc.version,
       structureVersion: this.doc.structureVersion,
+      viewVersion: this.doc.viewVersion,
       date1904: wb.date1904
     }
   }
@@ -163,7 +168,8 @@ export class Host {
       showGridlines: s.showGridlines,
       zoom: s.zoom,
       spills,
-      filtered
+      filtered,
+      cf: s.condFormats.length > 0
     }
   }
 
@@ -172,9 +178,15 @@ export class Host {
     const s = this.doc.wb.sheetById(sheet)
     if (!s) return []
     const out: ViewCell[] = []
+    const cf = this.doc.condFormatsIn(sheet, { sheet, r0, r1, c0, c1 })
+    const chars = (c: number) => Math.max(1, Math.floor(s.colWidth(c) / 7))
     s.forEachIn({ sheet, r0, r1, c0, c1 }, (r, c, cell) => {
-      out.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7))))
+      const k = r * 16384 + c
+      out.push(this.doc.viewOf(cell, r, c, chars(c), cf.get(k)))
+      cf.delete(k)
     })
+    // Empty cells that conditional formatting colours.
+    for (const [k, res] of cf) out.push(this.doc.viewOf({ v: null }, Math.floor(k / 16384), k % 16384, 1, res))
     return out
   }
 
@@ -188,7 +200,9 @@ export class Host {
       let e = by.get(sheet)
       if (!e) by.set(sheet, (e = { cells: [], cleared: [] }))
       const cell = s.get(r, c)
-      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7))))
+      const cf = s.condFormats.length ? this.doc.condFormatsIn(sheet, { sheet, r0: r, r1: r, c0: c, c1: c }).get(r * 16384 + c) : undefined
+      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7)), cf))
+      else if (cf) e.cells.push(this.doc.viewOf({ v: null }, r, c, 1, cf))
       else e.cleared.push([r, c])
     }
     return [...by].map(([sheet, e]) => ({ sheet, ...e }))
@@ -426,6 +440,21 @@ export class Host {
   }
   deleteName(name: string, scope: number | null) {
     return this.run(() => this.doc.deleteName(name, scope))
+  }
+  addCondFormat(sheet: number, ranges: Area[], spec: CfSpec) {
+    return this.run(() => this.doc.addCondFormat(sheet, ranges, spec))
+  }
+  clearCondFormats(sheet: number, areas: Area[] | null) {
+    return this.run(() => this.doc.clearCondFormats(sheet, areas))
+  }
+  deleteCondRule(sheet: number, id: number) {
+    return this.run(() => this.doc.deleteCondRule(sheet, id))
+  }
+  moveCondRule(sheet: number, id: number, dir: -1 | 1) {
+    return this.run(() => this.doc.moveCondRule(sheet, id, dir))
+  }
+  listCondFormats(sheet: number) {
+    return this.doc.listCondFormats(sheet)
   }
   fill(a: Area, dir: 'down' | 'right' | 'up' | 'left') {
     return this.run(() => this.doc.fill(a, dir))

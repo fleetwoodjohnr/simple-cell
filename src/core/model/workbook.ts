@@ -2,6 +2,7 @@
 import { MAX_COLS, MAX_ROWS, type Area, type Scalar } from '../engine/values'
 import type { Node } from '../engine/parser'
 import { StyleTable } from './styles'
+import type { CondFormat } from '../condfmt'
 
 export interface Formula {
   /** Parsed formula; references are relative to the cell (shared by every cell a formula was filled into). */
@@ -86,6 +87,8 @@ export class Sheet {
   readonly cols = new Map<number, ColInfo>()
   readonly rowInfo = new Map<number, RowInfo>()
   merges: Area[] = []
+  /** Conditional formatting blocks (ranges + rules), in file order. */
+  condFormats: CondFormat[] = []
   freeze = { rows: 0, cols: 0 }
   hidden: false | 'hidden' | 'veryHidden' = false
   tabColor: string | null = null

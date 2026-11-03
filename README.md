@@ -11,6 +11,7 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
   - Formula bar and Name Box, multiple sheets, undo and redo.
 - **Formulas.** Excel operator precedence, dynamic arrays with spilling, LET and LAMBDA, names, cross-sheet references, and circular reference detection.
   - 499 of Excel's 526 worksheet functions are implemented and checked against Microsoft's documented examples and LibreOffice ([docs/FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md)).
+- **Conditional formatting.** Highlight rules, top/bottom rules, colour scales, data bars, icon sets and formula rules, kept in .xlsx files.
 - **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
 - **Files.** Excel (.xlsx, .xlsm, templates) and OpenDocument (.ods), read and written by Simple Cell itself. Charts, comments, conditional formatting and other content it can't show yet are kept and saved unchanged.
   - .xls through LibreOffice when it is installed.

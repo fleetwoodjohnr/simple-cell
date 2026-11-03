@@ -1,4 +1,5 @@
 // Drawing a sheet onto a canvas: fills, gridlines, text (with overflow), borders, merges, selection and headers.
+import { drawIcon } from './icons'
 import type { ViewCell } from '@/core/doc'
 import type { SheetMeta } from '@/core/host'
 import type { BorderSide, Style } from '@/core/model/styles'
@@ -44,6 +45,14 @@ const PT = 96 / 72
 const widthCache = new Map<string, number>()
 
 /** Fonts finished loading: measurements taken with a fallback face are stale. */
+/** Blend colour a toward b by t (0…1). */
+function mix(a: string, b: string, t: number): string {
+  const p = (h: string) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16))
+  const x = p(a.length === 7 ? a : '#000000')
+  const y = p(b)
+  return '#' + x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')
+}
+
 export function clearMeasureCache() {
   widthCache.clear()
 }
@@ -195,8 +204,8 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
     if (!h) continue
     for (let c = pane.c0; c <= pane.c1; c++) {
       const v = P.cell(r, c)
-      if (!v?.s) continue
-      const st = styles[v.s]
+      if (!v?.s && !v?.x) continue
+      const st = v.x ?? styles[v.s]
       if (!st?.fill && !st?.pattern) continue
       const m = mergeAt(r, c)
       if (m && (m.r0 !== r || m.c0 !== c)) continue
@@ -227,7 +236,7 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
     for (let r = pane.r0; r <= pane.r1; r++)
       for (let c = pane.c0; c <= pane.c1; c++) {
         const v = P.cell(r, c)
-        const st = v?.s ? styles[v.s] : undefined
+        const st = v?.x ?? (v?.s ? styles[v.s] : undefined)
         if (st?.fill) {
           const rect = cellRect(L, r, c)
           ctx.fillStyle = st.fill
@@ -237,10 +246,27 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
   }
   for (const m of merges) {
     const rect = areaRect(L, m)
-    const st = styles[P.cell(m.r0, m.c0)?.s ?? 0]
+    const mv = P.cell(m.r0, m.c0)
+    const st = mv?.x ?? styles[mv?.s ?? 0]
     ctx.fillStyle = st?.fill ?? theme.bg
     ctx.fillRect(rect.x, rect.y, rect.w - 1, rect.h - 1)
   }
+  // Conditional formatting data bars (under the text).
+  for (let r = pane.r0; r <= pane.r1; r++)
+    for (let c = pane.c0; c <= pane.c1; c++) {
+      const bar = P.cell(r, c)?.bar
+      if (!bar) continue
+      const rect = cellRect(L, r, c)
+      const w = Math.max(0, (rect.w - 4 * z) * bar.w)
+      const g = ctx.createLinearGradient(rect.x + 2 * z, 0, rect.x + 2 * z + w, 0)
+      g.addColorStop(0, bar.color)
+      g.addColorStop(1, mix(bar.color, '#ffffff', 0.85))
+      ctx.fillStyle = g
+      ctx.fillRect(rect.x + 2 * z, rect.y + 2 * z, w, rect.h - 5 * z)
+      ctx.strokeStyle = bar.color
+      ctx.lineWidth = 1
+      ctx.strokeRect(Math.round(rect.x + 2 * z) + 0.5, Math.round(rect.y + 2 * z) + 0.5, Math.max(0, Math.round(w) - 1), Math.max(0, Math.round(rect.h - 5 * z) - 1))
+    }
   // 3. Text
   const padX = 3 * z
   for (let r = pane.r0; r <= pane.r1; r++) {
@@ -254,16 +280,26 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
       if (P.editingCell && P.editingCell.r === r && P.editingCell.c === c) continue
       const m = mergeAt(r, c)
       if (m && (m.r0 !== r || m.c0 !== c)) continue
-      let text = v.t
+      let text = v.hide && !P.showFormulas ? '' : v.t
       if (P.showFormulas && v.f && P.formulaText) text = P.formulaText(r, c) ?? text
+      const st = v.x ?? styles[v.s] ?? {}
+      // Conditional formatting icon, at the left of the cell; left-aligned text moves past it.
+      let iconW = 0
+      if (v.icon && !P.showFormulas) {
+        const rect0 = m ? areaRect(L, m) : { x: colX(L, c), y, w: L.cols.size(c) * z, h: rh }
+        const size = Math.min(rect0.h - 4 * z, 14 * z)
+        const va = st.vAlign ?? 'bottom'
+        const iy = va === 'top' ? rect0.y + 2 * z : va === 'center' ? rect0.y + (rect0.h - size) / 2 : rect0.y + rect0.h - size - 2 * z
+        if (size > 2) drawIcon(ctx, v.icon.set, v.icon.i, rect0.x + 2 * z, iy, size)
+        iconW = size + 3 * z
+      }
       if (!text) continue
-      const st = styles[v.s] ?? {}
       const font = fontOf(st, z, P.defaultFont, P.defaultSize)
       const rect = m ? areaRect(L, m) : { x: colX(L, c), y, w: L.cols.size(c) * z, h: rh }
       if (rect.w <= 0) continue
       let align = st.hAlign && st.hAlign !== 'general' ? st.hAlign : v.k === 'n' || v.k === 'd' ? 'right' : v.k === 'b' || v.k === 'e' ? 'center' : 'left'
       if (P.showFormulas && v.f) align = 'left'
-      const indent = (st.indent ?? 0) * 9 * z
+      const indent = (st.indent ?? 0) * 9 * z + (align === 'left' ? iconW : 0)
       ctx.font = font
       ctx.fillStyle = v.fc ?? st.color ?? theme.text
       const tw = measure(ctx, font, text)
@@ -315,7 +351,7 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
   for (let r = pane.r0; r <= pane.r1; r++)
     for (let c = pane.c0; c <= pane.c1; c++) {
       const v = P.cell(r, c)
-      const st = v?.s ? styles[v.s] : undefined
+      const st = v?.x ?? (v?.s ? styles[v.s] : undefined)
       if (!st || !(st.borderTop || st.borderBottom || st.borderLeft || st.borderRight || st.borderDiagDown || st.borderDiagUp)) continue
       const m = mergeAt(r, c)
       const rect = m && m.r0 === r && m.c0 === c ? areaRect(L, m) : cellRect(L, r, c)

@@ -10,6 +10,7 @@ import { BUILTIN_FORMATS } from '../../numfmt/format'
 import { readZip, text } from '../zip'
 import { contentTypes, parseRels, REL, resolveTarget, type Rel } from '../opc'
 import { attr, boolAttr, deep, kid, kids, numAttr, parseXml, tagAttrs, textOf, topLevel, xmlText, type El } from '../xml'
+import { readCondFormat, readDxf } from './condfmt'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -123,13 +124,15 @@ function colorOf(el: El | null, theme: string[], customIndexed?: string[]): stri
 // ---------- styles ----------
 
 interface StylesResult {
+  /** Differential formats (conditional formatting), by index. */
+  dxfs: Style[]
   xfToStyle: number[]
   numFmts: Map<number, string>
   carry: XlsxCarry['styles']
 }
 
 function readStyles(xml: string, wb: Workbook, theme: string[], w: Warnings): StylesResult {
-  const empty: StylesResult = { xfToStyle: [0], numFmts: new Map(), carry: { fonts: [], fills: [], borders: [] } }
+  const empty: StylesResult = { dxfs: [], xfToStyle: [0], numFmts: new Map(), carry: { fonts: [], fills: [], borders: [] } }
   if (!xml) return empty
   const doc = parseXml(xml)
   const root = doc.documentElement
@@ -250,7 +253,9 @@ function readStyles(xml: string, wb: Workbook, theme: string[], w: Warnings): St
     xfToStyle.push(wb.styles.intern(st))
   }
   if (!xfToStyle.length) xfToStyle.push(0)
+  const dxfs = kids(kid(root, 'dxfs'), 'dxf').map((d) => readDxf(d, (el) => colorOf(el, theme, indexed)))
   return {
+    dxfs,
     xfToStyle,
     numFmts,
     carry: { dxfs: raw('dxfs'), cellStyleXfs: raw('cellStyleXfs'), cellStyles: raw('cellStyles'), tableStyles: raw('tableStyles'), colors: raw('colors'), extLst: raw('extLst'), fonts: fontXml, fills: fillXml, borders: borderXml }
@@ -440,8 +445,16 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
   const top = topLevel(inner)
   const sc: SheetCarry = { path, rels, elements: top.filter((e) => !GENERATED.has(e.name)) }
   ctx.carry.sheets[sh.id] = sc
+  // Conditional formats become part of the model; any that can't be read stay as they are.
+  sc.elements = sc.elements.filter((e) => {
+    if (e.name !== 'conditionalFormatting') return true
+    const b = readCondFormat(e.xml, sh.id, ctx.styles.dxfs, (el) => colorOf(el, ctx.theme, undefined), ctx.sheetId)
+    if (b) sh.condFormats.push(b)
+    return !b
+  })
   const kinds = new Set(sc.elements.map((e) => e.name))
-  if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Conditional formatting is kept and saved, but not shown or editable yet.')
+  if (kinds.has('conditionalFormatting')) ctx.w.add('info', 'Some conditional formats could not be read; they are kept and saved, but not shown.')
+  if (sc.elements.some((e) => e.name === 'extLst' && /<x14:cfRule\b(?![^>]*type="dataBar")/.test(e.xml))) ctx.w.add('info', 'Some conditional formats from newer Excel versions are kept and saved, but not shown.')
   if (kinds.has('dataValidations')) ctx.w.add('info', 'Data validation rules are kept and saved, but not enforced or editable yet.')
   if (kinds.has('drawing')) ctx.w.add('loss', 'Charts, pictures and shapes are kept and saved, but not shown yet.')
   if (kinds.has('legacyDrawing')) ctx.w.add('info', 'Comments and notes are kept and saved, but not shown yet.')

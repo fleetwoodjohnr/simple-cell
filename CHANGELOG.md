@@ -10,3 +10,4 @@
   - .xls through LibreOffice; .xlsb opened through LibreOffice.
   - JSON, HTML tables and XML Spreadsheet 2003.
   - Saving to a format that would lose content offers to save as .xlsx instead.
+  - Conditional formatting: highlight rules, top/bottom, colour scales, data bars, icon sets and formula rules, shown on the grid and kept in .xlsx files.

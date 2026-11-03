@@ -181,6 +181,75 @@ describe('XLSX', () => {
     expect(val(back, 'D2')).toBe(4)
   })
 
+  it('conditional formatting: read, shown, edited and written back', async () => {
+    const doc = new Doc()
+    const s = doc.wb.sheets[0].id
+    ;[5, 15, 25, 35].forEach((v, i) => doc.input(s, i, 0, String(v)))
+    const area = (r0: number, r1: number) => ({ sheet: s, r0, c0: 0, r1, c1: 0 })
+    doc.addCondFormat(s, [area(0, 3)], { type: 'cellIs', operator: 'between', formulas: ['10', '30'], dxf: { fill: '#ffc7ce', color: '#9c0006', bold: true }, stopIfTrue: true })
+    doc.addCondFormat(s, [area(0, 3)], { type: 'colorScale', colorScale: { cfvo: [{ type: 'min' }, { type: 'percentile', val: '50' }, { type: 'max' }], colors: ['#f8696b', '#ffeb84', '#63be7b'] } })
+    doc.addCondFormat(s, [area(0, 3)], { type: 'iconSet', iconSet: { set: '3Arrows', cfvo: [{ type: 'percent', val: '0' }, { type: 'percent', val: '33' }, { type: 'percent', val: '67' }] } })
+    doc.addCondFormat(s, [area(0, 3), { sheet: s, r0: 0, c0: 2, r1: 3, c1: 2 }], { type: 'expression', formulas: ['=MOD(ROW(),2)=0'], dxf: { numFmt: '0.0' } })
+    const out = await new Host(doc).save('xlsx')
+    const xml = strFromU8(unzipSync(out.data)['xl/worksheets/sheet1.xml'])
+    expect(xml).toContain('<conditionalFormatting sqref="A1:A4 C1:C4"><cfRule type="expression" dxfId="1" priority="1"><formula>MOD(ROW(),2)=0</formula></cfRule></conditionalFormatting>')
+    expect(xml).toContain('<cfRule type="cellIs" dxfId="0" priority="4" stopIfTrue="1" operator="between"><formula>10</formula><formula>30</formula></cfRule>')
+    const styles = strFromU8(unzipSync(out.data)['xl/styles.xml'])
+    expect(styles).toMatch(/<dxfs count="2"><dxf><font><b\/><color rgb="FF9C0006"\/><\/font><fill><patternFill><bgColor rgb="FFFFC7CE"\/><\/patternFill><\/fill><\/dxf><dxf><numFmt numFmtId="\d+" formatCode="0.0"\/><\/dxf><\/dxfs>/)
+    const back = await open(out.data)
+    const list = back.doc.listCondFormats(back.doc.wb.sheets[0].id)
+    expect(list.map((r) => [r.type, r.priority, r.ranges])).toEqual([
+      ['expression', 1, 'A1:A4 C1:C4'],
+      ['iconSet', 2, 'A1:A4'],
+      ['colorScale', 3, 'A1:A4'],
+      ['cellIs', 4, 'A1:A4']
+    ])
+    expect(list[3].dxf).toEqual({ fill: '#FFC7CE', color: '#9C0006', bold: true })
+    const cells = back.viewport(back.doc.wb.sheets[0].id, 0, 3, 0, 0)
+    const a2 = cells.find((c) => c.r === 1)!
+    expect(a2.t).toBe('15.0')
+    expect(a2.icon).toEqual({ set: '3Arrows', i: 1 })
+    expect(a2.x?.bold).toBe(true)
+    // An unchanged file keeps its dxf ids (tables and PivotTables refer to them too).
+    const again = strFromU8(unzipSync((await back.save('xlsx')).data)['xl/styles.xml'])
+    expect(again.match(/<dxfs[\s\S]*<\/dxfs>/)?.[0]).toBe(styles.match(/<dxfs[\s\S]*<\/dxfs>/)?.[0])
+  })
+
+  it.skipIf(!soffice)('LibreOffice reads the conditional formats Simple Cell writes', async () => {
+    const doc = new Doc()
+    const s = doc.wb.sheets[0].id
+    ;[5, 15, 25].forEach((v, i) => doc.input(s, i, 0, String(v)))
+    const a = { sheet: s, r0: 0, c0: 0, r1: 2, c1: 0 }
+    doc.addCondFormat(s, [a], { type: 'cellIs', operator: 'greaterThan', formulas: ['10'], dxf: { fill: '#ffc7ce' } })
+    doc.addCondFormat(s, [a], { type: 'colorScale', colorScale: { cfvo: [{ type: 'min' }, { type: 'max' }], colors: ['#f8696b', '#63be7b'] } })
+    doc.addCondFormat(s, [a], { type: 'iconSet', iconSet: { set: '3Arrows', cfvo: [{ type: 'percent', val: '0' }, { type: 'percent', val: '33' }, { type: 'percent', val: '67' }] } })
+    doc.addCondFormat(s, [a], { type: 'dataBar', dataBar: { cfvo: [{ type: 'min' }, { type: 'max' }], color: '#638ec6' } })
+    const dir = mkdtempSync(path.join(tmpdir(), 'sc-cf-'))
+    writeFileSync(path.join(dir, 'cf.xlsx'), (await new Host(doc).save('xlsx')).data)
+    execFileSync(soffice!, ['--headless', '--norestore', `-env:UserInstallation=${pathToFileURL(path.join(dir, 'p')).href}`, '--convert-to', 'ods', '--outdir', dir, path.join(dir, 'cf.xlsx')], { timeout: 120_000 })
+    const content = strFromU8(unzipSync(new Uint8Array(readFileSync(path.join(dir, 'cf.ods'))))['content.xml'])
+    expect(content).toContain('calcext:condition calcext:apply-style-name')
+    expect(content).toContain('calcext:value="&gt;10"')
+    expect(content).toContain('<calcext:color-scale>')
+    expect(content).toContain('calcext:icon-set-type="3Arrows"')
+    expect(content).toContain('<calcext:data-bar')
+  }, 150_000)
+
+  it('conditional formatting from Excel 2010+: data bar extensions stay linked', async () => {
+    const h = await open(fixture('features.xlsx'))
+    const sh = h.doc.wb.sheets[0]
+    const carry = h.doc.wb.carry as { sheets: Record<number, { elements: { name: string; xml: string }[] }> }
+    const id = '{1A2B3C4D-0000-4000-8000-000000000001}'
+    carry.sheets[sh.id].elements.push({ name: 'extLst', xml: `<extLst><ext uri="{78C0D931-6437-407d-A8EE-F0AAD7539E65}" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"><x14:conditionalFormattings><x14:conditionalFormatting xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main"><x14:cfRule type="dataBar" id="${id}"><x14:dataBar minLength="0" maxLength="100" negativeBarColorSameAsPositive="0"><x14:cfvo type="autoMin"/><x14:cfvo type="autoMax"/><x14:negativeFillColor rgb="FFFF0000"/></x14:dataBar></x14:cfRule><xm:sqref>B2:B4</xm:sqref></x14:conditionalFormatting></x14:conditionalFormattings></ext></extLst>` })
+    // Read a main-part data bar that links to it, as Excel writes them.
+    const { readCondFormat } = await import('@/core/formats/xlsx/condfmt')
+    const b = readCondFormat(`<conditionalFormatting sqref="B2:B4"><cfRule type="dataBar" priority="1"><dataBar><cfvo type="min"/><cfvo type="max"/><color rgb="FF638EC6"/></dataBar><extLst><ext uri="{B025F937-C7B1-47D3-B67F-A62EFF666E3E}" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"><x14:id>${id}</x14:id></ext></extLst></cfRule></conditionalFormatting>`, sh.id, [], () => '#638EC6', () => null)!
+    sh.condFormats.push(b)
+    const xml = strFromU8(unzipSync((await h.save('xlsx')).data)['xl/worksheets/sheet1.xml'])
+    expect(xml).toContain(`<x14:id>${id}</x14:id></ext></extLst></cfRule></conditionalFormatting>`)
+    expect(xml).toContain(`<x14:cfRule type="dataBar" id="${id}">`)
+  })
+
   it('refuses zip bombs and non-zip files', () => {
     expect(() => readXlsx(new Uint8Array([1, 2, 3, 4]))).toThrow(/not a valid workbook/)
     const big = new Uint8Array(30 * 1024 * 1024) // 30 MB of zeros compresses to ~30 KB

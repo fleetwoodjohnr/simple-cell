@@ -50,7 +50,8 @@ import {
   Baseline,
   BetweenHorizontalStart,
   Trash2,
-  Square
+  Square,
+  Highlighter
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -59,6 +60,7 @@ import { runCommand, shortcutFor } from './commands'
 import * as A from './actions'
 import { ColorGrid, IconBtn, Menu, MenuContent, MenuItem, MenuSep, MenuLabel, Pop, PopContent, PopTrigger, SubMenu, Tip, cx, MenuTrigger } from '../ui'
 import { useBookVersion } from './hooks'
+import { CondFormatMenuItems } from './CondFormat'
 import type { Style, BorderStyle } from '@/core/model/styles'
 
 const TABS: { id: RibbonTab; label: string }[] = [
@@ -348,6 +350,15 @@ function HomeTab({ tab }: { tab: string }) {
             <Cmd id="fmt.lessDecimals" label="Decrease decimal" icon={<span className="text-[10.5px] font-semibold">←.0</span>} />
           </div>
         </div>
+      </Group>
+      <Sep />
+      <Group label="Styles">
+        <Menu>
+          <DropBtn icon={<Highlighter />} label="Conditional formatting" text="Conditional" />
+          <MenuContent>
+            <CondFormatMenuItems />
+          </MenuContent>
+        </Menu>
       </Group>
       <Sep />
       <Group label="Cells">

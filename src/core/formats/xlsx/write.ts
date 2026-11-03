@@ -10,6 +10,9 @@ import { bytes, text, writeZip } from '../zip'
 import { contentTypesXml, CT, esc, parseRels, REL, relsPath, relsXml, resolveTarget, unreachable, type Rel } from '../opc'
 import { Warnings, type ExportResult } from '../types'
 import type { SheetCarry, XlsxCarry } from './read'
+import type { CfRule } from '../../condfmt'
+import { condFormatsXml, dxfXml } from './condfmt'
+import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
 
@@ -37,6 +40,9 @@ class StyleWriter {
   private xfIdx = new Map<string, number>()
   /** Style id → cellXfs index */
   map = new Map<number, number>()
+  /** Differential formats: the file's (indexes kept: tables and PivotTables refer to them) plus new ones. */
+  dxfs: string[] = []
+  private dxfIdx = new Map<string, number>()
 
   constructor(
     private wb: Workbook,
@@ -52,6 +58,22 @@ class StyleWriter {
       this.fontIdx.set(carry.fonts[0], 0)
     }
     this.xf(0)
+    const inner = carry?.dxfs?.replace(/^<(?:\w+:)?dxfs\b[^>]*?(?:\/>|>)/, '').replace(/<\/(?:\w+:)?dxfs>$/, '') ?? ''
+    this.dxfs = topLevel(inner).map((e) => e.xml)
+  }
+
+  /** dxfId for a conditional formatting rule: its original one while its format is unchanged. */
+  dxf(r: CfRule): number | undefined {
+    if (!r.dxf) return undefined
+    if (r.carry?.dxfId !== undefined && r.carry.dxfKey === JSON.stringify(r.dxf) && r.carry.dxfId < this.dxfs.length) return r.carry.dxfId
+    const xml = dxfXml(r.dxf, (code) => this.numFmt(code))
+    let i = this.dxfIdx.get(xml)
+    if (i === undefined) {
+      i = this.dxfs.length
+      this.dxfs.push(xml)
+      this.dxfIdx.set(xml, i)
+    }
+    return i
   }
 
   private font(xml: string) {
@@ -81,7 +103,7 @@ class StyleWriter {
     }
     return i
   }
-  private numFmt(code: string | undefined): number {
+  numFmt(code: string | undefined): number {
     if (!code || code === 'General') return 0
     for (const [id, c] of Object.entries(BUILTIN_FORMATS)) if (c === code) return Number(id)
     let id = this.numFmts.get(code)
@@ -157,7 +179,7 @@ class StyleWriter {
       (c?.cellStyleXfs ?? '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>') +
       `<cellXfs count="${this.xfs.length}">${this.xfs.join('')}</cellXfs>` +
       (c?.cellStyles ?? '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>') +
-      (c?.dxfs ?? '<dxfs count="0"/>') +
+      `<dxfs count="${this.dxfs.length}">${this.dxfs.join('')}</dxfs>` +
       (c?.tableStyles ?? '<tableStyles count="0" defaultTableStyle="TableStyleMedium2" defaultPivotStyle="PivotStyleLight16"/>') +
       (c?.colors ?? '') +
       (c?.extLst ?? '') +
@@ -528,6 +550,7 @@ function sheetXml(
   }
   parts.set('sheetData', `<sheetData>${rowsXml.join('')}</sheetData>`)
   if (sh.merges.length) parts.set('mergeCells', `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${areaName(m)}"/>`).join('')}</mergeCells>`)
+  if (sh.condFormats.length) parts.set('conditionalFormatting', condFormatsXml(sh.condFormats, (r) => styles.dxf(r), sheetName, fname))
   if (tableParts.length) parts.set('tableParts', `<tableParts count="${tableParts.length}">${tableParts.join('')}</tableParts>`)
   void w
   // Assemble in schema order, slotting the preserved elements in.
@@ -549,9 +572,8 @@ function sheetXml(
   }
   let body = (after.get('') ?? []).join('')
   for (const name of ORDER) {
-    const gen = parts.get(name)
-    if (gen) body += gen
-    else body += (byName.get(name) ?? []).join('')
+    // Generated elements first; preserved ones of the same kind (conditional formats that couldn't be read) after.
+    body += (parts.get(name) ?? '') + (byName.get(name) ?? []).join('')
     body += (after.get(name) ?? []).join('')
   }
   const rootAttrs = `xmlns="${MAIN_NS}" xmlns:r="${R_NS}" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" xmlns:x14ac="http://schemas.microsoft.com/office/spreadsheetml/2009/9/ac" xmlns:xr="http://schemas.microsoft.com/office/spreadsheetml/2014/revision" xmlns:x14="http://schemas.microsoft.com/office/spreadsheetml/2009/9/main" xmlns:xm="http://schemas.microsoft.com/office/excel/2006/main" mc:Ignorable="x14ac xr"`

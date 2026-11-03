@@ -7,7 +7,7 @@
 import { cellKey, fromKey } from '../refs'
 import type { Cell, Formula, Workbook } from '../model/workbook'
 import { evaluate, finalValue, getFunction, pick, type EvalContext } from './evaluate'
-import { refCorner, walk, type Node } from './parser'
+import { parseFormula, refCorner, walk, type Node } from './parser'
 import { ERR, MAX_COLS, MAX_ROWS, isArray, isError, type Area, type ArrayValue, type Scalar } from './values'
 import { isKnownExcelFunction } from './catalog'
 
@@ -358,6 +358,16 @@ export class Engine {
       ensure: (a) => this.ensure(a),
       spillArea: (s, rr, cc) => this.spills.get(cellKey(s, rr, cc)) ?? null
     }
+  }
+
+  /** Context for evaluating a formula that isn't in a cell (conditional formats, validation) as if it were at r, c. */
+  contextAt(sheet: number, r: number, c: number): EvalContext {
+    return this.ctxFor(sheet, r, c, false)
+  }
+
+  /** Parse formula text (with or without "=") as if entered at r, c of the sheet. */
+  parseAt(text: string, sheet: number, r: number, c: number): Node {
+    return parseFormula(text.startsWith('=') ? text : '=' + text, { row: r, col: c, sheetId: (n) => this.wb.sheetByName(n)?.id ?? null })
   }
 
   read(sheet: number, r: number, c: number): Scalar {

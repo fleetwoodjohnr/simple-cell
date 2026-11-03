@@ -7,7 +7,7 @@ const docs = new Map<string, Host>()
 
 type Msg = { id: number; doc: string; method: string; args: unknown[] }
 
-const MUTATING = new Set(['input', 'inputAll', 'pasteText', 'pasteCells', 'clear', 'formatCells', 'toggle', 'insert', 'remove', 'undo', 'redo', 'addSheet', 'deleteSheet', 'renameSheet', 'moveSheet', 'sheetProps', 'setColWidths', 'setRowHeights', 'autofitCols', 'hide', 'freeze', 'merge', 'unmerge', 'defineName', 'deleteName', 'fill', 'autofill', 'sort', 'replace', 'setCalc', 'calculate'])
+const MUTATING = new Set(['input', 'inputAll', 'pasteText', 'pasteCells', 'clear', 'formatCells', 'toggle', 'insert', 'remove', 'undo', 'redo', 'addSheet', 'deleteSheet', 'renameSheet', 'moveSheet', 'sheetProps', 'setColWidths', 'setRowHeights', 'autofitCols', 'hide', 'freeze', 'merge', 'unmerge', 'defineName', 'deleteName', 'addCondFormat', 'clearCondFormats', 'deleteCondRule', 'moveCondRule', 'fill', 'autofill', 'sort', 'replace', 'setCalc', 'calculate'])
 
 async function handle(m: Msg): Promise<unknown> {
   if (m.method === 'create') {

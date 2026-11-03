@@ -8,10 +8,11 @@ import { CellError, ERR, MAX_COLS, MAX_ROWS, isError, numberToText, setDateParse
 import { Sheet, Workbook, type Cell, type ColInfo, type DefinedName, type RowInfo } from './model/workbook'
 import type { Style } from './model/styles'
 import { adjustFormula, relocate, shiftArea, type Shift } from './model/adjust'
-import { cellKey, fromKey } from './refs'
+import { areaName, cellKey, fromKey } from './refs'
 import { parseInput } from './input'
 import { formatValue, isDateFormat } from './numfmt/format'
 import { parseDateTime } from './numfmt/dates'
+import { CfEvaluator, newRuleId, type CfResult, type CfRule, type CondFormat } from './condfmt'
 
 setDateParser((s) => parseDateTime(s))
 
@@ -34,6 +35,8 @@ export class Tx {
   /** Cells whose content changed (the engine is told after the transaction). */
   readonly touched = new Set<number>()
   structural = false
+  /** Display changed beyond the edited cells (conditional formats): the client refetches what is on screen. */
+  refetch = false
   namesChanged = new Set<string>()
 
   constructor(private doc: Doc) {}
@@ -98,6 +101,41 @@ export class Tx {
   }
 }
 
+/** A conditional formatting rule as the UI describes it: formulas as text. */
+export type CfSpec = Omit<CfRule, 'id' | 'priority' | 'formulas' | 'carry'> & { formulas?: string[] }
+
+export interface CfListItem {
+  id: number
+  type: CfRule['type']
+  priority: number
+  ranges: string
+  operator?: string
+  text?: string
+  rank?: number
+  percent?: boolean
+  bottom?: boolean
+  aboveAverage?: boolean
+  timePeriod?: string
+  iconSet?: string
+  colors?: string[]
+  stopIfTrue?: boolean
+  dxf?: Style
+  formulas?: string[]
+}
+
+/** The parts of `a` outside `cut` (up to four rectangles). */
+export function subtractArea(a: Area, cut: Area): Area[] {
+  if (cut.sheet !== a.sheet || cut.r0 > a.r1 || cut.r1 < a.r0 || cut.c0 > a.c1 || cut.c1 < a.c0) return [a]
+  const out: Area[] = []
+  if (cut.r0 > a.r0) out.push({ ...a, r1: cut.r0 - 1 })
+  if (cut.r1 < a.r1) out.push({ ...a, r0: cut.r1 + 1 })
+  const r0 = Math.max(a.r0, cut.r0)
+  const r1 = Math.min(a.r1, cut.r1)
+  if (cut.c0 > a.c0) out.push({ ...a, r0, r1, c1: cut.c0 - 1 })
+  if (cut.c1 < a.c1) out.push({ ...a, r0, r1, c0: cut.c1 + 1 })
+  return out
+}
+
 export interface ViewCell {
   r: number
   c: number
@@ -115,6 +153,14 @@ export interface ViewCell {
   sp?: 1
   /** Unsupported function: value came from the file. */
   st?: 1
+  /** Effective style when conditional formatting changes it (the cell's style with the rule's format on top). */
+  x?: Style
+  /** Conditional formatting data bar: fraction of the cell width, colour. */
+  bar?: { w: number; color: string }
+  /** Conditional formatting icon. */
+  icon?: { set: string; i: number }
+  /** The rule hides the value (data bar or icon only). */
+  hide?: 1
 }
 
 export class Doc {
@@ -127,10 +173,14 @@ export class Doc {
   /** Changed cell keys since the last call to `takeChanges`. */
   private changedKeys = new Set<number>()
   structureVersion = 0
+  viewVersion = 0
+
+  readonly cf: CfEvaluator
 
   constructor(wb?: Workbook) {
     this.wb = wb ?? Doc.blank()
     this.engine = new Engine(this.wb)
+    this.cf = new CfEvaluator(this.engine, () => this.version)
     if (wb) {
       this.engine.rebuild()
       this.recalc()
@@ -182,6 +232,7 @@ export class Doc {
     }
     if (!tx.changes.length) return null
     if (tx.structural) this.afterStructure()
+    if (tx.refetch) this.viewVersion++
     for (const n of tx.namesChanged) this.engine.nameChanged(n)
     const t: Transaction = { label, changes: tx.changes, selection }
     this.undoStack.push(t)
@@ -292,6 +343,13 @@ export class Doc {
     return v
   }
 
+  /** Conditional formatting for a window of a sheet (empty when the sheet has none). */
+  condFormatsIn(sheet: number, win: Area): Map<number, CfResult> {
+    const sh = this.wb.sheetById(sheet)
+    if (!sh?.condFormats.length) return new Map()
+    return this.cf.forArea(sh, sh.condFormats, win)
+  }
+
   /** Displayed text and kind for one cell. `chars` is roughly how many characters fit (General format). */
   display(sheet: number, r: number, c: number, chars = 11): ViewCell | null {
     const sh = this.wb.sheetById(sheet)
@@ -300,13 +358,20 @@ export class Doc {
     return this.viewOf(cell, r, c, chars)
   }
 
-  viewOf(cell: Cell, r: number, c: number, chars = 11): ViewCell {
-    const style = this.wb.styles.get(cell.s)
+  viewOf(cell: Cell, r: number, c: number, chars = 11, cf?: CfResult): ViewCell {
+    const base = this.wb.styles.get(cell.s)
+    const style = cf?.style ? { ...base, ...cf.style } : base
     const v = cell.v
     const out: ViewCell = { r, c, t: '', s: cell.s ?? 0, k: '' }
     if (cell.f) out.f = 1
     if (cell.spillOf !== undefined) out.sp = 1
     if (cell.f?.unsupported && cell.stale) out.st = 1
+    if (cf) {
+      if (cf.style) out.x = style
+      if (cf.bar) out.bar = cf.bar
+      if (cf.icon) out.icon = cf.icon
+      if (cf.hide) out.hide = 1
+    }
     if (v === null) return out
     const fmt = formatValue(v, style.numFmt, this.wb.date1904, chars)
     out.t = fmt.text
@@ -524,6 +589,19 @@ export class Doc {
       const a = shiftArea(t.area, s)
       if (a) tx.prop(t, 'area', a)
     }
+    // Conditional formats: ranges move with the cells; formulas are relative to the first range's top-left cell.
+    if (sh.condFormats.length) {
+      const next: CondFormat[] = []
+      for (const b of sh.condFormats) {
+        const ranges = b.ranges.map((a) => shiftArea(a, s)).filter((a): a is Area => !!a)
+        if (!ranges.length) continue
+        const from = { row: b.ranges[0].r0, col: b.ranges[0].c0 }
+        const to = { row: ranges[0].r0, col: ranges[0].c0 }
+        const rules = b.rules.map((r) => (r.formulas ? { ...r, formulas: r.formulas.map((f) => adjustFormula(f, sh.id, from, to, s)) } : r))
+        next.push({ ...b, ranges, rules })
+      }
+      tx.prop(sh, 'condFormats', next)
+    }
     for (const [key, fn] of Object.entries(this.carryShifters)) {
       void key
       fn(tx, s)
@@ -666,6 +744,96 @@ export class Doc {
   }
 
   // ---------- names ----------
+
+  // ---------- conditional formatting ----------
+
+  /** Add a rule over `ranges` (formulas as text, relative to the first range's top-left cell). New rules come first. */
+  addCondFormat(sheet: number, ranges: Area[], spec: CfSpec) {
+    const sh = this.sheet(sheet)
+    const anchor = ranges[0]
+    const formulas = spec.formulas?.map((f) => this.parse(f.startsWith('=') ? f : '=' + f, sheet, anchor.r0, anchor.c0))
+    const rule: CfRule = { ...spec, formulas, id: newRuleId(), priority: 1 }
+    if (!formulas) delete rule.formulas
+    return this.transact('Conditional formatting', (tx) => {
+      tx.refetch = true
+      const bumped = sh.condFormats.map((b) => ({ ...b, rules: b.rules.map((r) => ({ ...r, priority: r.priority + 1 })) }))
+      tx.prop(sh, 'condFormats', [...bumped, { ranges: ranges.map((a) => ({ ...a, sheet })), rules: [rule] }])
+    })
+  }
+
+  /** Remove conditional formatting from an area of the sheet, or from the whole sheet. */
+  clearCondFormats(sheet: number, areas: Area[] | null) {
+    const sh = this.sheet(sheet)
+    return this.transact('Clear rules', (tx) => {
+      tx.refetch = true
+      if (!areas) return tx.prop(sh, 'condFormats', [])
+      const next: CondFormat[] = []
+      for (const b of sh.condFormats) {
+        let ranges = b.ranges
+        for (const cut of areas) ranges = ranges.flatMap((a) => subtractArea(a, cut))
+        if (ranges.length) next.push(ranges === b.ranges ? b : { ...b, ranges })
+      }
+      tx.prop(sh, 'condFormats', next)
+    })
+  }
+
+  deleteCondRule(sheet: number, id: number) {
+    const sh = this.sheet(sheet)
+    return this.transact('Delete rule', (tx) => {
+      tx.refetch = true
+      tx.prop(
+        sh,
+        'condFormats',
+        sh.condFormats.map((b) => ({ ...b, rules: b.rules.filter((r) => r.id !== id) })).filter((b) => b.rules.length)
+      )
+    })
+  }
+
+  /** Move a rule up (-1, higher priority) or down (+1). */
+  moveCondRule(sheet: number, id: number, dir: -1 | 1) {
+    const sh = this.sheet(sheet)
+    const order = sh.condFormats.flatMap((b) => b.rules).sort((a, b) => a.priority - b.priority)
+    const i = order.findIndex((r) => r.id === id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= order.length) return null
+    ;[order[i], order[j]] = [order[j], order[i]]
+    const prio = new Map(order.map((r, k) => [r.id, k + 1]))
+    return this.transact('Move rule', (tx) => {
+      tx.refetch = true
+      tx.prop(
+        sh,
+        'condFormats',
+        sh.condFormats.map((b) => ({ ...b, rules: b.rules.map((r) => ({ ...r, priority: prio.get(r.id)! })) }))
+      )
+    })
+  }
+
+  /** The sheet's rules in priority order, with formulas as text (for the Manage Rules dialog). */
+  listCondFormats(sheet: number): CfListItem[] {
+    const sh = this.sheet(sheet)
+    return sh.condFormats
+      .flatMap((b) =>
+        b.rules.map((r) => ({
+          id: r.id,
+          type: r.type,
+          priority: r.priority,
+          ranges: b.ranges.map((a) => areaName(a)).join(' '),
+          operator: r.operator,
+          text: r.text,
+          rank: r.rank,
+          percent: r.percent,
+          bottom: r.bottom,
+          aboveAverage: r.aboveAverage,
+          timePeriod: r.timePeriod,
+          iconSet: r.iconSet?.set,
+          colors: r.colorScale?.colors ?? (r.dataBar ? [r.dataBar.color] : undefined),
+          stopIfTrue: r.stopIfTrue,
+          dxf: r.dxf,
+          formulas: r.formulas?.map((f) => '=' + printFormula(f, { row: b.ranges[0].r0, col: b.ranges[0].c0, sheetName: this.sheetName }))
+        }))
+      )
+      .sort((a, b) => a.priority - b.priority)
+  }
 
   defineName(name: string, text: string, scope: number | null = null, comment?: string) {
     const n = name.trim()
