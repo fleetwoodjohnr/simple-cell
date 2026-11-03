@@ -1,0 +1,53 @@
+{
+  "name": "simple-cell",
+  "productName": "Simple Cell",
+  "version": "0.1.0",
+  "description": "A fast, modern spreadsheet that opens and saves Excel and OpenDocument workbooks",
+  "main": "out/main/index.js",
+  "homepage": "https://github.com/fleetwoodjohnr/simple-cell",
+  "author": {
+    "name": "Simple Cell",
+    "email": "fleetwoodjohnr@gmail.com"
+  },
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+    "test": "vitest run",
+    "e2e": "npm run build && playwright test",
+    "e2e:headless": "npm run build && xvfb-run -a playwright test",
+    "icons": "magick -background none resources/icon.svg -depth 8 resources/icon.png && magick -size 1024x1024 xc:none \\( resources/icon.png -resize 942x942 -background none -gravity center -extent 1024x1024 \\( +clone -background black -shadow 30x12+0+10 \\) +swap -background none -layers merge \\) -layers flatten -depth 8 resources/icon-mac.png && for s in 16 24 32 48 64 128 256 512; do magick resources/icon.png -filter Lanczos -resize ${s}x${s} -depth 8 resources/icons/${s}x${s}.png; done",
+    "dist": "npm run build && electron-builder"
+  },
+  "desktopName": "simple-cell.desktop",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@fontsource-variable/inter": "^5.3.0",
+    "@playwright/test": "^1.64.1",
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.5",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@xmldom/xmldom": "^0.9.12",
+    "electron": "^45.0.0",
+    "electron-builder": "^26.18.0",
+    "electron-vite": "^6.0.0",
+    "fflate": "^0.8.3",
+    "lucide-react": "^1.61.0",
+    "radix-ui": "^1.8.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5",
+    "zustand": "^5.0.16"
+  },
+  "dependencies": {
+    "electron-updater": "6.8.10"
+  }
+}

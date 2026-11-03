@@ -1,0 +1,451 @@
+// The document host: every operation the UI can ask of an open workbook. It runs inside the core Web Worker
+// (worker.ts) and directly in unit tests. All arguments and results are structured-clone friendly.
+
+import { Doc, type ViewCell } from './doc'
+import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
+import { FormulaSyntaxError } from './engine/parser'
+import type { Style } from './model/styles'
+import { mean, sum, variance } from './engine/functions/helpers'
+import { navigate, type Dir } from './nav'
+import { fromKey } from './refs'
+import { snapshot, restore, type Snapshot } from './snapshot'
+import { importWorkbook, exportWorkbook, type FormatId } from './formats/registry'
+import type { FormatWarning } from './formats/types'
+import { CATALOG } from './engine/catalog'
+import { getFunction } from './engine/evaluate'
+import { findCells, replaceCells, type FindOptions } from './find'
+import { sortRange, type SortKey } from './sort'
+import { autofill } from './autofill'
+
+export interface SheetMeta {
+  id: number
+  name: string
+  hidden: boolean | string
+  tabColor: string | null
+  freeze: { rows: number; cols: number }
+  defaultColWidth: number
+  defaultRowHeight: number
+  /** Sparse widths/heights; 0 = hidden. */
+  cols: [number, number][]
+  rows: [number, number][]
+  merges: Area[]
+  used: { r: number; c: number }
+  showGridlines: boolean
+  zoom: number
+  spills: Area[]
+  /** Rows hidden by an AutoFilter (to draw the filter state). */
+  filtered: number[]
+}
+
+export interface WorkbookMeta {
+  sheets: SheetMeta[]
+  styles: Style[]
+  names: { name: string; scope: number | null; text: string; comment?: string }[]
+  tables: { name: string; sheet: number; area: Area }[]
+  calcMode: 'auto' | 'manual'
+  iterate: boolean
+  canUndo: string | null
+  canRedo: string | null
+  circular: { sheet: number; r: number; c: number }[]
+  version: number
+  structureVersion: number
+  date1904: boolean
+}
+
+export interface Stats {
+  count: number
+  numbers: number
+  sum: number
+  average: number | null
+  min: number | null
+  max: number | null
+}
+
+export class Host {
+  doc: Doc
+  warnings: FormatWarning[] = []
+  format: FormatId | null = null
+
+  constructor(doc?: Doc) {
+    this.doc = doc ?? new Doc()
+  }
+
+  // ---------- files ----------
+
+  static async open(bytes: Uint8Array, format: FormatId): Promise<Host> {
+    const r = await importWorkbook(format, bytes)
+    const h = new Host(new Doc(r.workbook))
+    h.warnings = r.warnings
+    h.format = format
+    return h
+  }
+
+  async save(format: FormatId, opts: Record<string, unknown> = {}): Promise<{ data: Uint8Array; warnings: FormatWarning[] }> {
+    return exportWorkbook(format, this.doc.wb, opts)
+  }
+
+  snapshot(): Snapshot {
+    return snapshot(this.doc.wb)
+  }
+
+  static fromSnapshot(s: Snapshot): Host {
+    return new Host(new Doc(restore(s)))
+  }
+
+  // ---------- reading ----------
+
+  meta(): WorkbookMeta {
+    const wb = this.doc.wb
+    return {
+      sheets: wb.sheets.map((s) => this.sheetMeta(s.id)),
+      styles: wb.styles.list,
+      names: wb.names.filter((n) => !n.hidden).map((n) => ({ name: n.name, scope: n.scope, text: n.text, comment: n.comment })),
+      tables: wb.tables.map((t) => ({ name: t.name, sheet: t.sheet, area: t.area })),
+      calcMode: wb.calc.mode,
+      iterate: wb.calc.iterate,
+      canUndo: this.doc.undoStack.at(-1)?.label ?? null,
+      canRedo: this.doc.redoStack.at(-1)?.label ?? null,
+      circular: [...this.doc.engine.circular].map(fromKey),
+      version: this.doc.version,
+      structureVersion: this.doc.structureVersion,
+      date1904: wb.date1904
+    }
+  }
+
+  sheetMeta(id: number): SheetMeta {
+    const s = this.doc.sheet(id)
+    const filtered: number[] = []
+    const rows: [number, number][] = []
+    for (const [r, ri] of s.rowInfo) {
+      if (ri.hidden) rows.push([r, 0])
+      else if (ri.height !== undefined) rows.push([r, ri.height])
+      if (ri.filtered) filtered.push(r)
+    }
+    const cols: [number, number][] = []
+    for (const [c, ci] of s.cols) {
+      if (ci.hidden) cols.push([c, 0])
+      else if (ci.width !== undefined) cols.push([c, ci.width])
+    }
+    const spills = [...this.doc.engine.spills].filter(([k]) => fromKey(k).sheet === id).map(([, a]) => a)
+    return {
+      id: s.id,
+      name: s.name,
+      hidden: s.hidden,
+      tabColor: s.tabColor,
+      freeze: s.freeze,
+      defaultColWidth: s.defaultColWidth,
+      defaultRowHeight: s.defaultRowHeight,
+      cols,
+      rows,
+      merges: s.merges,
+      used: s.used(),
+      showGridlines: s.showGridlines,
+      zoom: s.zoom,
+      spills,
+      filtered
+    }
+  }
+
+  /** Cells to draw in a window of the sheet. `chars` maps column → characters that fit (for General). */
+  viewport(sheet: number, r0: number, r1: number, c0: number, c1: number): ViewCell[] {
+    const s = this.doc.wb.sheetById(sheet)
+    if (!s) return []
+    const out: ViewCell[] = []
+    s.forEachIn({ sheet, r0, r1, c0, c1 }, (r, c, cell) => {
+      out.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7))))
+    })
+    return out
+  }
+
+  /** Cells whose display changed since the last call (any sheet). */
+  changes(): { sheet: number; cells: ViewCell[]; cleared: [number, number][] }[] {
+    const by = new Map<number, { cells: ViewCell[]; cleared: [number, number][] }>()
+    for (const k of this.doc.takeChanges()) {
+      const { sheet, r, c } = fromKey(k)
+      const s = this.doc.wb.sheetById(sheet)
+      if (!s) continue
+      let e = by.get(sheet)
+      if (!e) by.set(sheet, (e = { cells: [], cleared: [] }))
+      const cell = s.get(r, c)
+      if (cell) e.cells.push(this.doc.viewOf(cell, r, c, Math.max(1, Math.floor(s.colWidth(c) / 7))))
+      else e.cleared.push([r, c])
+    }
+    return [...by].map(([sheet, e]) => ({ sheet, ...e }))
+  }
+
+  editText(sheet: number, r: number, c: number) {
+    return this.doc.editText(sheet, r, c)
+  }
+
+  styleAt(sheet: number, r: number, c: number): Style {
+    return this.doc.styleAt(sheet, r, c)
+  }
+
+  cellInfo(sheet: number, r: number, c: number) {
+    const cell = this.doc.wb.sheetById(sheet)?.get(r, c)
+    const v = cell?.v ?? null
+    return {
+      editText: this.doc.editText(sheet, r, c),
+      formula: !!cell?.f,
+      unsupported: cell?.f?.unsupported ?? null,
+      stale: !!cell?.stale,
+      error: isError(v) ? v.code : null,
+      type: v === null ? 'empty' : typeof v === 'number' ? 'number' : typeof v === 'string' ? 'text' : typeof v === 'boolean' ? 'logical' : 'error',
+      spill: cell?.spillOf !== undefined ? fromKey(cell.spillOf) : null,
+      style: this.doc.styleAt(sheet, r, c),
+      table: this.doc.wb.tableAt(sheet, r, c)?.name ?? null
+    }
+  }
+
+  stats(areas: Area[]): Stats {
+    const nums: number[] = []
+    let count = 0
+    const seen = new Set<string>()
+    for (const a of areas) {
+      const s = this.doc.wb.sheetById(a.sheet)
+      s?.forEachIn(a, (r, c, cell) => {
+        const k = `${r},${c}`
+        if (seen.has(k)) return
+        seen.add(k)
+        if (cell.v === null) return
+        count++
+        if (typeof cell.v === 'number') nums.push(cell.v)
+      })
+    }
+    const v = variance(nums, true)
+    void v
+    return {
+      count,
+      numbers: nums.length,
+      sum: sum(nums),
+      average: nums.length ? mean(nums) : null,
+      min: nums.length ? Math.min(...nums) : null,
+      max: nums.length ? Math.max(...nums) : null
+    }
+  }
+
+  navigate(sheet: number, r: number, c: number, dir: Dir): { r: number; c: number } {
+    return navigate(this.doc.sheet(sheet), r, c, dir)
+  }
+
+  /** Values for copying: TSV and an HTML table (with basic formatting). */
+  copyText(a: Area): { tsv: string; html: string } {
+    const s = this.doc.sheet(a.sheet)
+    const rows: string[] = []
+    const html: string[] = []
+    for (let r = a.r0; r <= a.r1; r++) {
+      if (s.rowInfo.get(r)?.filtered) continue
+      const line: string[] = []
+      const tds: string[] = []
+      for (let c = a.c0; c <= a.c1; c++) {
+        const vc = this.doc.display(a.sheet, r, c, 255)
+        const t = vc?.t ?? ''
+        line.push(/[\t\n"]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t)
+        const st = this.doc.styleAt(a.sheet, r, c)
+        const css = [st.bold && 'font-weight:bold', st.italic && 'font-style:italic', st.color && `color:${st.color}`, st.fill && `background:${st.fill}`, st.hAlign && st.hAlign !== 'general' && `text-align:${st.hAlign}`].filter(Boolean).join(';')
+        tds.push(`<td${css ? ` style="${css}"` : ''}>${t.replace(/&/g, '&amp;').replace(/</g, '&lt;')}</td>`)
+      }
+      rows.push(line.join('\t'))
+      html.push(`<tr>${tds.join('')}</tr>`)
+    }
+    return { tsv: rows.join('\n'), html: `<table>${html.join('')}</table>` }
+  }
+
+  functionList() {
+    return CATALOG.map((e) => ({ name: e.n, category: e.cat, description: e.d, implemented: !!getFunction(e.n) }))
+  }
+
+  // ---------- editing (each returns an error message or null) ----------
+
+  private run(fn: () => unknown): { ok: true } | { ok: false; error: string; pos?: number } {
+    try {
+      fn()
+      return { ok: true }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message, pos: e instanceof FormulaSyntaxError ? e.pos : undefined }
+    }
+  }
+
+  input(sheet: number, r: number, c: number, text: string, array?: Area) {
+    return this.run(() => this.doc.input(sheet, r, c, text, { array }))
+  }
+
+  /** Enter the same text into every cell of the areas (Ctrl+Enter); formulas adjust per cell. */
+  inputAll(areas: Area[], text: string) {
+    return this.run(() =>
+      this.doc.transact('Typing', (tx) => {
+        for (const a of areas) for (let r = a.r0; r <= a.r1; r++) for (let c = a.c0; c <= a.c1; c++) this.doc.inputTx(tx, a.sheet, r, c, text)
+      })
+    )
+  }
+
+  /** Paste rows of text (TSV from another app): numbers, dates and formulas are recognised. */
+  pasteText(sheet: number, r: number, c: number, rows: string[][]) {
+    return this.run(() =>
+      this.doc.transact('Paste', (tx) => {
+        rows.forEach((line, i) => line.forEach((t, j) => this.doc.inputTx(tx, sheet, r + i, c + j, t)))
+      })
+    )
+  }
+
+  /** Paste cells copied inside Simple Cell (formulas move relative to the new position). */
+  pasteCells(src: Area, dst: Area, what: 'all' | 'values' | 'formats' | 'formulas' = 'all', cut = false) {
+    return this.run(() => {
+      const block = this.doc.block(src)
+      this.doc.transact(cut ? 'Move' : 'Paste', (tx) => {
+        if (cut) {
+          const s = this.doc.sheet(src.sheet)
+          s.forEachIn(src, (r, c) => tx.setCell(src.sheet, r, c, undefined))
+        }
+        this.doc.pasteTx(tx, dst, block, what)
+      })
+    })
+  }
+
+  clear(areas: Area[], what: 'contents' | 'formats' | 'all') {
+    return this.run(() => this.doc.clear(areas, what))
+  }
+  formatCells(areas: Area[], patch: Partial<Style>) {
+    return this.run(() => this.doc.format(areas, patch))
+  }
+  /** Toggle a boolean style property based on the active cell (Bold, Italic…). */
+  toggle(areas: Area[], key: 'bold' | 'italic' | 'strike' | 'wrap', active: { sheet: number; r: number; c: number }) {
+    const on = !this.doc.styleAt(active.sheet, active.r, active.c)[key]
+    return this.run(() => this.doc.format(areas, { [key]: on || undefined }))
+  }
+  insert(sheet: number, axis: 'row' | 'col', at: number, count: number) {
+    return this.run(() => (axis === 'row' ? this.doc.insertRows(sheet, at, count) : this.doc.insertCols(sheet, at, count)))
+  }
+  remove(sheet: number, axis: 'row' | 'col', at: number, count: number) {
+    return this.run(() => (axis === 'row' ? this.doc.deleteRows(sheet, at, count) : this.doc.deleteCols(sheet, at, count)))
+  }
+  undo() {
+    return this.doc.undo()?.selection ?? null
+  }
+  redo() {
+    return this.doc.redo()?.selection ?? null
+  }
+  addSheet(name?: string, index?: number) {
+    let id = -1
+    const r = this.run(() => (id = this.doc.addSheet(name, index)))
+    return { ...r, id }
+  }
+  deleteSheet(id: number) {
+    return this.run(() => this.doc.deleteSheet(id))
+  }
+  renameSheet(id: number, name: string) {
+    return this.run(() => this.doc.renameSheet(id, name))
+  }
+  moveSheet(id: number, to: number) {
+    return this.run(() => this.doc.moveSheet(id, to))
+  }
+  sheetProps(id: number, props: { tabColor?: string | null; hidden?: boolean; showGridlines?: boolean; zoom?: number }) {
+    return this.run(() =>
+      this.doc.transact('Sheet', (tx) => {
+        const s = this.doc.sheet(id)
+        if (props.tabColor !== undefined) tx.prop(s, 'tabColor', props.tabColor)
+        if (props.hidden !== undefined) {
+          if (props.hidden && this.doc.wb.sheets.filter((x) => !x.hidden && x.id !== id).length === 0) throw new Error('A workbook must contain at least one visible sheet.')
+          tx.prop(s, 'hidden', props.hidden ? 'hidden' : false)
+        }
+        if (props.showGridlines !== undefined) tx.prop(s, 'showGridlines', props.showGridlines)
+        if (props.zoom !== undefined) tx.prop(s, 'zoom', props.zoom)
+      })
+    )
+  }
+  setColWidths(sheet: number, cols: number[], width: number | undefined) {
+    return this.run(() => this.doc.setColWidths(sheet, cols, width))
+  }
+  setRowHeights(sheet: number, rows: number[], height: number | undefined) {
+    return this.run(() => this.doc.setRowHeights(sheet, rows, height))
+  }
+  /** Best width for columns from their displayed text (double-click on a column border). */
+  autofitCols(sheet: number, cols: number[], measure: (text: string, style: number) => number) {
+    void measure
+    return this.run(() => {
+      const s = this.doc.sheet(sheet)
+      const widths: number[] = cols.map((c) => {
+        let w = 0
+        s.forEachIn({ sheet, r0: 0, r1: MAX_ROWS - 1, c0: c, c1: c }, (r, cc, cell) => {
+          const t = this.doc.viewOf(cell, r, cc, 255).t
+          w = Math.max(w, t.length * 7 + 10)
+        })
+        return w ? Math.min(Math.max(w, 20), 800) : s.defaultColWidth
+      })
+      this.doc.transact('AutoFit column width', (tx) => {
+        cols.forEach((c, i) => tx.mapSet(s.cols, c, { ...(s.cols.get(c) ?? {}), width: widths[i], hidden: undefined }))
+      })
+    })
+  }
+  /** Column texts for autofit measured by the UI (which knows fonts). */
+  columnTexts(sheet: number, col: number, limit = 5000): { t: string; s: number }[] {
+    const s = this.doc.sheet(sheet)
+    const out: { t: string; s: number }[] = []
+    s.forEachIn({ sheet, r0: 0, r1: MAX_ROWS - 1, c0: col, c1: col }, (r, c, cell) => {
+      if (out.length >= limit) return
+      const vc = this.doc.viewOf(cell, r, c, 255)
+      if (vc.t) out.push({ t: vc.t, s: vc.s })
+    })
+    return out
+  }
+  hide(sheet: number, axis: 'row' | 'col', indexes: number[], hidden: boolean) {
+    return this.run(() => this.doc.hide(sheet, axis, indexes, hidden))
+  }
+  freeze(sheet: number, rows: number, cols: number) {
+    return this.run(() => this.doc.freeze(sheet, rows, cols))
+  }
+  merge(area: Area, mode: 'all' | 'across' | 'center') {
+    return this.run(() => this.doc.merge(area, mode))
+  }
+  unmerge(area: Area) {
+    return this.run(() => this.doc.unmerge(area))
+  }
+  defineName(name: string, text: string, scope: number | null, comment?: string) {
+    return this.run(() => this.doc.defineName(name, text, scope, comment))
+  }
+  deleteName(name: string, scope: number | null) {
+    return this.run(() => this.doc.deleteName(name, scope))
+  }
+  fill(a: Area, dir: 'down' | 'right' | 'up' | 'left') {
+    return this.run(() => this.doc.fill(a, dir))
+  }
+  autofill(src: Area, dst: Area) {
+    return this.run(() => autofill(this.doc, src, dst))
+  }
+  sort(a: Area, keys: SortKey[], header: boolean) {
+    return this.run(() => sortRange(this.doc, a, keys, header))
+  }
+  find(opts: FindOptions) {
+    return findCells(this.doc, opts)
+  }
+  replace(opts: FindOptions & { replacement: string; all: boolean; at?: { sheet: number; r: number; c: number } }) {
+    let n = 0
+    const r = this.run(() => (n = replaceCells(this.doc, opts)))
+    return { ...r, count: n }
+  }
+  setCalc(mode: 'auto' | 'manual', iterate?: boolean) {
+    this.doc.wb.calc.mode = mode
+    if (iterate !== undefined) this.doc.wb.calc.iterate = iterate
+    if (mode === 'auto') this.doc.recalc(true)
+    return { ok: true }
+  }
+  calculate(full = false) {
+    if (full) this.doc.recalcAll()
+    else this.doc.calculateNow()
+    return { ok: true }
+  }
+  /** Cells referenced by a formula (Trace Precedents) and cells that use a cell (Trace Dependents). */
+  trace(sheet: number, r: number, c: number) {
+    return {
+      precedents: this.doc.engine.precedents(sheet, r, c),
+      dependents: this.doc.engine.dependents(sheet, r, c).map(fromKey)
+    }
+  }
+
+  /** Value of one cell (tests and macros). */
+  value(sheet: number, r: number, c: number): Scalar {
+    return this.doc.value(sheet, r, c)
+  }
+}
+
+export const LIMITS = { MAX_ROWS, MAX_COLS }

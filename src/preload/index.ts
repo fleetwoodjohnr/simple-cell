@@ -1,0 +1,54 @@
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
+import type { OpenedFile, SimpleCellApi } from '../shared/ipc-types'
+
+const on = <T extends unknown[]>(channel: string, cb: (...args: T) => void) => {
+  const listener = (_e: unknown, ...args: unknown[]) => cb(...(args as T))
+  ipcRenderer.on(channel, listener)
+  return () => {
+    ipcRenderer.removeListener(channel, listener)
+  }
+}
+
+const api: SimpleCellApi = {
+  platform: process.platform,
+  openDialog: (filter) => ipcRenderer.invoke('files:open-dialog', filter),
+  readFile: (p) => ipcRenderer.invoke('files:read', p),
+  saveDialog: (name, exts) => ipcRenderer.invoke('files:save-dialog', name, exts),
+  writeFile: (p, data) => ipcRenderer.invoke('files:write', p, data),
+  grantDroppedFile: (file) => {
+    const p = webUtils.getPathForFile(file)
+    if (!p) return null
+    void ipcRenderer.invoke('files:grant-dropped', p)
+    return p
+  },
+  recentList: () => ipcRenderer.invoke('recent:list'),
+  recentAdd: (entry) => ipcRenderer.invoke('recent:add', entry),
+  recentUpdate: (p, patch) => ipcRenderer.invoke('recent:update', p, patch),
+  recentRemove: (p) => ipcRenderer.invoke('recent:remove', p),
+  recoveryWrite: (id, payload) => ipcRenderer.invoke('recovery:write', id, payload),
+  recoveryList: () => ipcRenderer.invoke('recovery:list'),
+  recoveryRemove: (id) => ipcRenderer.invoke('recovery:remove', id),
+  historyAdd: (p, json, auto) => ipcRenderer.invoke('history:add', p, json, auto),
+  historyList: (p) => ipcRenderer.invoke('history:list', p),
+  historyRead: (p, id) => ipcRenderer.invoke('history:read', p, id),
+  settingsGet: () => ipcRenderer.invoke('settings:get'),
+  settingsSet: (patch) => ipcRenderer.invoke('settings:set', patch),
+  exportPdf: (opts) => ipcRenderer.invoke('pdf:export', opts),
+  print: () => ipcRenderer.invoke('print'),
+  capturePage: (rect) => ipcRenderer.invoke('capture-page', rect),
+  libreOfficeAvailable: () => ipcRenderer.invoke('lo:available'),
+  libreOfficeConvert: (data, from, to) => ipcRenderer.invoke('lo:convert', data, from, to),
+  windowMinimize: () => void ipcRenderer.invoke('window:minimize'),
+  windowToggleMaximize: () => void ipcRenderer.invoke('window:toggle-maximize'),
+  windowClose: () => void ipcRenderer.invoke('window:close'),
+  setTitleBarColors: (c) => void ipcRenderer.invoke('window:titlebar-colors', c),
+  openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
+  onOpenFiles: (cb) => on<[OpenedFile[]]>('app:open-files', cb),
+  onCloseRequest: (cb) => on('app:close-request', cb),
+  onMenuCommand: (cb) => on<[string]>('app:menu-command', cb),
+  confirmClose: () => void ipcRenderer.invoke('app:confirm-close'),
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  appVersion: () => ipcRenderer.invoke('app:version')
+}
+
+contextBridge.exposeInMainWorld('simpleCell', api)

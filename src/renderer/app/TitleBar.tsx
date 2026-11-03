@@ -1,0 +1,193 @@
+import { useEffect, useState } from 'react'
+import { AlertTriangle, Check, Cloud, Command, FileSpreadsheet, Home, Loader2, Minus, Moon, Plus, Redo2, Save, Search, Settings, Square, Sun, Undo2, X } from 'lucide-react'
+import { useShallow } from 'zustand/react/shallow'
+import { HOME, useApp, set, books, type TabMeta } from '../state/store'
+import * as docs from '../state/documents'
+import { runCommand, shortcutFor } from './commands'
+import { useBookVersion } from './hooks'
+import { IconBtn, Tip, cx } from '../ui'
+
+export function Logo({ size = 22 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true">
+      <defs>
+        <linearGradient id="sc-logo" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stopColor="color-mix(in oklab, var(--accent) 82%, #fff)" />
+          <stop offset="1" stopColor="color-mix(in oklab, var(--accent) 55%, #0f2a1d)" />
+        </linearGradient>
+      </defs>
+      {/* the app icon (resources/icon.svg) without its shadow and sheen */}
+      <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#sc-logo)" />
+      <rect x="7.5" y="8" width="17" height="16" rx="1.8" fill="#fff" />
+      <path d="M7.5 13.3H24.5M7.5 18.7H24.5M13.2 8V24" stroke="color-mix(in oklab, var(--accent) 45%, #fff)" strokeWidth="1.3" />
+      <rect x="13.2" y="13.3" width="5.7" height="5.4" fill="var(--accent)" />
+    </svg>
+  )
+}
+
+function useOverlayInset(): number {
+  const [inset, setInset] = useState(0)
+  useEffect(() => {
+    const wco = (navigator as Navigator & { windowControlsOverlay?: { visible: boolean; getTitlebarAreaRect(): DOMRect; addEventListener(t: string, f: () => void): void; removeEventListener(t: string, f: () => void): void } }).windowControlsOverlay
+    if (!wco) return
+    const update = () => setInset(wco.visible ? Math.max(0, window.innerWidth - wco.getTitlebarAreaRect().right) : 0)
+    update()
+    wco.addEventListener('geometrychange', update)
+    return () => wco.removeEventListener('geometrychange', update)
+  }, [])
+  return inset
+}
+
+function SaveStatus({ tab }: { tab: TabMeta }) {
+  const s = tab.status
+  const label = s === 'saving' ? 'Saving…' : s === 'error' ? 'Save failed' : s === 'unsaved' ? (tab.path ? 'Edited' : 'Not saved') : tab.path ? 'Saved' : 'New'
+  const icon = s === 'saving' ? <Loader2 className="size-3.5 animate-spin" /> : s === 'error' ? <AlertTriangle className="size-3.5" /> : s === 'saved' && tab.path ? <Check className="size-3.5" /> : <Cloud className="size-3.5" />
+  return (
+    <Tip label={tab.error ?? (tab.path ? tab.path : 'This workbook has not been saved yet')}>
+      <span data-testid="save-status" className={cx('no-drag flex items-center gap-1.5 rounded-md px-2 py-1 text-[12px] font-medium text-text-3', s === 'error' && 'text-danger')}>
+        {icon}
+        {label}
+      </span>
+    </Tip>
+  )
+}
+
+function DocTab({ tab, active }: { tab: TabMeta; active: boolean }) {
+  return (
+    <div
+      role="tab"
+      aria-selected={active}
+      tabIndex={0}
+      onMouseDown={(e) => {
+        if (e.button === 1) {
+          e.preventDefault()
+          docs.closeTab(tab.id)
+        } else docs.activate(tab.id)
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') docs.activate(tab.id)
+        if (e.key === 'Delete') docs.closeTab(tab.id)
+      }}
+      aria-label={`${tab.title}${tab.dirty ? ' (unsaved changes)' : ''}`}
+      aria-keyshortcuts="Delete"
+      title={tab.path ?? tab.title}
+      className={cx(
+        'no-drag group relative flex h-[30px] min-w-0 max-w-[200px] shrink cursor-default items-center gap-2 rounded-lg pl-2.5 pr-1 text-[12.5px] transition-colors',
+        active ? 'bg-panel font-medium text-text shadow-[0_0_0_1px_var(--border),0_1px_2px_rgb(0_0_0/0.05)]' : 'text-text-2 hover:bg-hover'
+      )}
+    >
+      <FileSpreadsheet className={cx('size-3.5 shrink-0', active ? 'text-accent-ink' : 'text-text-3')} />
+      <span className="truncate">{tab.title}</span>
+      {/* Mouse affordance only (a button inside a tab would be nested interactive content); keyboard: Delete or Ctrl+W. */}
+      <span
+        aria-hidden="true"
+        title={`Close ${tab.title}`}
+        data-testid="tab-close"
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={() => docs.closeTab(tab.id)}
+        className="relative ml-auto flex size-6 shrink-0 items-center justify-center rounded text-text-3 hover:bg-active hover:text-text"
+      >
+        {tab.dirty ? (
+          <>
+            <span className="size-2 rounded-full bg-text-3 group-hover:hidden" data-testid="dirty-dot" />
+            <X className="hidden size-3.5 group-hover:block" />
+          </>
+        ) : (
+          <X className={cx('size-3.5', !active && 'opacity-0 group-hover:opacity-100')} />
+        )}
+      </span>
+    </div>
+  )
+}
+
+export function TitleBar() {
+  const { tabs, active, dark } = useApp(useShallow((s) => ({ tabs: s.tabs, active: s.active, dark: s.dark })))
+  const tab = tabs.find((t) => t.id === active)
+  const book = tab ? books.get(tab.id) : undefined
+  useBookVersion(book)
+  const platform = window.simpleCell.platform
+  const isMac = platform === 'darwin'
+  const inset = useOverlayInset()
+  const customControls = !isMac && inset === 0
+
+  return (
+    <header className="drag flex h-11 shrink-0 items-center gap-1 border-b border-border bg-bg pr-2" style={{ paddingLeft: isMac ? 80 : 10, paddingRight: inset ? inset + 8 : undefined }}>
+      <Tip label="Home">
+        <button onClick={() => set({ active: HOME, backstage: false })} className="no-drag mr-1 flex items-center gap-2 rounded-lg p-1 transition-opacity hover:opacity-85" aria-label="Home">
+          <Logo />
+        </button>
+      </Tip>
+      <nav aria-label="Open workbooks" className="flex min-w-0 flex-1 items-center gap-1 overflow-hidden">
+        <div role="tablist" aria-label="Open workbooks" className="flex min-w-0 items-center gap-1 overflow-hidden">
+        <button
+          role="tab"
+          aria-label="Home"
+          aria-selected={active === HOME}
+          onClick={() => set({ active: HOME, backstage: false })}
+          className={cx('no-drag flex h-[30px] shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[12.5px] transition-colors', active === HOME ? 'bg-panel font-medium text-text shadow-[0_0_0_1px_var(--border)]' : 'text-text-2 hover:bg-hover')}
+        >
+          <Home className="size-3.5" />
+          {tabs.length === 0 && 'Home'}
+        </button>
+        {tabs.map((t) => (
+          <DocTab key={t.id} tab={t} active={t.id === active} />
+        ))}
+        </div>
+        <IconBtn label="New workbook" shortcut={shortcutFor('file.new')} className="no-drag" onClick={() => runCommand('file.new')}>
+          <Plus className="size-4" />
+        </IconBtn>
+        <div className="h-full flex-1" />
+      </nav>
+
+      {tab && (
+        <div className="no-drag flex items-center gap-0.5">
+          {tab.warnings.length > 0 && (
+            <Tip label="Compatibility notes for this file">
+              <button onClick={() => set({ dialog: { kind: 'compat', tabId: tab.id } })} className="flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium text-warn hover:bg-hover" data-testid="compat-badge">
+                <AlertTriangle className="size-3.5" />
+                {tab.warnings.length}
+              </button>
+            </Tip>
+          )}
+          <SaveStatus tab={tab} />
+          <div className="mx-1 h-4 w-px bg-border" />
+          <IconBtn label="Save" shortcut={shortcutFor('file.save')} onClick={() => runCommand('file.save')}>
+            <Save className="size-4" />
+          </IconBtn>
+          <IconBtn label={book?.meta.canUndo ? `Undo ${book.meta.canUndo}` : 'Undo'} shortcut={shortcutFor('edit.undo')} disabled={!book?.meta.canUndo} onClick={() => runCommand('edit.undo')}>
+            <Undo2 className="size-4" />
+          </IconBtn>
+          <IconBtn label={book?.meta.canRedo ? `Redo ${book.meta.canRedo}` : 'Redo'} shortcut={shortcutFor('edit.redo')} disabled={!book?.meta.canRedo} onClick={() => runCommand('edit.redo')}>
+            <Redo2 className="size-4" />
+          </IconBtn>
+        </div>
+      )}
+      <div className="no-drag ml-1 flex items-center gap-0.5">
+        <button onClick={() => runCommand('tools.palette')} className="mr-1 flex h-7 w-52 items-center gap-2 rounded-lg border border-border bg-panel px-2.5 text-[12px] text-text-3 hover:border-border-strong" data-testid="search-commands">
+          <Search className="size-3.5" />
+          <span className="flex-1 text-left">Search commands</span>
+          <Command className="size-3" />
+        </button>
+        <IconBtn label={dark ? 'Light mode' : 'Dark mode'} onClick={() => runCommand('view.theme')}>
+          {dark ? <Sun className="size-4" /> : <Moon className="size-4" />}
+        </IconBtn>
+        <IconBtn label="Settings" shortcut={shortcutFor('tools.settings')} onClick={() => runCommand('tools.settings')}>
+          <Settings className="size-4" />
+        </IconBtn>
+      </div>
+      {customControls && (
+        <div className="no-drag -mr-2 ml-2 flex h-full items-stretch">
+          <button aria-label="Minimize" onClick={() => window.simpleCell.windowMinimize()} className="flex w-11 items-center justify-center text-text-2 hover:bg-hover">
+            <Minus className="size-4" />
+          </button>
+          <button aria-label="Maximize" onClick={() => window.simpleCell.windowToggleMaximize()} className="flex w-11 items-center justify-center text-text-2 hover:bg-hover">
+            <Square className="size-3.5" />
+          </button>
+          <button aria-label="Close window" onClick={() => window.simpleCell.windowClose()} className="flex w-11 items-center justify-center text-text-2 hover:bg-[#e81123] hover:text-white">
+            <X className="size-4" />
+          </button>
+        </div>
+      )}
+    </header>
+  )
+}

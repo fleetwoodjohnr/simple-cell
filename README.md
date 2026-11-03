@@ -1,0 +1,34 @@
+# Simple Cell
+
+A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family of apps. It works offline, with no account and no telemetry.
+
+> **Status: early development (0.1.0, not released).** What works today, with the tests that prove it, is listed in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md). Excel compatibility is tracked feature by feature in [docs/EXCEL_COMPATIBILITY.md](docs/EXCEL_COMPATIBILITY.md). Simple Cell does **not** claim full Excel compatibility.
+
+## What works today
+
+- **Grid and editing.** A canvas grid that scrolls to Excel's limits (1,048,576 rows × 16,384 columns).
+  - Typing numbers, dates, percentages and currency, with Excel's automatic formats.
+  - Formula bar and Name Box, multiple sheets, undo and redo.
+- **Formulas.** Excel operator precedence, dynamic arrays with spilling, LET and LAMBDA, names, cross-sheet references, and circular reference detection.
+  - 231 of Excel's 525 worksheet functions are implemented ([docs/FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md)).
+- **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
+- **Files.** CSV and tab-separated text.
+- **Safety.** AutoSave and crash recovery.
+
+Excel (.xlsx) and OpenDocument (.ods) files are the next milestone.
+
+## Build and run
+
+```bash
+npm install
+npm run dev                 # development with hot reload
+npm run build && npm start  # production build
+npm test                    # unit tests (vitest)
+npm run e2e:headless        # Playwright drives the real app (Linux: under xvfb)
+```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the project's conventions and [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+
+## License
+
+MIT. Bundled fonts are under the SIL Open Font License and Apache-2.0 (see ARCHITECTURE.md).
