@@ -152,7 +152,8 @@ export class Book {
         for (const v of ch.cells) map.set(v.r * 16384 + v.c, v)
         for (const [r, c] of ch.cleared) map.delete(r * 16384 + c)
         // Conditional formats depend on other cells: refetch the visible windows (patched cells show meanwhile).
-        if (meta.sheets.find((s) => s.id === ch.sheet)?.cf) this.fetched.delete(ch.sheet)
+        const sm = meta.sheets.find((s) => s.id === ch.sheet)
+        if (sm?.cf || sm?.sparklines) this.fetched.delete(ch.sheet)
       }
     this.emit()
   }

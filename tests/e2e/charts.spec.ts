@@ -50,3 +50,31 @@ test('charts: Alt+F1 from data, edit, move, delete, undo', async () => {
     await quit(app)
   }
 })
+
+test('sparklines: Insert ▸ Line from the selection draws one per row', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    const rows = [['3', '5', '2', '8', '6'], ['-1', '4', '-2', '6', '3']]
+    for (const [r, row] of rows.entries()) for (const [c, v] of row.entries()) await typeCell(page, `${'ABCDE'[c]}${r + 1}`, v)
+    await goto(page, 'A1:E2')
+    await page.getByTestId('ribbon-tab-insert').click()
+    await page.getByRole('button', { name: 'Line sparklines' }).click()
+    await expect(page.getByLabel('Location range')).toHaveValue('F1:F2')
+    await page.getByRole('button', { name: 'OK' }).click()
+    await expect
+      .poll(() =>
+        page.evaluate(() => {
+          const sc = (window as any).__sc
+          const tab = sc.get().active
+          return sc.books.get(tab).cell(sc.getView(tab).sheet, 1, 5)?.spark?.values
+        })
+      )
+      .toEqual([-1, 4, -2, 6, 3])
+    await page.getByTestId('ribbon-tab-home').click()
+    const box = await page.getByTestId('grid').boundingBox()
+    await page.screenshot({ path: 'test-results/sparklines.png', clip: { x: box!.x, y: box!.y, width: 520, height: 80 } })
+  } finally {
+    await quit(app)
+  }
+})

@@ -88,6 +88,7 @@ export function GridMenu({ tab, children }: { tab: string; children: ReactNode }
             {item('note.delete', 'Delete note')}
             {item('insert.link', 'Link…', <Link2 />)}
             {item('link.remove', 'Remove link')}
+            {item('sparklines.clear', 'Clear sparklines')}
             <CtxSep />
           </>
         )}

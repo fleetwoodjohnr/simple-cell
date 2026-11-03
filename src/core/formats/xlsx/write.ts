@@ -19,6 +19,7 @@ import { commentsXml, hyperlinksXml, notesSig, vmlHasShapes, vmlXml } from './no
 import { pageSetupXml } from './pagesetup'
 import { CT_CHART, CT_DRAWING, DRAWING_HEAD, REL_CHART, anchorXml, chartXml, drawingAnchors } from './charts'
 import { chartSig } from '../../charts'
+import { withSparklines } from '../../sparklines'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -320,6 +321,7 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
     }
     // Hyperlinks (external addresses are relationships) and notes (a comments part plus VML shapes).
     const extra: Record<string, string> = { ...pageSetupXml(sh.pageSetup) }
+    if (sh.sparklines.length || sc?.hadSparklines) extra.extLst = withSparklines(sc?.elements.find((e) => e.name === 'extLst')?.xml, sh.sparklines)
     const links = hyperlinksXml(sh.links, (url) => {
       const id = sheetRid()
       sheetRels.push({ id, type: REL.hyperlink, target: url, external: true })

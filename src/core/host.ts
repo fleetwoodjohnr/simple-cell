@@ -49,6 +49,8 @@ export interface SheetMeta {
   outlineRows: [number, number][]
   outlineCols: [number, number][]
   charts: Omit<Chart, 'carry'>[]
+  /** The sheet has sparklines: edits may redraw other cells, so the client refetches (like conditional formats). */
+  sparklines: boolean
 }
 
 export interface WorkbookMeta {
@@ -188,7 +190,8 @@ export class Host {
       filters: this.doc.filtersOn(s.id),
       outlineRows,
       outlineCols,
-      charts: s.charts.map(({ carry: _c, ...c }) => c)
+      charts: s.charts.map(({ carry: _c, ...c }) => c),
+      sparklines: s.sparklines.length > 0
     }
   }
 
@@ -207,7 +210,14 @@ export class Host {
       seen.add(k)
       out.push(this.doc.viewOf(cell, r, c, chars(c), cf.get(k), ts(r, c)))
     })
-    // Notes and links on empty cells still show (red corner, link style).
+    // Sparklines, and notes and links on empty cells, still show.
+    const sparks = s.sparklines.length ? this.doc.sparklinesIn(sheet, { sheet, r0, r1, c0, c1 }) : null
+    if (sparks)
+      for (const k of sparks.keys()) {
+        if (seen.has(k) || cf.has(k)) continue
+        seen.add(k)
+        out.push(this.doc.viewOf({ v: null }, Math.floor(k / 16384), k % 16384, 1, undefined, ts(Math.floor(k / 16384), k % 16384)))
+      }
     for (const m of [s.notes, s.links] as Map<number, unknown>[])
       for (const k of m.keys()) {
         const r = Math.floor(k / 16384)
@@ -229,6 +239,7 @@ export class Host {
           seen.add(k)
           out.push(this.doc.viewOf({ v: null }, r, c, 1, undefined, ts(r, c)))
         }
+    if (sparks) for (const v of out) if (sparks.has(v.r * 16384 + v.c)) v.spark = sparks.get(v.r * 16384 + v.c)
     if (s.notes.size || s.links.size)
       for (const v of out) {
         const k = v.r * 16384 + v.c
@@ -551,6 +562,12 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  addSparklines(sheet: number, type: 'line' | 'column' | 'stacked', data: Area, location: Area) {
+    return this.run(() => this.doc.addSparklines(sheet, type, data, location))
+  }
+  clearSparklines(sheet: number, areas: Area[]) {
+    return this.run(() => this.doc.clearSparklines(sheet, areas))
   }
   addChartFromRange(sheet: number, area: Area, type?: ChartType): { ok: true; id: number } | { ok: false; error: string } {
     try {

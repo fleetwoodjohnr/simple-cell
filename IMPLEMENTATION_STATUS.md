@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M4 complete (with the limits listed); M5 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M4 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 573 / 573 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 575 / 575 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 17 / 17 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 18 / 18 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -134,7 +134,7 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 - Split view; Subtotal (Data ▸ Subtotal) and Auto Outline.
 - Command KeyTip letters matching Excel's exactly (they are assigned from command names).
 
-## M5 — Charts, printing and PDF (in progress)
+## M5 — Charts, printing and PDF ✅
 
 ### Done
 
@@ -150,10 +150,11 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | Series references follow inserted/deleted rows and columns; hidden cells aren't plotted; data updates live | unit `charts` |
 | XLSX charts read from DrawingML and drawn; unchanged charts written back byte for byte; moved ones get a new anchor; new or edited ones a new chart part; pictures in the same drawing kept; LibreOffice reads the charts Simple Cell writes | unit `charts-xlsx` (3) |
 | Charts on printed pages and in PDFs (SVG) | e2e `charts` |
+| Sparklines: line, column, win/loss (markers, high/low/first/last/negative points), Insert ▸ Sparklines, clear; follow structure edits; XLSX extension list round trip (other extensions kept); LibreOffice reads them | unit `sparklines` (2), e2e `charts › sparklines…` |
 
-### Still to do in M5
+### Known limitations
 
-- Sparklines; chart types beyond the seven (combo charts show their first type; radar, stock, surface, bubble and Excel 2016 chartex charts are kept, not shown); chart formatting beyond colours (fonts, axis scales, number formats) isn't read or edited.
+- Chart types beyond the seven (combo charts show their first type; radar, stock, surface, bubble and Excel 2016 chartex charts are kept, not shown); chart formatting beyond colours (fonts, axis scales, number formats) isn't read or edited.
 - Printing: icons from conditional formatting and pictures on printed pages; a different paper size per sheet in one PDF (the first sheet's size is used).
 
 ## Next

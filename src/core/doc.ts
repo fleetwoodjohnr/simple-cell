@@ -18,6 +18,7 @@ import { columnValues, hiddenRows, type AutoFilter, type FilterColumn } from './
 import { tableCellStyle } from './tablestyle'
 import { learn, run as runProgram } from './flashfill'
 import { paginate, type PageSetup, type PrintJob } from './print'
+import type { SparkView, SparklineGroup } from './sparklines'
 import { chartSig, newChartId, plotNumber, seriesFromRange, type Chart, type ChartData, type ChartType } from './charts'
 import { evaluate } from './engine/evaluate'
 import type { Link, Note, Table } from './model/workbook'
@@ -184,6 +185,8 @@ export interface ViewCell {
   icon?: { set: string; i: number }
   /** The rule hides the value (data bar or icon only). */
   hide?: 1
+  /** A sparkline drawn in the cell. */
+  spark?: SparkView
   /** The cell has a note (red corner) or a hyperlink. */
   note?: 1
   link?: 1
@@ -598,6 +601,84 @@ export class Doc {
       for (const t of todo) this.inputTx(tx, sheet, t.r, c, "'" + t.v)
     })
     return todo.length
+  }
+
+  // ---------- sparklines ----------
+
+  /**
+   * Insert ▸ Sparklines: one sparkline per location cell, each plotting the matching row (or column) of the data
+   * range — a column of locations takes the data's rows, a row of locations its columns.
+   */
+  addSparklines(sheet: number, type: SparklineGroup['type'], data: Area, location: Area) {
+    const sh = this.sheet(sheet)
+    const n = (location.r1 - location.r0 + 1) * (location.c1 - location.c0 + 1)
+    const rows = data.r1 - data.r0 + 1
+    const cols = data.c1 - data.c0 + 1
+    const byRow = location.c0 === location.c1 ? rows === n || n === 1 : !(cols === n)
+    if (location.r0 !== location.r1 && location.c0 !== location.c1) throw new Error('The location must be a single row or column of cells.')
+    if (n > 1 && (byRow ? rows : cols) !== n) throw new Error('The data range doesn’t match the location: give one row (or column) of data for each sparkline.')
+    const q = quoteSheet(this.sheetName(data.sheet) ?? sh.name)
+    const abs = (r0: number, c0: number, r1: number, c1: number) => `${q}!${areaName({ r0, c0, r1, c1 }).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}`
+    const items: SparklineGroup['items'] = []
+    let i = 0
+    for (let r = location.r0; r <= location.r1; r++)
+      for (let c = location.c0; c <= location.c1; c++, i++) {
+        const ref = n === 1 ? abs(data.r0, data.c0, data.r1, data.c1) : byRow ? abs(data.r0 + i, data.c0, data.r0 + i, data.c1) : abs(data.r0, data.c0 + i, data.r1, data.c0 + i)
+        items.push({ r, c, ref })
+      }
+    const at = new Set(items.map((x) => x.r * 16384 + x.c))
+    const group: SparklineGroup = { type, color: type === 'line' ? '#376092' : '#4472C4', negColor: '#C00000', items, ...(type === 'stacked' ? { negative: true } : {}) }
+    return this.transact('Sparklines', (tx) => {
+      tx.refetch = true
+      const others = sh.sparklines.map((g) => ({ ...g, items: g.items.filter((x) => !at.has(x.r * 16384 + x.c)) })).filter((g) => g.items.length)
+      tx.prop(sh, 'sparklines', [...others, group])
+    })
+  }
+
+  /** Clear the sparklines in the areas. */
+  clearSparklines(sheet: number, areas: Area[]) {
+    const sh = this.sheet(sheet)
+    const inside = (r: number, c: number) => areas.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1)
+    return this.transact('Clear sparklines', (tx) => {
+      tx.refetch = true
+      tx.prop(sh, 'sparklines', sh.sparklines.map((g) => ({ ...g, items: g.items.filter((x) => !inside(x.r, x.c)) })).filter((g) => g.items.length))
+    })
+  }
+
+  /** Sparklines drawn in a window of the sheet, with their values. */
+  sparklinesIn(sheet: number, win: Area): Map<number, SparkView> {
+    const out = new Map<number, SparkView>()
+    const sh = this.sheet(sheet)
+    for (const g of sh.sparklines)
+      for (const it of g.items) {
+        if (it.r < win.r0 || it.r > win.r1 || it.c < win.c0 || it.c > win.c1) continue
+        const values = this.refValues(sheet, it.ref).map((v) => plotNumber(v))
+        const { items: _i, carry: _c, lineWeight: _l, ...look } = g
+        void _i
+        void _c
+        void _l
+        out.set(it.r * 16384 + it.c, { ...look, values })
+      }
+    return out
+  }
+
+  /** The values of a reference (formula text without "="), cell by cell; hidden cells are skipped. */
+  private refValues(sheet: number, f: string): Scalar[] {
+    try {
+      const v = evaluate(this.engine.parseAt(f, sheet, 0, 0), this.engine.contextAt(sheet, 0, 0))
+      if (!v || typeof v !== 'object' || !('kind' in v) || v.kind !== 'ref') return []
+      const out: Scalar[] = []
+      for (const a of v.areas) {
+        const sh = this.wb.sheetById(a.sheet)
+        if (!sh) continue
+        this.engine.ensure(a)
+        for (let r = a.r0; r <= a.r1 && out.length < 10_000; r++)
+          for (let c = a.c0; c <= a.c1; c++) if (!sh.rowInfo.get(r)?.hidden && !sh.cols.get(c)?.hidden) out.push(sh.get(r, c)?.v ?? null)
+      }
+      return out
+    } catch {
+      return []
+    }
   }
 
   // ---------- charts ----------
@@ -1065,6 +1146,36 @@ export class Doc {
         return next
       })
       if (JSON.stringify(charts) !== JSON.stringify(o.charts)) tx.prop(o, 'charts', charts)
+    }
+    // Sparklines: their cells move like notes, their data references like formulas.
+    if (sh.sparklines.length || this.wb.sheets.some((o) => o.sparklines.length)) {
+      for (const o of this.wb.sheets) {
+        if (!o.sparklines.length) continue
+        const groups = o.sparklines
+          .map((g) => ({
+            ...g,
+            items: g.items.flatMap((it) => {
+              let { r, c } = it
+              if (o.id === sh.id && inBand(r, c)) {
+                const a = shiftArea({ sheet: o.id, r0: r, c0: c, r1: r, c1: c }, s)
+                if (!a) return []
+                r = a.r0
+                c = a.c0
+              }
+              let ref = it.ref
+              try {
+                const ast = this.engine.parseAt(ref, o.id, 0, 0)
+                const next = adjustFormula(ast, o.id, { row: 0, col: 0 }, { row: 0, col: 0 }, s)
+                if (next !== ast) ref = printFormula(next, { row: 0, col: 0, sheetName: this.sheetName })
+              } catch {
+                /* keep */
+              }
+              return [{ r, c, ref }]
+            })
+          }))
+          .filter((g) => g.items.length)
+        if (JSON.stringify(groups) !== JSON.stringify(o.sparklines)) tx.prop(o, 'sparklines', groups)
+      }
     }
     // Notes and hyperlinks move with their cells; those on deleted cells go.
     for (const m of [sh.notes, sh.links] as Map<number, unknown>[]) {

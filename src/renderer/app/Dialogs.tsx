@@ -12,7 +12,7 @@ import { getView, setView, areasOf } from '../state/view'
 import { CATALOG } from '@/core/engine/catalog'
 import { formatValue } from '@/core/numfmt/format'
 import type { Style, BorderStyle } from '@/core/model/styles'
-import { colName, parseCell } from '@/core/refs'
+import { areaName, colName, parseArea, parseCell } from '@/core/refs'
 import { guessHeader, currentRegion } from './commands'
 import { CfManageDialog, CfRuleDialog } from './CondFormat'
 import { ValidationAlert, ValidationDialog } from './Validation'
@@ -72,6 +72,8 @@ export function Dialogs() {
       return <PrintDialog />
     case 'chart':
       return <ChartDialog d={d} />
+    case 'sparklines':
+      return <SparklineDialog type={d.type} />
     case 'link':
       return <LinkDialog d={d} />
     case 'dv-alert':
@@ -260,6 +262,41 @@ function GoToSpecialDialog() {
             )}
           </div>
         ))}
+      </div>
+    </Modal>
+  )
+}
+
+// ---------- sparklines ----------
+
+function SparklineDialog({ type }: { type: 'line' | 'column' | 'stacked' }) {
+  const c = A.ctx()
+  const r = c?.view.sel.ranges[c.view.sel.ranges.length - 1]
+  // Data: the selection; location: the column just right of it (one sparkline per row).
+  const [data, setData] = useState(r ? areaName(r) : '')
+  const [loc, setLoc] = useState(r ? areaName({ r0: r.r0, c0: r.c1 + 1, r1: r.r1, c1: r.c1 + 1 }) : '')
+  const [error, setError] = useState('')
+  if (!c) return null
+  const ok = async () => {
+    const d = parseArea(data.replace(/\$/g, '').replace(/^.*!/, ''), c.view.sheet)
+    const l = parseArea(loc.replace(/\$/g, '').replace(/^.*!/, ''), c.view.sheet)
+    if (!d || !l) return setError('Enter ranges such as A2:D10.')
+    const res = await c.book.api.addSparklines(c.view.sheet, type, d, l)
+    if (!res.ok) return setError(res.error ?? 'Those ranges don’t fit together.')
+    A.markDirtyTab(c.tab)
+    close()
+    afterDialog()
+  }
+  return (
+    <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title={`Create ${type === 'stacked' ? 'win/loss' : type} sparklines`} width={400} footer={<><Btn onClick={() => (close(), afterDialog())}>Cancel</Btn><Btn variant="primary" onClick={() => void ok()}>OK</Btn></>}>
+      <div className="space-y-3">
+        <Field label="Data range">
+          <input aria-label="Data range" autoFocus className={inputCls} value={data} onChange={(e) => setData(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void ok()} />
+        </Field>
+        <Field label="Location range" hint="One cell per sparkline: a column for rows of data, or a row for columns">
+          <input aria-label="Location range" className={inputCls} value={loc} onChange={(e) => setLoc(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void ok()} />
+        </Field>
+        {error && <p role="alert" className="text-[12px] text-danger">{error}</p>}
       </div>
     </Modal>
   )

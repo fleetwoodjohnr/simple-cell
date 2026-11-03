@@ -251,6 +251,12 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
     ctx.fillStyle = st?.fill ?? theme.bg
     ctx.fillRect(rect.x, rect.y, rect.w - 1, rect.h - 1)
   }
+  // Sparklines.
+  for (let r = pane.r0; r <= pane.r1; r++)
+    for (let c = pane.c0; c <= pane.c1; c++) {
+      const sp = P.cell(r, c)?.spark
+      if (sp) drawSparkline(ctx, sp, cellRect(L, r, c), z)
+    }
   // Conditional formatting data bars (under the text).
   for (let r = pane.r0; r <= pane.r1; r++)
     for (let c = pane.c0; c <= pane.c1; c++) {
@@ -580,4 +586,69 @@ function range(a: number, b: number): number[] {
   const out: number[] = []
   for (let i = a; i <= b; i++) out.push(i)
   return out
+}
+
+/** A sparkline in a cell: line (with optional markers and highlighted points), column, or win/loss. */
+function drawSparkline(ctx: CanvasRenderingContext2D, sp: NonNullable<ViewCell['spark']>, rect: { x: number; y: number; w: number; h: number }, z: number) {
+  const vals = sp.values
+  const nums = vals.filter((v): v is number => v !== null)
+  if (!nums.length || rect.w < 6 || rect.h < 6) return
+  const pad = 3 * z
+  const x0 = rect.x + pad
+  const y0 = rect.y + pad
+  const w = rect.w - 2 * pad
+  const h = rect.h - 2 * pad
+  const n = vals.length
+  const max = Math.max(...nums)
+  const min = Math.min(...nums)
+  const iMax = vals.indexOf(max)
+  const iMin = vals.indexOf(min)
+  const firstI = vals.findIndex((v) => v !== null)
+  const lastI = vals.length - 1 - [...vals].reverse().findIndex((v) => v !== null)
+  const special = (i: number, v: number) => (sp.high && i === iMax) || (sp.low && i === iMin) || (sp.first && i === firstI) || (sp.last && i === lastI) || (sp.negative && v < 0)
+  ctx.save()
+  ctx.beginPath()
+  ctx.rect(rect.x, rect.y, rect.w, rect.h)
+  ctx.clip()
+  if (sp.type === 'line') {
+    const span = max - min || 1
+    const px = (i: number) => x0 + (n === 1 ? w / 2 : (i * w) / (n - 1))
+    const py = (v: number) => y0 + h - ((v - min) / span) * h
+    ctx.strokeStyle = sp.color
+    ctx.lineWidth = Math.max(1, 1.25 * z)
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    let pen = false
+    vals.forEach((v, i) => {
+      if (v === null) return (pen = false) // gaps, as Excel's default
+      if (pen) ctx.lineTo(px(i), py(v))
+      else ctx.moveTo(px(i), py(v))
+      pen = true
+    })
+    ctx.stroke()
+    vals.forEach((v, i) => {
+      if (v === null || !(sp.markers || special(i, v))) return
+      ctx.fillStyle = sp.negative && v < 0 ? (sp.negColor ?? '#C00000') : (sp.markerColor ?? sp.color)
+      ctx.beginPath()
+      ctx.arc(px(i), py(v), Math.max(1.5, 2 * z), 0, Math.PI * 2)
+      ctx.fill()
+    })
+  } else {
+    const bw = Math.max(1, (w / n) * 0.75)
+    const gap = (w / n) * 0.25
+    // Columns rise from zero (or from the minimum when everything is positive); win/loss is ±half height.
+    const lo = sp.type === 'stacked' ? -1 : Math.min(0, min)
+    const hi = sp.type === 'stacked' ? 1 : Math.max(0, max)
+    const span = hi - lo || 1
+    vals.forEach((v, i) => {
+      if (v === null) return
+      const val = sp.type === 'stacked' ? Math.sign(v) : v
+      if (val === 0 && sp.type === 'stacked') return
+      const top = y0 + h - ((Math.max(val, 0) - lo) / span) * h
+      const bottom = y0 + h - ((Math.min(val, 0) - lo) / span) * h
+      ctx.fillStyle = v < 0 ? (sp.negColor ?? '#C00000') : special(i, v) && sp.markerColor ? sp.markerColor : sp.color
+      ctx.fillRect(x0 + i * (bw + gap) + gap / 2, top, bw, Math.max(1, bottom - top))
+    })
+  }
+  ctx.restore()
 }

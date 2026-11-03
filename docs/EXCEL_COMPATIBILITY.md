@@ -22,7 +22,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Editing | 🟡 | Insert/Delete Cells with a shift, Paste Special (all kinds, operations, skip blanks, transpose) ✅; Go To Special ✅; Flash Fill 🟡 (words, initials, delimiters, case, joins; not digits inside numbers); grouping/outline ✅ (Auto Outline and Data ▸ Subtotal 📋) |
 | Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
 | PivotTables | 📋 | |
-| Charts | 🟡 | Column, bar, line, area, pie, doughnut, scatter (clustered, stacked, 100%) ✅ shown, created, edited and saved; other types kept 🔒; sparklines 📋 |
+| Charts | 🟡 | Column, bar, line, area, pie, doughnut, scatter (clustered, stacked, 100%) ✅ shown, created, edited and saved; other types kept 🔒; sparklines (line, column, win/loss) ✅ |
 | Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
 | Automation | 📋 | |
 | Data connectors | 📋 | |

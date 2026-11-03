@@ -528,6 +528,10 @@ async function selectTrace(c: A.Ctx, which: 'precedents' | 'dependents') {
 def({ id: 'select.precedents', label: 'Select direct precedents', run: (c) => selectTrace(needsSelection(c), 'precedents') })
 def({ id: 'select.dependents', label: 'Select direct dependents', run: (c) => selectTrace(needsSelection(c), 'dependents') })
 def({ id: 'insert.chart', label: 'Insert chart', keywords: 'graph plot column bar line pie', run: (c) => (needsSelection(c), void insertChart('column')) })
+def({ id: 'insert.sparkLine', label: 'Insert line sparklines…', keywords: 'sparkline trend', run: () => set({ dialog: { kind: 'sparklines', type: 'line' } }) })
+def({ id: 'insert.sparkColumn', label: 'Insert column sparklines…', keywords: 'sparkline', run: () => set({ dialog: { kind: 'sparklines', type: 'column' } }) })
+def({ id: 'insert.sparkWinLoss', label: 'Insert win/loss sparklines…', keywords: 'sparkline', run: () => set({ dialog: { kind: 'sparklines', type: 'stacked' } }) })
+def({ id: 'sparklines.clear', label: 'Clear sparklines', run: (c) => { const x = needsSelection(c); return A.edit(x, (b) => b.api.clearSparklines(x.view.sheet, areasOf(x.view))) } })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

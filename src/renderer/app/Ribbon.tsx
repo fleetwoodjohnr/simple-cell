@@ -66,7 +66,10 @@ import {
   RectangleVertical,
   File,
   Scan,
-  SeparatorHorizontal
+  SeparatorHorizontal,
+  TrendingUp,
+  ChartNoAxesColumn,
+  ArrowUpDown
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -618,6 +621,12 @@ function InsertTab() {
     <>
       <Group label="Tables">
         <Cmd id="data.table" label="Table" text="Table" icon={<Table2 />} />
+      </Group>
+      <Sep />
+      <Group label="Sparklines">
+        <Cmd id="insert.sparkLine" label="Line sparklines" text="Line" icon={<TrendingUp />} />
+        <Cmd id="insert.sparkColumn" label="Column sparklines" text="Column" icon={<ChartNoAxesColumn />} />
+        <Cmd id="insert.sparkWinLoss" label="Win/loss sparklines" text="Win/Loss" icon={<ArrowUpDown />} />
       </Group>
       <Sep />
       <Group label="Charts">
