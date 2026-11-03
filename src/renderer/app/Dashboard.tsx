@@ -185,7 +185,7 @@ export function Dashboard() {
                 <Clock className="size-5 text-text-3" />
               </div>
               <div className="text-[13.5px] font-medium">{recents.length ? 'No matching files' : 'No recent workbooks'}</div>
-              <p className="mt-1 max-w-sm text-[12.5px] text-text-3">{recents.length ? 'Try a different search or filter.' : 'Open a CSV or text file — or drop one anywhere in this window. Excel and OpenDocument files arrive in the next milestone.'}</p>
+              <p className="mt-1 max-w-sm text-[12.5px] text-text-3">{recents.length ? 'Try a different search or filter.' : 'Open an Excel (.xlsx, .xlsm, .xls), OpenDocument (.ods) or CSV file — or drop one anywhere in this window.'}</p>
             </div>
           )}
         </section>

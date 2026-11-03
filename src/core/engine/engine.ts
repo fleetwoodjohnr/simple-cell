@@ -411,7 +411,7 @@ export class Engine {
     let result: Scalar | ArrayValue
     try {
       const ctx = this.ctxFor(sheet, r, c, !!f.legacy && !f.array)
-      result = finalValue(evaluate(f.ast, ctx), ctx, !f.array)
+      result = finalValue(evaluate(f.ast, ctx), ctx, true)
     } catch (e) {
       // ponytail: deep recursion (very long LAMBDA chains) surfaces as #CALC! instead of crashing the app.
       result = e instanceof RangeError ? ERR.CALC : ERR.VALUE

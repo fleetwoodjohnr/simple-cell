@@ -11,8 +11,10 @@ let seq = 0
 const newId = () => `t${Date.now().toString(36)}${(seq++).toString(36)}`
 const baseName = (p: string) => p.split(/[\\/]/).pop()!.replace(/\.[^.]+$/, '')
 const EXT: Record<FormatId, string> = { xlsx: 'xlsx', xlsm: 'xlsm', xltx: 'xltx', xltm: 'xltm', ods: 'ods', csv: 'csv', tsv: 'tsv', json: 'json', html: 'html', xml: 'xml', xls: 'xls', xlsb: 'xlsb' }
-/** Formats Simple Cell can write today (the save dialog offers these). */
-export const SAVE_FORMATS: FormatId[] = ['csv', 'tsv']
+/** Formats Simple Cell can write (the save dialog offers these). XLS goes through LibreOffice. */
+export const SAVE_FORMATS: FormatId[] = ['xlsx', 'xlsm', 'xltx', 'ods', 'csv', 'tsv', 'json', 'html', 'xml', 'xls']
+/** Formats that keep a whole workbook (AutoSave writes only these). */
+const FULL_FORMATS: FormatId[] = ['xlsx', 'xlsm', 'ods']
 /** Formats converted through LibreOffice. */
 const VIA_LO: FormatId[] = ['xls', 'xlsb']
 
@@ -27,7 +29,7 @@ function scheduleBackground(id: string) {
   window.clearTimeout(t.recovery)
   t.recovery = window.setTimeout(() => void writeRecovery(id), s.recoveryIntervalSec * 1000)
   const tab = get().tabs.find((x) => x.id === id)
-  if (s.autosave && tab?.path && tab.format && !tab.autosaveBlocked && SAVE_FORMATS.includes(tab.format) && tab.format !== 'csv' && tab.format !== 'tsv') {
+  if (s.autosave && tab?.path && tab.format && !tab.autosaveBlocked && FULL_FORMATS.includes(tab.format)) {
     window.clearTimeout(t.autosave)
     t.autosave = window.setTimeout(() => void autosave(id), s.autosaveIntervalSec * 1000)
   }
@@ -131,7 +133,10 @@ export async function openFiles(files: OpenedFile[]) {
       warnings.push(...w)
       const loss = warnings.some((x) => x.level === 'loss')
       const sourceFormat = formatFromPath(f.name)!
-      addTab({ id, title: baseName(f.name), path: f.path && !VIA_LO.includes(sourceFormat) ? f.path : null, format: VIA_LO.includes(sourceFormat) ? null : format, warnings, autosaveBlocked: loss, savedAt: f.mtime }, book)
+      // Templates open as a new, untitled workbook based on them (as in Excel).
+      const template = sourceFormat === 'xltx' || sourceFormat === 'xltm'
+      const keepPath = f.path && !VIA_LO.includes(sourceFormat) && !template
+      addTab({ id, title: template ? untitled() : baseName(f.name), path: keepPath ? f.path : null, format: sourceFormat === 'xls' ? 'xls' : VIA_LO.includes(sourceFormat) || template ? null : format, warnings, autosaveBlocked: loss, savedAt: f.mtime }, book)
       if (f.path) void addRecent(f.path, f.name)
       if (loss) toast(`Opened ${f.name} with compatibility notes — see the ⚠ badge`, 'info')
     } catch (e) {
@@ -175,7 +180,7 @@ async function addRecent(path: string, name: string) {
 
 // ---------- save ----------
 
-function confirmWarnings(tabId: string, format: FormatId, warnings: FormatWarning[]): Promise<boolean> {
+function confirmWarnings(tabId: string, format: FormatId, warnings: FormatWarning[]): Promise<'save' | 'xlsx' | 'cancel'> {
   return new Promise((resolve) => set({ dialog: { kind: 'export-warnings', tabId, format, warnings, resolve } }))
 }
 
@@ -202,14 +207,23 @@ export async function save(id = get().active, opts: { as?: boolean; format?: For
   try {
     updateTab(id, { status: 'saving' })
     const view = getView(id)
-    const result = await book.api.save(format, { sheet: view?.sheet, guard: get().settings.csvFormulaGuard })
+    const saveOpts = { sheet: view?.sheet, guard: get().settings.csvFormulaGuard, defaultFont: { name: get().settings.defaultFont, size: get().settings.defaultFontSize } }
+    // XLS: write XLSX, then LibreOffice converts it (Simple Cell has no native BIFF8 writer).
+    const viaLo = format === 'xls'
+    if (viaLo && !(await api().libreOfficeAvailable())) throw new Error('Saving as .xls needs LibreOffice, which isn’t installed. Save as .xlsx instead.')
+    const result = await book.api.save(viaLo ? 'xlsx' : format, saveOpts)
+    if (viaLo) {
+      result.data = await api().libreOfficeConvert(result.data, 'xlsx', 'xls')
+      result.warnings.push({ level: 'loss', message: 'Excel 97-2003 (.xls) is written by LibreOffice from an .xlsx copy: newer features (dynamic arrays, more than 65,536 rows, newer functions) may be lost.' })
+    }
     const losses = result.warnings.filter((w) => w.level === 'loss')
-    if (losses.length && !opts.auto && (asNew || format !== tab.format || format === 'csv' || format === 'tsv')) {
-      if (!(await confirmWarnings(id, format, losses))) {
+    if (losses.length && !opts.auto && (asNew || format !== tab.format || !FULL_FORMATS.includes(format))) {
+      const choice = await confirmWarnings(id, format, losses)
+      if (choice !== 'save') {
         updateTab(id, { status: tab.dirty ? 'unsaved' : 'saved' })
-        return false
+        return choice === 'xlsx' ? save(id, { as: true, format: 'xlsx' }) : false
       }
-    } else if (losses.length && opts.auto) {
+    } else if (losses.length && opts.auto && !FULL_FORMATS.includes(format)) {
       updateTab(id, { status: 'unsaved', autosaveBlocked: true })
       return false
     }

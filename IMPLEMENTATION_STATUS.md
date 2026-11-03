@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-02 · Milestones M0–M2 complete (M2 with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M3 complete (with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-02 · Milestones M0–M2 complete (M2 with the limits lis
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 509 / 509 (481 function tests covering 973 formulas, plus engine, parser, number-format and registry tests) |
+| `npm test` (vitest) | ✅ 527 / 527 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 3 LibreOffice re-read tests run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 6 / 6 (every test also fails on a CSP violation or an uncaught renderer error) |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 8 / 8 (every test also fails on a CSP violation or an uncaught renderer error) |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -49,7 +49,6 @@ _Last updated: 2026-11-02 · Milestones M0–M2 complete (M2 with the limits lis
 - **Insert/delete cells.** Ctrl+Plus and Ctrl+Minus on a cell range insert or delete entire rows. Shifting cells right or down comes with M4.
 - **Paste Special.** Values, formulas and formats are available from the context menu. The full Paste Special dialog comes with M4.
 - **Printing and PDF.** Not available yet (M5).
-- **File formats.** Only CSV/TSV can be saved. XLSX/ODS reading and writing is M3.
 
 ## M2 — Calculation engine ✅
 
@@ -83,8 +82,34 @@ _Last updated: 2026-11-02 · Milestones M0–M2 complete (M2 with the limits lis
   - The Evaluate Formula dialog.
   - Locale-specific formula separators.
 
+## M3 — Files ✅
+
+Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
+
+### Done
+
+| Feature | Test |
+|---|---|
+| XLSX/XLSM/XLTX/XLTM read and write: values, ordinary/shared/array/dynamic-array formulas, styles, number formats, theme colours, merges, sizes, hidden rows/columns, panes, names, tables, sheet visibility | unit `xlsx › reads a workbook written by LibreOffice…`, `round-trips…`, `dynamic arrays spill…`; e2e `files › open an XLSX, edit, save, reopen…` |
+| LibreOffice opens the XLSX and ODS files Simple Cell writes, with the same results (including XLOOKUP and TEXTJOIN) | unit `xlsx › LibreOffice reads…`, `ods › LibreOffice reads…` |
+| Preservation: drawings, charts, customXml, extLst, VBA and unknown elements are written back; ranges inside them follow inserted/deleted rows and columns, with undo | unit `xlsx › keeps parts and elements…` |
+| Saved results compared after open; differences reported. Unimplemented functions keep the saved value | unit `xlsx › reports formulas whose saved results differ…`, `formulas using functions Simple Cell lacks…` |
+| Zip-bomb and non-zip files refused; DOCTYPE stripped | unit `xlsx › refuses zip bombs…` |
+| ODS read and write: OpenFormula translation, data styles ⇄ number formats, repeated rows/columns, merges, names, panes; shapes/pictures kept | unit `ods` (5 tests) |
+| XLS open and save, XLSB open, through LibreOffice | e2e `files › legacy XLS opens through LibreOffice…` (XLS only) |
+| Templates open as a new untitled workbook | e2e `files › legacy XLS…` |
+| JSON, HTML table, XML Spreadsheet 2003 (R1C1 formulas) open and save | unit `interchange` |
+| Lossy save warning lists what changes and offers "Save as .xlsx instead"; AutoSave writes only to .xlsx/.xlsm/.ods | e2e `files › open an XLSX…`, `core › save as CSV…` |
+| Canvas grid loads the fonts a workbook uses before measuring text | visual check |
+
+### Known limitations
+
+- **Shown read-only or not at all.** Charts, pictures, comments, conditional formatting, data validation, hyperlinks, PivotTables and sheet protection from files are kept and saved, but not shown or enforced. They arrive in M4–M6.
+- **ODS structure edits.** Kept ODS content (shapes, conditional formats) is not adjusted when rows or columns are inserted or deleted.
+- **XLSB.** Untested, because no XLSB file can be produced without Excel. It can't be saved, since LibreOffice doesn't write it.
+- **Not checked against Excel itself.** Files are checked against LibreOffice and by round trip.
+
 ## Next
 
-- **M3 — Files.** XLSX/XLSM/XLTX and ODS reading and writing, with preservation of unknown parts and compatibility warnings. XLS/XLSB through LibreOffice. JSON, HTML and XML Spreadsheet 2003.
 - **M4 — Editing depth.** Conditional formatting, data validation, tables, filters, comments, Paste Special, Flash Fill and the remaining shortcuts.
 - **M5 onward.** See the plan in ARCHITECTURE.md.

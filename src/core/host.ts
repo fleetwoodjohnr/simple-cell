@@ -7,9 +7,10 @@ import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
 import { mean, sum, variance } from './engine/functions/helpers'
 import { navigate, type Dir } from './nav'
-import { fromKey } from './refs'
+import { cellKey, cellName, fromKey } from './refs'
 import { snapshot, restore, type Snapshot } from './snapshot'
 import { importWorkbook, exportWorkbook, type FormatId } from './formats/registry'
+import { shiftXlsxCarry } from './formats/xlsx/shift'
 import type { FormatWarning } from './formats/types'
 import { CATALOG } from './engine/catalog'
 import { getFunction } from './engine/evaluate'
@@ -75,9 +76,29 @@ export class Host {
   static async open(bytes: Uint8Array, format: FormatId): Promise<Host> {
     const r = await importWorkbook(format, bytes)
     const h = new Host(new Doc(r.workbook))
-    h.warnings = r.warnings
+    if (['xlsx', 'xlsm', 'xltx', 'xltm'].includes(format)) h.doc.carryShifters.xlsx = (tx, s) => shiftXlsxCarry(h.doc.wb, tx, s)
+    h.warnings = [...r.warnings, ...h.compareCached()]
     h.format = format
     return h
+  }
+
+  /**
+   * After loading, compare each formula's result with the one the file was saved with. Differences point at
+   * calculation differences between Simple Cell and the program that saved the file; they are reported, not hidden.
+   */
+  compareCached(): FormatWarning[] {
+    const cached = (this.doc.wb.carry as { cached?: { sheet: number; r: number; c: number; v: Scalar }[] } | null)?.cached
+    if (!cached?.length) return []
+    const diffs: string[] = []
+    for (const { sheet, r, c, v } of cached) {
+      const cell = this.doc.wb.sheetById(sheet)?.get(r, c)
+      if (!cell?.f || cell.f.unsupported || this.doc.engine.volatile.has(cellKey(sheet, r, c))) continue
+      const now = cell.v
+      const same = now === v || (typeof now === 'number' && typeof v === 'number' && Math.abs(now - v) <= Math.max(1e-9, Math.abs(v) * 1e-9)) || (isError(now) && isError(v) && now.code === v.code) || (v === null && (now === 0 || now === ''))
+      if (!same) diffs.push(`${this.doc.wb.sheetById(sheet)?.name}!${cellName(r, c)}`)
+    }
+    if (!diffs.length) return []
+    return [{ level: 'loss', message: `${diffs.length} formula result(s) differ from the values saved in the file (${diffs.slice(0, 8).join(', ')}${diffs.length > 8 ? ', …' : ''}). This can mean a calculation difference between Simple Cell and the program that saved the file.` }]
   }
 
   async save(format: FormatId, opts: Record<string, unknown> = {}): Promise<{ data: Uint8Array; warnings: FormatWarning[] }> {

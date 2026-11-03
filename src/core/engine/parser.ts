@@ -77,6 +77,8 @@ export interface PrintContext {
   fileNames?: (name: string) => string
   /** LAMBDA/LET parameters in scope (printing for files only). */
   paramNames?: Set<string>
+  /** Print references in R1C1 notation (XML Spreadsheet 2003). */
+  r1c1?: boolean
 }
 
 export class FormulaSyntaxError extends Error {
@@ -591,7 +593,11 @@ export function parseFormula(text: string, ctx: ParseContext): Node {
         return parseStruct(t.table, t.body, t.p)
       case 'func': {
         const args = parseArgs()
-        return { t: 'func', name: cleanName(t.v).toUpperCase(), args }
+        const name = cleanName(t.v).toUpperCase()
+        // In files the spill operator is written ANCHORARRAY(A1) and @ is SINGLE(x).
+        if (name === 'ANCHORARRAY' && args.length === 1) return { t: 'spill', a: args[0] }
+        if (name === 'SINGLE' && args.length === 1) return { t: 'un', op: '@', a: args[0] }
+        return { t: 'func', name, args }
       }
       case '(': {
         const inner = parseExpr(0, true)
@@ -726,6 +732,15 @@ function printRef(n: RefNode, ctx: PrintContext): string {
   const r1 = n.ra1 ? n.r1 : n.r1 + ctx.row
   const c0 = n.ca0 ? n.c0 : n.c0 + ctx.col
   const c1 = n.ca1 ? n.c1 : n.c1 + ctx.col
+  if (ctx.r1c1) {
+    const R = (abs: boolean, v: number, off: number) => (abs ? `R${v + 1}` : off ? `R[${off}]` : 'R')
+    const C = (abs: boolean, v: number, off: number) => (abs ? `C${v + 1}` : off ? `C[${off}]` : 'C')
+    if (n.span === 'cols') return `${pre}${C(n.ca0, c0, n.c0)}:${C(n.ca1, c1, n.c1)}`
+    if (n.span === 'rows') return `${pre}${R(n.ra0, r0, n.r0)}:${R(n.ra1, r1, n.r1)}`
+    const a1 = R(n.ra0, r0, n.r0) + C(n.ca0, c0, n.c0)
+    const b1 = R(n.ra1, r1, n.r1) + C(n.ca1, c1, n.c1)
+    return pre + (a1 === b1 ? a1 : `${a1}:${b1}`)
+  }
   const col = (abs: boolean, c: number) => (abs ? '$' : '') + colName(c)
   const row = (abs: boolean, r: number) => (abs ? '$' : '') + (r + 1)
   if (n.span === 'cols') return `${pre}${col(n.ca0, c0)}:${col(n.ca1, c1)}`
@@ -779,10 +794,12 @@ function printNode(n: Node, ctx: PrintContext): string {
     case 'call':
       return `${printNode(n.fn, ctx)}(${n.args.map((a) => printNode(a, ctx)).join(',')})`
     case 'un':
+      if (n.op === '@' && ctx.fileNames) return `_xlfn.SINGLE(${printNode(n.a, ctx)})`
       return n.op + printNode(n.a, ctx)
     case 'pct':
       return printNode(n.a, ctx) + '%'
     case 'spill':
+      if (ctx.fileNames) return `_xlfn.ANCHORARRAY(${printNode(n.a, ctx)})`
       return printNode(n.a, ctx) + '#'
     case 'bin':
       return printNode(n.a, ctx) + n.op + printNode(n.b, ctx)

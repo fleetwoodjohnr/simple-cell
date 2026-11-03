@@ -36,7 +36,7 @@ export type Dialog =
   | { kind: 'row-height' | 'col-width' }
   | { kind: 'csv-import'; name: string; path: string; data: Uint8Array }
   | { kind: 'history' }
-  | { kind: 'export-warnings'; tabId: string; format: FormatId; warnings: FormatWarning[]; resolve: (ok: boolean) => void }
+  | { kind: 'export-warnings'; tabId: string; format: FormatId; warnings: FormatWarning[]; resolve: (choice: 'save' | 'xlsx' | 'cancel') => void }
   | { kind: 'message'; title: string; body: string }
 
 export interface Toast {

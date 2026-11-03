@@ -37,10 +37,11 @@ export async function launch(opts: { userData?: string; settings?: Record<string
 const cspViolations = new WeakMap<ElectronApplication, string[]>()
 const errors = new WeakMap<ElectronApplication, string[]>()
 
-/** Replace native dialogs in the main process with fixed answers. */
-export async function stubDialogs(app: ElectronApplication, d: { save?: string; open?: string[] }) {
+/** Replace native dialogs in the main process with fixed answers. A list of save paths answers successive dialogs. */
+export async function stubDialogs(app: ElectronApplication, d: { save?: string | string[]; open?: string[] }) {
   await app.evaluate(({ dialog }, d) => {
-    if (d.save !== undefined) dialog.showSaveDialog = (async () => ({ canceled: false, filePath: d.save })) as never
+    const saves = d.save === undefined ? undefined : [d.save].flat()
+    if (saves) dialog.showSaveDialog = (async () => ({ canceled: false, filePath: saves.length > 1 ? saves.shift() : saves[0] })) as never
     if (d.open !== undefined) dialog.showOpenDialog = (async () => ({ canceled: false, filePaths: d.open })) as never
   }, d)
 }

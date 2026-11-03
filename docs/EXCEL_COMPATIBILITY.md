@@ -17,7 +17,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Formulas | 🟡 | 499 of 526 worksheet functions calculated; 481 with test cases ([FORMULA_COVERAGE.md](FORMULA_COVERAGE.md)) |
 | Calculation semantics | 🟡 | See below |
 | Keyboard shortcuts | 🟡 | 64 command shortcuts registered + 24 built-in navigation/editing keys done; 11 planned ([SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md)) |
-| File formats | 🟡 | CSV/TSV ✅; XLSX, XLSM, ODS 📋 next milestone ([FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md)) |
+| File formats | 🟡 | XLSX, XLSM, XLTX, ODS, CSV, TSV, JSON, HTML, XML 2003 ✅; XLS ✅ through LibreOffice; XLSB open only, untested; content not yet shown (charts, CF, comments…) 🔒 kept ([FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md)) |
 | Formatting | 🟡 | Cell formatting ✅; conditional formatting, cell styles, Format Painter 📋 |
 | Tables | 📋 | Structured references parse and calculate; creating and editing tables is planned |
 | PivotTables | 📋 | |
@@ -37,9 +37,9 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Named ranges and named formulas (workbook and sheet scope) | ✅ | |
 | LET, LAMBDA, named LAMBDAs, LAMBDA helpers (MAP, REDUCE, SCAN, BYROW, BYCOL, MAKEARRAY) | ✅ | |
 | Dynamic arrays, spilling, `#SPILL!`, the `A1#` spill reference | ✅ | |
-| Implicit intersection (`@`, legacy formulas) | ✅ | Legacy formulas are recognised when files are read (next milestone) |
+| Implicit intersection (`@`, legacy formulas) | ✅ | Formulas from files without the dynamic-array flag calculate as legacy formulas |
 | Legacy array formulas (Ctrl+Shift+Enter) | ✅ | |
-| Structured table references (`Table1[Col]`, `[@Col]`, `#Headers`…) | 🟡 | Calculated; tables themselves arrive with XLSX import and the table feature |
+| Structured table references (`Table1[Col]`, `[@Col]`, `#Headers`…) | 🟡 | Calculated, including tables read from XLSX; creating and editing tables is M4 |
 | Type coercion (text numbers and dates, logicals, empty cells) | ✅ | |
 | Error values: `#NULL!` `#DIV/0!` `#VALUE!` `#REF!` `#NAME?` `#NUM!` `#N/A` `#SPILL!` `#CALC!` and the rest | ✅ | |
 | Automatic and manual calculation, F9, Ctrl+Alt+F9 | ✅ | |
@@ -58,12 +58,15 @@ See [SHORTCUT_REFERENCE.md](SHORTCUT_REFERENCE.md) for the full list. Shortcuts 
 
 ## File formats
 
+Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
+
 | Format | Read | Write | Notes |
 |---|---|---|---|
-| CSV | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; numbers and dates recognised; CSV-injection guard on export |
-| TSV / TXT | ✅ | ✅ | |
-| XLSX, XLSM, XLTX | 📋 | 📋 | Next milestone (M3), with preservation of unknown parts |
-| ODS | 📋 | 📋 | M3 |
-| XLS, XLSB | 📋 | 📋 | M3, through LibreOffice when installed |
-| JSON, HTML, XML Spreadsheet 2003 | 📋 | 📋 | M3 |
+| XLSX, XLSM, XLTX, XLTM | ✅ | ✅ | Unknown parts kept and written back; ranges in kept content follow inserted/deleted rows and columns; VBA kept in .xlsm, never run |
+| ODS | ✅ | ✅ | OpenFormula translation; data styles ⇄ number formats; shapes, pictures and charts kept |
+| XLS | ✅ | ✅ | Through LibreOffice when installed |
+| XLSB | 🟡 | ❌ | Opened through LibreOffice when installed; untested (no fixture can be made without Excel) |
+| CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
+| JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | 📋 | M5 |
+| Charts, pictures, shapes, comments, conditional formatting, data validation, hyperlinks, PivotTables in files | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

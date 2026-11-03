@@ -43,6 +43,11 @@ export interface PaintInput {
 const PT = 96 / 72
 const widthCache = new Map<string, number>()
 
+/** Fonts finished loading: measurements taken with a fallback face are stale. */
+export function clearMeasureCache() {
+  widthCache.clear()
+}
+
 export function measure(ctx: CanvasRenderingContext2D, font: string, text: string): number {
   const key = font + '\u0000' + text
   let w = widthCache.get(key)

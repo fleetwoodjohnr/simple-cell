@@ -12,10 +12,11 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
 - **Formulas.** Excel operator precedence, dynamic arrays with spilling, LET and LAMBDA, names, cross-sheet references, and circular reference detection.
   - 499 of Excel's 526 worksheet functions are implemented and checked against Microsoft's documented examples and LibreOffice ([docs/FORMULA_COVERAGE.md](docs/FORMULA_COVERAGE.md)).
 - **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
-- **Files.** CSV and tab-separated text.
-- **Safety.** AutoSave and crash recovery.
-
-Excel (.xlsx) and OpenDocument (.ods) files are the next milestone.
+- **Files.** Excel (.xlsx, .xlsm, templates) and OpenDocument (.ods), read and written by Simple Cell itself. Charts, comments, conditional formatting and other content it can't show yet are kept and saved unchanged.
+  - .xls through LibreOffice when it is installed.
+  - CSV, TSV, JSON, HTML tables and XML Spreadsheet 2003.
+  - Details in [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
+- **Safety.** AutoSave and crash recovery; a warning, with the option to save as .xlsx instead, before saving to a format that would lose content.
 
 ## Build and run
 

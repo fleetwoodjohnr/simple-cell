@@ -19,7 +19,7 @@ export const isKnownExcelFunction = (name: string) => byName.has(name.toUpperCas
 // Functions written with a _xlfn._xlws. prefix in OOXML.
 const XLWS = new Set(['SORT', 'FILTER'])
 // Functions introduced after Excel 2007 are written with _xlfn. in files; older ones are not.
-const XLFN_EXTRA = new Set(['SINGLE', 'ANCHORARRAY'])
+const XLFN_EXTRA = new Set(['SINGLE', 'ANCHORARRAY', 'STOCKHISTORY', 'AGGREGATE'])
 
 /** The name as it must appear in an OOXML formula. */
 export function fileFunctionName(name: string): string {

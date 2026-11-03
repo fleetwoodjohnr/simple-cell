@@ -151,21 +151,27 @@ function WarningList({ title, icon, items, children }: { title: string; icon: Re
 }
 
 function ExportWarnings({ d }: { d: Extract<Dialog, { kind: 'export-warnings' }> }) {
-  const done = (ok: boolean) => {
+  const done = (choice: 'save' | 'xlsx' | 'cancel') => {
     close()
-    d.resolve(ok)
+    d.resolve(choice)
   }
+  const offerXlsx = !['xlsx', 'xlsm', 'xltx'].includes(d.format)
   return (
     <Modal
       open
-      onOpenChange={(o) => !o && done(false)}
+      onOpenChange={(o) => !o && done('cancel')}
       title={`Some content can’t be saved as ${FORMAT_LABELS[d.format]}`}
       description="The file will be written, but these parts of your workbook will be simplified or left out."
       width={540}
       footer={
         <>
-          <Btn onClick={() => done(false)}>Cancel</Btn>
-          <Btn variant="primary" autoFocus onClick={() => done(true)}>
+          <Btn onClick={() => done('cancel')}>Cancel</Btn>
+          {offerXlsx && (
+            <Btn data-testid="save-xlsx-instead" onClick={() => done('xlsx')}>
+              Save as .xlsx instead
+            </Btn>
+          )}
+          <Btn variant="primary" autoFocus onClick={() => done('save')}>
             Save anyway
           </Btn>
         </>

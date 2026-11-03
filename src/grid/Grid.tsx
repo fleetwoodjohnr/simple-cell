@@ -8,7 +8,7 @@ import { getView, rectOf, setView, useViews, cellSel, type Sel } from '@/rendere
 import * as A from '@/renderer/app/actions'
 import { handleGridKey, refHighlights, insertPointRef } from './keys'
 import { colX, hit, makeLayout, rowY, scrollToShow, visibleCols, visibleRows, axesFor, type Layout } from './layout'
-import { fontOf, paint, type Theme } from './paint'
+import { clearMeasureCache, fontOf, paint, type Theme } from './paint'
 import { GridMenu } from './GridMenu'
 
 function readTheme(dark: boolean): Theme {
@@ -57,6 +57,23 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
     const colsExtent = Math.min(MAX_COLS, Math.max(meta.used.c + 1, view.sel.active.c + 1, c1 + 1) + 12)
     spacer = { w: L.headerW + L.cols.offset(colsExtent) * zoom, h: L.headerH + L.rows.offset(rowsExtent) * zoom }
   }
+
+  // Canvas text doesn't trigger webfont loading: load every face the workbook uses, then repaint.
+  const [fontsLoaded, setFontsLoaded] = useState(0)
+  useEffect(() => {
+    const faces = new Set<string>()
+    for (const st of book.meta.styles) for (const b of [false, true]) faces.add(fontOf({ ...st, bold: st.bold || b }, 1, defaultFont, defaultFontSize))
+    let cancelled = false
+    void Promise.all([...faces].map((f) => document.fonts.load(f).catch(() => []))).then(() => {
+      if (cancelled) return
+      clearMeasureCache()
+      setFontsLoaded((n) => n + 1)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [book.meta.styles.length, defaultFont, defaultFontSize])
+  void fontsLoaded
 
   // Track the element size.
   useLayoutEffect(() => {

@@ -14,7 +14,10 @@ src/core/        The document core: pure TypeScript with no DOM and no UI. It ru
                  (evaluate.ts), recalculation engine (engine.ts), functions/<category>.ts, catalog.json (every Excel
                  function, generated from Microsoft's documentation)
   numfmt/        Excel number format codes and date serials (1900 and 1904 systems)
-  formats/       File adapters: bytes ⇄ Workbook plus compatibility warnings
+  formats/       File adapters: bytes ⇄ Workbook plus compatibility warnings. zip.ts (fflate with zip-bomb limits),
+                 xml.ts (xmldom, DOCTYPE stripped), opc.ts (relationships, content types); xlsx/ (read, write,
+                 shift.ts keeps preserved content in step with structure edits), ods/ (read, write, OpenFormula
+                 translation), csv, json, html, xml2003; registry.ts picks the adapter by format
   doc.ts         Transactions (every edit is undoable), typed input, structure edits, copy/fill
   host.ts        Everything the UI can ask of an open workbook; worker.ts exposes it over postMessage
 src/grid/        Canvas grid: layout (axis.ts, layout.ts), painting (paint.ts), interaction (Grid.tsx, keys.ts)
@@ -52,6 +55,8 @@ The dirty formulas are then ordered by an iterative depth-first search, so long 
 A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled ranges) computes that cell first. Reading a cell that is already being computed is a circular reference: it is reported, and iterated if iterative calculation is on.
 
 **Never a made-up result.** A formula that uses an Excel function Simple Cell doesn't implement keeps the value saved in the file, flagged as not recalculated. Without a saved value it shows `#NAME?`. Formulas referring to other workbooks also keep their saved value.
+
+**Files keep what Simple Cell can't show yet.** Reading an XLSX keeps every package part, unknown worksheet and workbook elements, and the original style records, in a `carry` object on the workbook. Writing regenerates what Simple Cell models (cells, formulas, styles, layout, names, tables) and writes the carried content back in schema order. Package parts no longer reachable from the relationships are dropped. Inserting or deleting rows or columns rewrites ranges inside the carried XML (conditional formats, validations, drawing anchors, chart series) through the same transaction as the edit, so undo restores them. ODS works the same way with its own carry. Changes to preserved ODS content aren't adjusted yet.
 
 **Every edit is a transaction.** Each change records how to revert it, which gives undo/redo and recovery. The same log is where a macro recorder and collaboration will connect.
 

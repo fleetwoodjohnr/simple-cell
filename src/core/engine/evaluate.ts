@@ -535,7 +535,7 @@ export function finalValue(v: Value, ctx: EvalContext, spill: boolean): Scalar |
   }
   if (isArray(v)) {
     if (v.rows === 1 && v.cols === 1) return orZero(v.data[0])
-    if (!spill) return orZero(v.data[0])
+    if (!spill || ctx.legacy) return orZero(v.data[0])
     return { ...v, data: v.data.map(orZero) }
   }
   if (isLambda(v)) return ERR.CALC
