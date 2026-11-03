@@ -10,6 +10,7 @@ import { Dashboard, Backstage } from './Dashboard'
 import { Dialogs } from './Dialogs'
 import { KeyTipsLayer, keyTipsKeyup } from './KeyTips'
 import { PrintHost } from './Print'
+import { PivotPanel } from './Pivot'
 import { FormulaBar } from './FormulaBar'
 import { StatusBar } from './SheetBar'
 import { TooltipProvider } from '../ui'
@@ -112,8 +113,11 @@ function Workbook({ tab, hidden }: { tab: string; hidden: boolean }) {
     <div hidden={hidden} className="absolute inset-0 flex flex-col">
       {!hidden && <Ribbon tab={tab} />}
       {showFormulaBar && !hidden && <FormulaBar tab={tab} />}
-      <div className="relative min-h-0 flex-1">
-        <Grid tab={tab} hidden={hidden} />
+      <div className="relative flex min-h-0 flex-1">
+        <div className="relative min-w-0 flex-1">
+          <Grid tab={tab} hidden={hidden} />
+        </div>
+        {!hidden && <PivotPanel tab={tab} book={books.get(tab)!} />}
       </div>
       {!hidden && <StatusBar tab={tab} />}
     </div>

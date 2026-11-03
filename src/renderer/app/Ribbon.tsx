@@ -69,7 +69,10 @@ import {
   SeparatorHorizontal,
   TrendingUp,
   ChartNoAxesColumn,
-  ArrowUpDown
+  ArrowUpDown,
+  Grid2x2,
+  CopyMinus,
+  Target
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -620,6 +623,7 @@ function InsertTab() {
   return (
     <>
       <Group label="Tables">
+        <Cmd id="insert.pivot" label="PivotTable" text="PivotTable" icon={<Grid2x2 />} />
         <Cmd id="data.table" label="Table" text="Table" icon={<Table2 />} />
       </Group>
       <Sep />
@@ -768,10 +772,19 @@ function DataTab() {
         <Cmd id="data.sort" label="Custom sort" text="Sort…" icon={<ArrowDownWideNarrow />} />
       </Group>
       <Sep />
+      <Group label="Queries">
+        <Cmd id="data.refreshAll" label="Refresh all" text="Refresh" icon={<RefreshCw />} />
+      </Group>
+      <Sep />
       <Group label="Filter">
         <Cmd id="data.filter" label="Filter" text="Filter" icon={<Filter />} />
         <Cmd id="data.clearFilter" label="Clear filters" text="Clear" icon={<FilterX />} />
         <Cmd id="data.reapply" label="Reapply filters" text="Reapply" icon={<RefreshCw />} />
+      </Group>
+      <Sep />
+      <Group label="Analysis">
+        <Cmd id="data.goalSeek" label="Goal seek" text="Goal Seek" icon={<Target />} />
+        <Cmd id="data.descriptiveStats" label="Descriptive statistics" text="Statistics" icon={<Sigma />} />
       </Group>
       <Sep />
       <Group label="Outline">
@@ -785,6 +798,8 @@ function DataTab() {
       <Sep />
       <Group label="Data tools">
         <Cmd id="data.flashFill" label="Flash Fill" text="Flash Fill" icon={<Wand2 />} />
+        <Cmd id="data.textToColumns" label="Text to columns" text="Split" icon={<Columns3 />} />
+        <Cmd id="data.removeDuplicates" label="Remove duplicates" text="Dedupe" icon={<CopyMinus />} />
         <Menu>
           <DropBtn icon={<ListChecks />} label="Data validation" text="Validation" />
           <MenuContent>

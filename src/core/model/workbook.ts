@@ -8,6 +8,7 @@ import type { AutoFilter, FilterColumn } from '../filter'
 import { defaultPageSetup, type PageSetup } from '../print'
 import type { Chart } from '../charts'
 import type { SparklineGroup } from '../sparklines'
+import type { PivotTable } from '../pivot'
 
 export interface Formula {
   /** Parsed formula; references are relative to the cell (shared by every cell a formula was filled into). */
@@ -119,6 +120,8 @@ export class Sheet {
   /** Notes and hyperlinks by cell (key r * 16384 + c). */
   notes = new Map<number, Note>()
   links = new Map<number, Link>()
+  /** PivotTables whose output is on this sheet. */
+  pivots: PivotTable[] = []
   /** Sparkline groups (tiny charts in cells). */
   sparklines: SparklineGroup[] = []
   /** Charts drawn over the sheet. */

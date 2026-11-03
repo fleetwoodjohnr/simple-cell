@@ -18,7 +18,7 @@ test('data validation: list dropdown, input message, stop alert, circle invalid 
     await page.getByRole('radio', { name: 'Input message' }).click()
     await page.getByLabel('Input title').fill('Colour')
     await page.getByRole('textbox', { name: 'Input message' }).fill('Pick one from the list')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await goto(page, 'A1')
     await expect(page.getByTestId('input-message')).toContainText('Pick one from the list')
     // Mouse: the arrow next to the cell opens the list.
@@ -36,7 +36,7 @@ test('data validation: list dropdown, input message, stop alert, circle invalid 
     // A value outside the list is refused (stop alert); Cancel leaves the cell as it was.
     await typeCell(page, 'A3', 'Purple')
     await expect(page.getByRole('alert')).toContainText('doesn’t match the data validation restrictions')
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     expect(await cell(page, 'A3')).toBeNull()
     await typeCell(page, 'A3', 'blue')
     expect(await cell(page, 'A3')).toBe('blue')
@@ -48,7 +48,7 @@ test('data validation: list dropdown, input message, stop alert, circle invalid 
     await page.getByLabel('Allow').selectOption('whole')
     await page.getByRole('combobox', { name: 'Data', exact: true }).selectOption('greaterThan')
     await page.getByLabel('Value').fill('0')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await validationMenu(page, 'Circle invalid data')
     await expect(page.getByTestId('invalid-circle')).toHaveCount(1)
     await typeCell(page, 'B2', '3')

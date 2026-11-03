@@ -20,6 +20,8 @@ import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
 import { PrintDialog } from './Print'
 import { ChartDialog } from './Charts'
+import { InsertPivotDialog } from './Pivot'
+import { ToolDialog } from './AnalysisDialogs'
 import type { GoToKind, PasteSpecialOptions } from '@/core/doc'
 
 const close = () => set({ dialog: null })
@@ -72,6 +74,10 @@ export function Dialogs() {
       return <PrintDialog />
     case 'chart':
       return <ChartDialog d={d} />
+    case 'pivot-insert':
+      return <InsertPivotDialog d={d} />
+    case 'tool':
+      return <ToolDialog d={d} />
     case 'sparklines':
       return <SparklineDialog type={d.type} />
     case 'link':

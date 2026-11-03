@@ -21,7 +21,7 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Formatting | 🟡 | Cell formatting, Format Painter ✅; conditional formatting ✅ (all main rule types, shown, edited, saved); cell styles 🟡 (built-in styles applied as formatting; named styles in files are not linked) |
 | Editing | 🟡 | Insert/Delete Cells with a shift, Paste Special (all kinds, operations, skip blanks, transpose) ✅; Go To Special ✅; Flash Fill 🟡 (words, initials, delimiters, case, joins; not digits inside numbers); grouping/outline ✅ (Auto Outline and Data ▸ Subtotal 📋) |
 | Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
-| PivotTables | 📋 | |
+| PivotTables | 🟡 | Rows, columns, filters, values (11 summary functions, % of totals), subtotals, grand totals, date grouping, refresh ✅; read from and written to .xlsx ✅; compact/outline layouts, calculated fields, slicers, PivotCharts 📋 |
 | Charts | 🟡 | Column, bar, line, area, pie, doughnut, scatter (clustered, stacked, 100%) ✅ shown, created, edited and saved; other types kept 🔒; sparklines (line, column, win/loss) ✅ |
 | Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
 | Automation | 📋 | |
@@ -122,4 +122,4 @@ Details, limits and tests: [FILE_FORMAT_SUPPORT.md](FILE_FORMAT_SUPPORT.md).
 | CSV, TSV, TXT | ✅ | ✅ | UTF-8, UTF-16 and Windows-1252; delimiter detection; CSV-injection guard on export |
 | JSON, HTML, XML Spreadsheet 2003 | ✅ | ✅ | |
 | PDF | — | ✅ | Save as PDF from the Print dialog (text stays selectable) |
-| Pictures, shapes, PivotTables, chart types other than the seven drawn | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |
+| Pictures, shapes, chart types other than the seven drawn, PivotTables with unsupported sources (external data, the data model) | 🔒 | 🔒 | Kept and saved unchanged; shown and editable in later milestones |

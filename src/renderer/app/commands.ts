@@ -5,6 +5,8 @@ import { openCreateTable, toggleFilter } from './Tables'
 import { keyTipsKeydown } from './KeyTips'
 import { runPrint } from './Print'
 import { insertChart } from './Charts'
+import { openInsertPivot, refreshAll } from './Pivot'
+import { openTool } from './AnalysisDialogs'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -532,6 +534,12 @@ def({ id: 'insert.sparkLine', label: 'Insert line sparklines…', keywords: 'spa
 def({ id: 'insert.sparkColumn', label: 'Insert column sparklines…', keywords: 'sparkline', run: () => set({ dialog: { kind: 'sparklines', type: 'column' } }) })
 def({ id: 'insert.sparkWinLoss', label: 'Insert win/loss sparklines…', keywords: 'sparkline', run: () => set({ dialog: { kind: 'sparklines', type: 'stacked' } }) })
 def({ id: 'sparklines.clear', label: 'Clear sparklines', run: (c) => { const x = needsSelection(c); return A.edit(x, (b) => b.api.clearSparklines(x.view.sheet, areasOf(x.view))) } })
+def({ id: 'insert.pivot', label: 'Insert PivotTable…', keywords: 'pivot summarize crosstab', run: (c) => (needsSelection(c), void openInsertPivot()) })
+def({ id: 'data.refreshAll', label: 'Refresh all', keywords: 'pivot refresh update', run: () => refreshAll() })
+def({ id: 'data.removeDuplicates', label: 'Remove duplicates…', keywords: 'dedupe unique', run: (c) => (needsSelection(c), openTool('dedupe')) })
+def({ id: 'data.textToColumns', label: 'Text to columns…', keywords: 'split delimiter', run: (c) => (needsSelection(c), openTool('text-to-columns')) })
+def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
+def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

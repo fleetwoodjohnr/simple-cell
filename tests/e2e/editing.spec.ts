@@ -22,7 +22,7 @@ test('paste special (operation, transpose) and format painter', async () => {
     await page.keyboard.press(`${MOD}+Alt+v`)
     await page.getByLabel('Values', { exact: true }).check()
     await page.getByLabel('Multiply').check()
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => cell(page, 'A2')).toBe(60)
     expect(await cell(page, 'A1')).toBe(30)
     // Transpose the column into a row.
@@ -31,7 +31,7 @@ test('paste special (operation, transpose) and format painter', async () => {
     await goto(page, 'E1')
     await page.keyboard.press(`${MOD}+Alt+v`)
     await page.getByLabel('Transpose').check()
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => cell(page, 'F1')).toBe(60)
     expect(await cell(page, 'E2')).toBeNull()
     // Format painter: bold red A1 → click the brush → select C1:C2.

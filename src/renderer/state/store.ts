@@ -1,4 +1,5 @@
 import type { CfPreset } from '../app/CondFormat'
+import type { ToolKind } from '../app/AnalysisDialogs'
 import type { DvAlert } from '@/core/validation'
 import type { AlertChoice } from '../app/Validation'
 import { create } from 'zustand'
@@ -44,6 +45,8 @@ export type Dialog =
   | { kind: 'goto-special' }
   | { kind: 'print' }
   | { kind: 'chart'; id: number }
+  | { kind: 'tool'; tool: ToolKind }
+  | { kind: 'pivot-insert'; area: { r0: number; c0: number; r1: number; c1: number } }
   | { kind: 'sparklines'; type: 'line' | 'column' | 'stacked' }
   | { kind: 'shift-cells'; mode: 'insert' | 'delete' }
   | { kind: 'link' }

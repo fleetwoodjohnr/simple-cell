@@ -17,6 +17,7 @@ import { notesSig, readComments, readHyperlinks } from './notes'
 import { PAGE_ELEMENTS, readPageSetup } from './pagesetup'
 import { drawingAnchors, readAnchors, readChart } from './charts'
 import { readSparklines } from '../../sparklines'
+import { REL_PIVOT_CACHE, REL_PIVOT_TABLE, readPivot } from './pivot'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -317,7 +318,7 @@ export function readXlsx(bytes: Uint8Array): ImportResult & { carry: XlsxCarry }
   const wbTop = topLevel(wbInner)
   const workbookElements = wbTop.filter((e) => !['sheets', 'definedNames', 'calcPr'].includes(e.name))
   for (const e of workbookElements) {
-    if (e.name === 'pivotCaches') w.add('loss', 'PivotTables are kept as they are, but Simple Cell can’t refresh or edit them yet.')
+    if (e.name === 'pivotCaches') w.add('info', 'PivotTables can be refreshed and edited. When Simple Cell refreshes one it lays it out in tabular form, and its own number formats and styles replace the file’s.')
     if (e.name === 'externalReferences') w.add('info', 'Links to other workbooks are kept; formulas that use them show the values saved in this file.')
   }
 
@@ -523,6 +524,20 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
   if (ext && /sparklineGroups/.test(ext.xml)) {
     sh.sparklines = readSparklines(ext.xml)
     sc.hadSparklines = true
+  }
+  // PivotTables (their output cells are ordinary cells; the definitions become the model).
+  for (const r of rels.filter((x) => x.type === REL_PIVOT_TABLE)) {
+    const tp = resolveTarget(path, r.target)
+    const cr = parseRels(ctx.files, tp).find((x) => x.type === REL_PIVOT_CACHE)
+    const cp = cr ? resolveTarget(tp, cr.target) : ''
+    let p = null
+    try {
+      p = ctx.files[tp] && ctx.files[cp] ? readPivot(text(ctx.files[tp]), text(ctx.files[cp]), sh.name, { table: tp, cache: cp }) : null
+    } catch {
+      p = null
+    }
+    if (p) sh.pivots.push(p)
+    else ctx.w.add('loss', 'Some PivotTables could not be read; they are kept as they are, but Simple Cell can’t refresh or edit them.')
   }
   // Charts in the sheet's drawing.
   let unshown = 0

@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed) · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed); M6 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 575 / 575 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 587 / 587 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 18 / 18 (every test also fails on a CSP violation or an uncaught renderer error). Two intermittent failures were seen on 2026-11-03, once each in `smoke` and `files › legacy XLS…`. Neither reproduced in repeated runs, and the cause is not yet known. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 20 / 20 (every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -156,6 +156,28 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 
 - Chart types beyond the seven (combo charts show their first type; radar, stock, surface, bubble and Excel 2016 chartex charts are kept, not shown); chart formatting beyond colours (fonts, axis scales, number formats) isn't read or edited.
 - Printing: icons from conditional formatting and pictures on printed pages; a different paper size per sheet in one PDF (the first sheet's size is used).
+
+## M6 — PivotTables and analysis (in progress)
+
+### Done
+
+| Feature | Test |
+|---|---|
+| Pivot engine: row, column, filter and value fields; Sum, Count, Average, Max, Min, Product, Count Numbers, StdDev(p), Var(p); % of grand/row/column total; subtotals and grand totals; date grouping by years, quarters, months; empty intersections stay empty | unit `pivot` (4) |
+| Insert ▸ PivotTable (new or existing sheet), PivotTable Fields panel (tick fields, move between areas, reorder, summarize by, show values as, group dates, report filter), refresh, Refresh All (Ctrl+Alt+F5), delete; output formatted with the source's number formats; columns autofit; won't overwrite other data; undo | unit `pivot`, e2e `pivot` |
+| PivotTables follow structure edits (source reference and position) | unit `pivot` |
+| XLSX: Excel's PivotTables read (source, fields, layout, location) so they refresh and edit; unchanged ones written back as they were; new or edited ones written as cache + table definitions Excel refreshes on open; LibreOffice reads them as working DataPilot tables | unit `pivot-xlsx` (2) |
+| Remove Duplicates, Text to Columns (delimiters, quotes, consecutive), Goal Seek, Descriptive Statistics (Analysis ToolPak) | unit `analysis` (4), e2e `pivot › data tools…` |
+
+### Still to do in M6
+
+- PivotTables:
+  - Compact and outline layouts (Simple Cell uses the tabular layout), PivotTable styles, slicers and timelines, PivotCharts.
+  - Calculated fields, number grouping, item sorting from the UI, and multiple-item report filters from the UI.
+- Analysis tools:
+  - Solver, Scenario Manager, Data Tables (what-if), Consolidate, column profiling.
+  - The rest of the Analysis ToolPak (histogram, regression, t-tests…).
+- The data model: DAX and relationships remain planned.
 
 ## Next
 

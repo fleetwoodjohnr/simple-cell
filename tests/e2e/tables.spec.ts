@@ -24,7 +24,7 @@ test('tables: Ctrl+T, total row, header filter menu, Ctrl+Shift+L', async () => 
     await goto(page, 'B3')
     await page.keyboard.press(`${MOD}+t`)
     await expect(page.getByLabel('Table range')).toHaveValue('$A$1:$C$5')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     // Table Design appears while the cursor is in the table.
     await page.getByTestId('ribbon-tab-table').click()
     await page.getByLabel('Total row').click()
@@ -37,16 +37,16 @@ test('tables: Ctrl+T, total row, header filter menu, Ctrl+Shift+L', async () => 
     await expect(menu.getByText('North')).toBeVisible()
     await menu.getByLabel('West').uncheck()
     await menu.getByLabel('North').uncheck()
-    await menu.getByRole('button', { name: 'OK' }).click()
+    await menu.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => hiddenRows(page)).toEqual([2, 4])
     await expect.poll(() => cell(page, 'C6')).toBe(35) // SUBTOTAL skips the filtered rows
     await expect(page.getByTestId('filter-button-A1')).toHaveAccessibleName(/filtered/)
     // A condition on another column.
     await page.getByTestId('filter-button-C1').click()
-    await menu.getByRole('button', { name: 'Condition' }).click()
+    await menu.getByRole('button', { name: 'Condition', exact: true }).click()
     await menu.getByLabel('Condition', { exact: true }).selectOption('greaterThan')
     await menu.getByLabel('Condition value').fill('20')
-    await menu.getByRole('button', { name: 'OK' }).click()
+    await menu.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => hiddenRows(page)).toEqual([1, 2, 4])
     await page.keyboard.press(`${MOD}+z`)
     await page.keyboard.press(`${MOD}+z`)

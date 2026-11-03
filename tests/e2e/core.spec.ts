@@ -60,7 +60,7 @@ test('insert and delete rows, sheets, rename, navigation and status bar', async 
     await goto(page, 'A2')
     await page.keyboard.press(`${MOD}+Shift+=`)
     await page.getByLabel('Shift cells down').check()
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => cell(page, 'A3')).toBe(20)
     expect(await cell(page, 'A2')).toBeNull()
     await goto(page, 'C1')

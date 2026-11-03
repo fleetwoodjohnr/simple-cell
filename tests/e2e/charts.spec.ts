@@ -26,12 +26,12 @@ test('charts: Alt+F1 from data, edit, move, delete, undo', async () => {
     await page.keyboard.press(`${MOD}+p`)
     await expect(page.getByTestId('print-preview').locator('img')).toHaveCount(1)
     await expect.poll(() => page.getByTestId('print-preview').locator('img').evaluate((i: HTMLImageElement) => i.naturalWidth)).toBeGreaterThan(0)
-    await page.getByRole('button', { name: 'Cancel' }).click()
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     // Double-click opens the editor: make it a line chart with a title.
     await el.dblclick()
     await page.getByRole('radio', { name: 'Line' }).click()
     await page.getByLabel('Chart title').fill('Sales by month')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(async () => (await charts(page))[0]).toMatchObject({ type: 'line', title: 'Sales by month' })
     // Drag it to another place.
     const box = (await el.boundingBox())!
@@ -61,7 +61,7 @@ test('sparklines: Insert ▸ Line from the selection draws one per row', async (
     await page.getByTestId('ribbon-tab-insert').click()
     await page.getByRole('button', { name: 'Line sparklines' }).click()
     await expect(page.getByLabel('Location range')).toHaveValue('F1:F2')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect
       .poll(() =>
         page.evaluate(() => {

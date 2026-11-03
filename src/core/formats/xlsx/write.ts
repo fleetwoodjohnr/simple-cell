@@ -20,6 +20,9 @@ import { pageSetupXml } from './pagesetup'
 import { CT_CHART, CT_DRAWING, DRAWING_HEAD, REL_CHART, anchorXml, chartXml, drawingAnchors } from './charts'
 import { chartSig } from '../../charts'
 import { withSparklines } from '../../sparklines'
+import { CT_PIVOT_CACHE, CT_PIVOT_TABLE, REL_PIVOT_CACHE, REL_PIVOT_RECORDS, REL_PIVOT_TABLE, pivotSig, pivotXml } from './pivot'
+import type { Scalar } from '../../engine/values'
+import { parseArea } from '../../refs'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -283,6 +286,9 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   let tableFile = 1
   let commentFile = 1
   let drawingFile = 1
+  let pivotFile = 1
+  const newCaches: string[] = []
+  let nextCacheId = 1 + Math.max(0, ...[...(carry?.workbookElements.find((e) => e.name === 'pivotCaches')?.xml ?? '').matchAll(/cacheId="(\d+)"/g)].map((m) => Number(m[1])))
   let chartFile = 1
   let vmlFile = 1
   for (const sh of wb.sheets) {
@@ -421,6 +427,63 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
         }
       }
     }
+    // PivotTables: unchanged ones keep their parts; new or edited ones get generated cache and table definitions.
+    const liveTables = new Set<string>()
+    for (const p of sh.pivots) {
+      if (p.carry?.table && p.carry.sig === pivotSig(p)) {
+        liveTables.add(p.carry.table)
+        continue
+      }
+      const m = /^(?:'((?:[^']|'')+)'|([^!]+))!(.+)$/.exec(p.source)
+      const srcName = m ? (m[1]?.replace(/''/g, "'") ?? m[2]) : sh.name
+      const srcSheet = wb.sheetByName(srcName)
+      const area = srcSheet ? parseArea((m ? m[3] : p.source).replace(/\$/g, ''), srcSheet.id) : null
+      if (!srcSheet || !area) {
+        w.add('loss', `The PivotTable “${p.name}” uses a source Simple Cell can’t save as a PivotTable; its values are saved.`)
+        continue
+      }
+      const header: string[] = []
+      for (let c = area.c0; c <= area.c1; c++) {
+        let name = String(srcSheet.get(area.r0, c)?.v ?? '').trim() || `Column${c - area.c0 + 1}`
+        for (let k = 2; header.includes(name); k++) name = `${name}${k}`
+        header.push(name)
+      }
+      const records: Scalar[][] = []
+      const last = Math.min(area.r1, srcSheet.used().r)
+      for (let r = area.r0 + 1; r <= last; r++) {
+        const rec: Scalar[] = []
+        for (let c = area.c0; c <= area.c1; c++) rec.push(srcSheet.get(r, c)?.v ?? null)
+        if (rec.some((v) => v !== null && v !== '')) records.push(rec)
+      }
+      const out = p.area ?? { r0: p.at.r, c0: p.at.c, r1: p.at.r, c1: p.at.c }
+      const loc = { ...out, r0: out.r0 + (p.config.filters.length ? p.config.filters.length + 1 : 0) }
+      let tp = p.carry?.table
+      let cp = p.carry?.cache
+      let cacheId = Number(p.carry?.cacheId) || 0
+      if (!tp || !cp) {
+        while (files[`${dir}pivotTables/pivotTable${pivotFile}.xml`] || files[`${dir}pivotCache/pivotCacheDefinition${pivotFile}.xml`]) pivotFile++
+        tp = `${dir}pivotTables/pivotTable${pivotFile}.xml`
+        cp = `${dir}pivotCache/pivotCacheDefinition${pivotFile}.xml`
+        pivotFile++
+        cacheId = nextCacheId++
+        const crid = newRid()
+        wbRels.push({ id: crid, type: REL_PIVOT_CACHE, target: relTarget(wbPath, cp) })
+        newCaches.push(`<pivotCache cacheId="${cacheId}" r:id="${crid}"/>`)
+        files[relsPath(tp)] = bytes(relsXml([{ id: 'rId1', type: REL_PIVOT_CACHE, target: relTarget(tp, cp) }]))
+        sheetRels.push({ id: sheetRid(), type: REL_PIVOT_TABLE, target: relTarget(path, tp) })
+      } else {
+        // The regenerated cache has no records: drop the records part.
+        const crels = parseRels(files, cp).filter((r) => r.type !== REL_PIVOT_RECORDS)
+        if (crels.length) files[relsPath(cp)] = bytes(relsXml(crels))
+        else delete files[relsPath(cp)]
+      }
+      liveTables.add(tp)
+      const x = pivotXml(p, { header, records, sheet: srcSheet.name, ref: areaName(area) }, cacheId, loc)
+      files[tp] = bytes(x.table)
+      files[cp] = bytes(x.cache)
+    }
+    // PivotTables deleted in Simple Cell: their parts go (unreachable parts are pruned).
+    for (const r of sheetRels.filter((x) => x.type === REL_PIVOT_TABLE)) if (!liveTables.has(resolveTarget(path, r.target))) sheetRels.splice(sheetRels.indexOf(r), 1)
     const { xml, dynamic } = sheetXml(sh, wb, sc, styles, sharedString, sheetName, fname, tableParts, w, extra)
     if (dynamic) anyDynamic = true
     files[path] = bytes(xml)
@@ -447,7 +510,7 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   } else delete files[metaPath]
 
   // workbook.xml
-  files[wbPath] = bytes(workbookXml(wb, carry, sheetRelIds, sheetName, fname))
+  files[wbPath] = bytes(workbookXml(wb, carry, sheetRelIds, sheetName, fname, newCaches))
   files[relsPath(wbPath)] = bytes(relsXml(wbRels))
 
   // Package relationships and document properties
@@ -489,6 +552,8 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   if (anyDynamic) overrides[metaPath] = CT.metadata
   for (const p of Object.keys(files)) if (/\/tables\/table\d+\.xml$/.test(p)) overrides[p] = CT.table
   for (const p of Object.keys(files)) if (/\/charts\/chart\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_CHART
+  for (const p of Object.keys(files)) if (/\/pivotTables\/pivotTable\d+\.xml$/.test(p)) overrides[p] = CT_PIVOT_TABLE
+  for (const p of Object.keys(files)) if (/\/pivotCache\/pivotCacheDefinition\d+\.xml$/.test(p)) overrides[p] = CT_PIVOT_CACHE
   for (const p of Object.keys(files)) if (/\/drawings\/drawing\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_DRAWING
   for (const p of Object.keys(files)) if (/\/comments\d*\.xml$/.test(p)) overrides[p] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml'
   if (Object.keys(files).some((p) => p.endsWith('.vml'))) defaults.vml = 'application/vnd.openxmlformats-officedocument.vmlDrawing'
@@ -518,7 +583,7 @@ function richText(rich: string): string {
   return t
 }
 
-function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[], sheetName: (id: number) => string | null, fname: (n: string) => string): string {
+function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[], sheetName: (id: number) => string | null, fname: (n: string) => string, newCaches: string[] = []): string {
   const els = carry?.workbookElements ?? []
   const raw = (n: string) => els.filter((e) => e.name === n).map((e) => e.xml).join('')
   let wbPr = raw('workbookPr')
@@ -543,7 +608,9 @@ function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[],
   const before = ['fileVersion', 'fileSharing'].map(raw).join('')
   const afterPr = ['workbookProtection'].map(raw).join('')
   const afterSheets = ['functionGroups', 'externalReferences'].map(raw).join('')
-  const afterCalc = ['oleSize', 'customWorkbookViews', 'pivotCaches', 'smartTagPr', 'smartTagTypes', 'webPublishing', 'fileRecoveryPr', 'webPublishObjects', 'extLst'].map(raw).join('')
+  // PivotTables created in Simple Cell add their caches to the file's.
+  const caches = newCaches.length ? (raw('pivotCaches') ? raw('pivotCaches').replace(/<\/(\w+:)?pivotCaches>$/, (m) => newCaches.join('') + m) : `<pivotCaches>${newCaches.join('')}</pivotCaches>`) : raw('pivotCaches')
+  const afterCalc = ['oleSize', 'customWorkbookViews'].map(raw).join('') + caches + ['smartTagPr', 'smartTagTypes', 'webPublishing', 'fileRecoveryPr', 'webPublishObjects', 'extLst'].map(raw).join('')
   const known = new Set(['fileVersion', 'fileSharing', 'workbookPr', 'workbookProtection', 'bookViews', 'sheets', 'functionGroups', 'externalReferences', 'definedNames', 'calcPr', 'oleSize', 'customWorkbookViews', 'pivotCaches', 'smartTagPr', 'smartTagTypes', 'webPublishing', 'fileRecoveryPr', 'webPublishObjects', 'extLst'])
   const other = els.filter((e) => !known.has(e.name)).map((e) => e.xml).join('')
   return (

@@ -59,6 +59,7 @@ export const SHORTCUTS: ShortcutDef[] = [
   { command: 'select.dependents', win: ['Mod-]'], mac: ['Mod-]'], sheets: [], context: 'grid' },
   { command: 'view.formulaBarTall', win: ['Mod-Shift-u'], mac: ['Ctrl-Shift-u'], context: 'global' },
   { command: 'insert.chart', win: ['Alt-F1'], mac: ['Alt-F1'], sheets: [], context: 'grid' },
+  { command: 'data.refreshAll', win: ['Mod-Alt-F5'], mac: ['Mod-Alt-F5'], sheets: [], context: 'grid' },
   { command: 'insert.link', win: ['Mod-k'], mac: ['Mod-k'], context: 'grid' },
   { command: 'insert.note', win: ['Shift-F2'], mac: ['Shift-F2'], context: 'grid' },
   { command: 'data.table', win: ['Mod-t', 'Mod-l'], mac: ['Mod-t'], context: 'grid' },

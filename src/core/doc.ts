@@ -19,6 +19,8 @@ import { tableCellStyle } from './tablestyle'
 import { learn, run as runProgram } from './flashfill'
 import { paginate, type PageSetup, type PrintJob } from './print'
 import type { SparkView, SparklineGroup } from './sparklines'
+import { emptyPivot, newPivotId, pivot, type PivotConfig, type PivotTable } from './pivot'
+import type { Value } from './engine/values'
 import { chartSig, newChartId, plotNumber, seriesFromRange, type Chart, type ChartData, type ChartType } from './charts'
 import { evaluate } from './engine/evaluate'
 import type { Link, Note, Table } from './model/workbook'
@@ -603,6 +605,170 @@ export class Doc {
     return todo.length
   }
 
+  // ---------- PivotTables ----------
+
+  /** The source of a PivotTable: header names (made unique) and records. */
+  pivotSource(sheet: number, source: string): { header: string[]; records: Scalar[][]; formats: (string | undefined)[] } {
+    let v: Value
+    try {
+      v = evaluate(this.engine.parseAt(source, sheet, 0, 0), this.engine.contextAt(sheet, 0, 0))
+    } catch {
+      throw new Error(`The PivotTable source “${source}” isn’t a valid reference.`)
+    }
+    if (!v || typeof v !== 'object' || !('kind' in v) || v.kind !== 'ref' || !v.areas.length) throw new Error(`The PivotTable source “${source}” isn’t a range.`)
+    const a = v.areas[0]
+    const sh = this.wb.sheetById(a.sheet)!
+    this.engine.ensure(a)
+    const u = sh.used()
+    const r1 = Math.min(a.r1, u.r)
+    const header: string[] = []
+    for (let c = a.c0; c <= a.c1; c++) {
+      let name = (this.display(a.sheet, a.r0, c)?.t ?? '').trim()
+      if (!name) throw new Error('Every column of the PivotTable source needs a heading in its first row.')
+      for (let k = 2; header.includes(name); k++) name = `${name}${k}`
+      header.push(name)
+    }
+    const records: Scalar[][] = []
+    for (let r = a.r0 + 1; r <= r1; r++) {
+      const rec: Scalar[] = []
+      let any = false
+      for (let c = a.c0; c <= a.c1; c++) {
+        const x = sh.get(r, c)?.v ?? null
+        if (x !== null && x !== '') any = true
+        rec.push(x)
+      }
+      if (any) records.push(rec)
+    }
+    const formats = header.map((_, i) => this.wb.styles.get(sh.get(a.r0 + 1, a.c0 + i)?.s).numFmt)
+    return { header, records, formats }
+  }
+
+  /** Write a PivotTable's output (clearing what it wrote last time). Refuses to overwrite other data, as Excel does. */
+  private renderPivotTx(tx: Tx, sheet: number, p: PivotTable): PivotTable {
+    const sh = this.sheet(sheet)
+    const src = this.pivotSource(sheet, p.source)
+    const out = pivot(src.header, src.records, p.config, this.wb.date1904)
+    const rows = out.cells.length ? out.cells : [[{ v: p.name, kind: 'header' as const }]]
+    const width = Math.max(1, ...rows.map((r) => r.length))
+    const area = { r0: p.at.r, c0: p.at.c, r1: p.at.r + rows.length - 1, c1: p.at.c + width - 1 }
+    const old = p.area
+    const own = (r: number, c: number) => !!old && r >= old.r0 && r <= old.r1 && c >= old.c0 && c <= old.c1
+    for (let r = area.r0; r <= area.r1; r++)
+      for (let c = area.c0; c <= area.c1; c++) {
+        const cell = sh.get(r, c)
+        if (cell && (cell.v !== null || cell.f) && !own(r, c)) throw new Error(`There’s already data in ${cellName(r, c)}. Move it, or put the PivotTable somewhere else.`)
+      }
+    if (old) for (let r = old.r0; r <= old.r1; r++) for (let c = old.c0; c <= old.c1; c++) if (sh.get(r, c)) tx.setCell(sheet, r, c, undefined)
+    const fieldFmt = (name: string) => src.formats[src.header.indexOf(name)]
+    const vals = p.config.values
+    const header = this.wb.styles.intern({ bold: true, fill: '#DDEBF7', borderBottom: { style: 'thin', color: '#9BC2E6' } })
+    const bold = this.wb.styles.intern({ bold: true })
+    const grand = (fmt?: string) => this.wb.styles.intern({ bold: true, borderTop: { style: 'thin', color: '#9BC2E6' }, ...(fmt ? { numFmt: fmt } : {}) })
+    rows.forEach((row, i) =>
+      row.forEach((pc, j) => {
+        if (pc.v === null && pc.kind !== 'value') return
+        // Value cells take their field's number format (percentages for Show Values As).
+        const colVal = vals.length === 1 ? vals[0] : vals[(j - Math.max(1, p.config.rows.length)) % Math.max(1, vals.length)]
+        const fmt = pc.fmt ?? (colVal && colVal.agg !== 'count' && colVal.agg !== 'countNums' ? fieldFmt(colVal.field) : undefined)
+        const s = pc.kind === 'header' || pc.kind === 'colLabel' || pc.kind === 'filter' ? header : pc.kind === 'grand' || pc.kind === 'grandLabel' ? grand(pc.kind === 'grand' ? fmt : undefined) : pc.kind === 'subtotal' ? (fmt ? this.wb.styles.intern({ bold: true, numFmt: fmt }) : bold) : fmt ? this.wb.styles.intern({ numFmt: fmt }) : undefined
+        if (pc.v === null && !s) return
+        tx.setCell(sheet, p.at.r + i, p.at.c + j, { v: pc.v, ...(s ? { s } : {}) })
+      })
+    )
+    // Autofit the columns on update, as Excel does by default (widening only).
+    // ponytail: text width estimated from character counts; the grid's autofit measures fonts exactly.
+    for (let j = 0; j < width; j++) {
+      let want = 0
+      for (const row of rows) {
+        const pc = row[j]
+        if (!pc || pc.v === null || pc.v === '') continue
+        const text = typeof pc.v === 'number' ? String(Math.round(pc.v * 100) / 100) : String(pc.v instanceof CellError ? pc.v.code : pc.v)
+        want = Math.max(want, Math.ceil(text.length * (pc.kind === 'value' ? 7 : 7.6)) + 14)
+      }
+      const c = p.at.c + j
+      if (want > sh.colWidth(c)) tx.mapSet(sh.cols, c, { ...(sh.cols.get(c) ?? {}), width: Math.min(320, want) })
+    }
+    return { ...p, area }
+  }
+
+  /** Insert ▸ PivotTable: an empty PivotTable for `source` at (r, c) of `sheet`, or on a new sheet. */
+  createPivot(sourceSheet: number, source: Area, dest: { sheet: number; r: number; c: number } | null): { sheet: number; id: number } {
+    const q = quoteSheet(this.sheetName(source.sheet) ?? '')
+    const ref = `${q}!${areaName(source).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2')}`
+    this.pivotSource(sourceSheet, ref) // checks the headings
+    let n = 1
+    while (this.wb.sheets.some((s) => s.pivots.some((p) => p.name === `PivotTable${n}`))) n++
+    let target = dest
+    let result = { sheet: 0, id: 0 }
+    this.transact('Insert PivotTable', (tx) => {
+      tx.refetch = true
+      if (!target) {
+        // A new sheet, before the source sheet (as Excel does).
+        const sh = this.wb.createSheet(this.wb.uniqueSheetName('Sheet'))
+        const at = Math.max(0, this.wb.sheetIndex(sourceSheet))
+        tx.custom(
+          () => this.wb.sheets.splice(at, 0, sh),
+          () => this.wb.sheets.splice(this.wb.sheetIndex(sh.id), 1)
+        )
+        tx.structural = true
+        target = { sheet: sh.id, r: 2, c: 0 }
+      }
+      const sh = this.sheet(target.sheet)
+      const p: PivotTable = { id: newPivotId(), name: `PivotTable${n}`, source: ref, at: { r: target.r, c: target.c }, config: emptyPivot() }
+      const done = this.renderPivotTx(tx, target.sheet, p)
+      tx.prop(sh, 'pivots', [...sh.pivots, done])
+      result = { sheet: target.sheet, id: p.id }
+    })
+    return result
+  }
+
+  setPivotConfig(sheet: number, id: number, config: PivotConfig) {
+    const sh = this.sheet(sheet)
+    const p = sh.pivots.find((x) => x.id === id)
+    if (!p) throw new Error('That PivotTable is no longer there.')
+    return this.transact('PivotTable layout', (tx) => {
+      tx.refetch = true
+      const done = this.renderPivotTx(tx, sheet, { ...p, config })
+      tx.prop(sh, 'pivots', sh.pivots.map((x) => (x.id === id ? done : x)))
+    })
+  }
+
+  /** Refresh (one PivotTable, or all in the workbook): read the source again. */
+  refreshPivots(sheet?: number, id?: number) {
+    return this.transact('Refresh', (tx) => {
+      tx.refetch = true
+      for (const sh of this.wb.sheets) {
+        if (sheet !== undefined && sh.id !== sheet) continue
+        if (!sh.pivots.length) continue
+        tx.prop(sh, 'pivots', sh.pivots.map((p) => (id === undefined || p.id === id ? this.renderPivotTx(tx, sh.id, p) : p)))
+      }
+    })
+  }
+
+  deletePivot(sheet: number, id: number) {
+    const sh = this.sheet(sheet)
+    const p = sh.pivots.find((x) => x.id === id)
+    if (!p) return null
+    return this.transact('Delete PivotTable', (tx) => {
+      tx.refetch = true
+      if (p.area) for (let r = p.area.r0; r <= p.area.r1; r++) for (let c = p.area.c0; c <= p.area.c1; c++) if (sh.get(r, c)) tx.setCell(sheet, r, c, undefined)
+      tx.prop(sh, 'pivots', sh.pivots.filter((x) => x.id !== id))
+    })
+  }
+
+  /** The PivotTable whose output covers (r, c), with its fields and their items (for the field list). */
+  pivotAt(sheet: number, r: number, c: number) {
+    const p = this.sheet(sheet).pivots.find((x) => x.area && r >= x.area.r0 && r <= x.area.r1 && c >= x.area.c0 && c <= x.area.c1)
+    if (!p) return null
+    const src = this.pivotSource(sheet, p.source)
+    const items = pivot(src.header, src.records, emptyPivot(), this.wb.date1904).items
+    const numeric = src.header.map((_, i) => src.records.some((rec) => typeof rec[i] === 'number') && src.records.every((rec) => rec[i] === null || typeof rec[i] === 'number'))
+    const dates = src.header.map((_, i) => numeric[i] && !!src.formats[i] && isDateFormat(src.formats[i]!))
+    const { carry: _c, ...rest } = p
+    void _c
+    return { ...rest, fields: src.header, numeric, dates, items }
+  }
+
   // ---------- sparklines ----------
 
   /**
@@ -1146,6 +1312,32 @@ export class Doc {
         return next
       })
       if (JSON.stringify(charts) !== JSON.stringify(o.charts)) tx.prop(o, 'charts', charts)
+    }
+    // PivotTables: the source reference follows; the output moves with its top-left cell.
+    for (const o of this.wb.sheets) {
+      if (!o.pivots.length) continue
+      const next = o.pivots.map((p) => {
+        let source = p.source
+        try {
+          const ast = this.engine.parseAt(source, o.id, 0, 0)
+          const adj = adjustFormula(ast, o.id, { row: 0, col: 0 }, { row: 0, col: 0 }, s)
+          if (adj !== ast) source = printFormula(adj, { row: 0, col: 0, sheetName: this.sheetName })
+        } catch {
+          /* keep */
+        }
+        let { at, area } = p
+        if (o.id === sh.id && inBand(at.r, at.c)) {
+          const a = shiftArea({ sheet: o.id, r0: at.r, c0: at.c, r1: at.r, c1: at.c }, s)
+          if (a) {
+            const dr = a.r0 - at.r
+            const dc = a.c0 - at.c
+            at = { r: a.r0, c: a.c0 }
+            if (area) area = { r0: area.r0 + dr, c0: area.c0 + dc, r1: area.r1 + dr, c1: area.c1 + dc }
+          }
+        }
+        return { ...p, source, at, area }
+      })
+      if (JSON.stringify(next) !== JSON.stringify(o.pivots)) tx.prop(o, 'pivots', next)
     }
     // Sparklines: their cells move like notes, their data references like formulas.
     if (sh.sparklines.length || this.wb.sheets.some((o) => o.sparklines.length)) {

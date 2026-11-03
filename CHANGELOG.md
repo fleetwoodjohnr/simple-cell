@@ -17,3 +17,4 @@
   - Insert and Delete Cells with a shift, Paste Special, Format Painter, Go To Special, Cell Styles, Flash Fill, grouping and outline.
   - Printing and PDF: page setup, print area and titles, page breaks, headers and footers, fit to page, preview.
   - Charts: column, bar, line, area, pie, doughnut and scatter, created from data (Alt+F1), edited, moved and printed, and kept in .xlsx files; line, column and win/loss sparklines.
+  - PivotTables (create, lay out, summarize, refresh; kept in .xlsx), Remove Duplicates, Text to Columns, Goal Seek, Descriptive Statistics.

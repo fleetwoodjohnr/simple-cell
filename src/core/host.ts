@@ -7,6 +7,8 @@ import type { FilterColumn } from './filter'
 import type { Link } from './model/workbook'
 import type { PageSetup } from './print'
 import type { Chart, ChartType } from './charts'
+import type { PivotConfig } from './pivot'
+import { descriptiveStats, goalSeek, removeDuplicates, textToColumns } from './analysis'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -51,6 +53,7 @@ export interface SheetMeta {
   charts: Omit<Chart, 'carry'>[]
   /** The sheet has sparklines: edits may redraw other cells, so the client refetches (like conditional formats). */
   sparklines: boolean
+  pivots: { id: number; name: string; area: { r0: number; c0: number; r1: number; c1: number } }[]
 }
 
 export interface WorkbookMeta {
@@ -191,7 +194,8 @@ export class Host {
       outlineRows,
       outlineCols,
       charts: s.charts.map(({ carry: _c, ...c }) => c),
-      sparklines: s.sparklines.length > 0
+      sparklines: s.sparklines.length > 0,
+      pivots: s.pivots.map((p) => ({ id: p.id, name: p.name, area: p.area ?? { r0: p.at.r, c0: p.at.c, r1: p.at.r, c1: p.at.c } }))
     }
   }
 
@@ -562,6 +566,54 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  removeDuplicates(a: Area, cols: number[], headers: boolean) {
+    try {
+      return { ok: true as const, ...removeDuplicates(this.doc, a, cols, headers) }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  }
+  textToColumns(a: Area, delims: string[], consecutive: boolean) {
+    try {
+      return { ok: true as const, columns: textToColumns(this.doc, a, delims, { consecutive }) }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  }
+  goalSeek(target: { sheet: number; r: number; c: number }, goal: number, changing: { sheet: number; r: number; c: number }) {
+    try {
+      const r = goalSeek(this.doc, target, goal, changing)
+      return { ok: true as const, found: r.ok, value: r.value, result: r.result }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  }
+  descriptiveStats(input: Area, out: { sheet: number; r: number; c: number }, headers: boolean) {
+    return this.run(() => descriptiveStats(this.doc, input, out, headers))
+  }
+  createPivot(sourceSheet: number, source: Area, dest: { sheet: number; r: number; c: number } | null): { ok: true; sheet: number; id: number } | { ok: false; error: string } {
+    try {
+      return { ok: true, ...this.doc.createPivot(sourceSheet, source, dest) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+  setPivotConfig(sheet: number, id: number, config: PivotConfig) {
+    return this.run(() => this.doc.setPivotConfig(sheet, id, config))
+  }
+  refreshPivots(sheet?: number, id?: number) {
+    return this.run(() => this.doc.refreshPivots(sheet, id))
+  }
+  deletePivot(sheet: number, id: number) {
+    return this.run(() => this.doc.deletePivot(sheet, id))
+  }
+  pivotAt(sheet: number, r: number, c: number) {
+    try {
+      return this.doc.pivotAt(sheet, r, c)
+    } catch {
+      return null
+    }
   }
   addSparklines(sheet: number, type: 'line' | 'column' | 'stacked', data: Area, location: Area) {
     return this.run(() => this.doc.addSparklines(sheet, type, data, location))

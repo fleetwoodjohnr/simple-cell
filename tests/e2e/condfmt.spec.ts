@@ -25,7 +25,7 @@ test('conditional formatting: highlight rule, icon set, manage, undo, save and r
     await goto(page, 'A1:A4')
     await menu(page, 'Highlight cells rules', 'Greater than…')
     await page.getByLabel('Value').fill('20')
-    await page.getByRole('button', { name: 'OK' }).click()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(async () => (await drawn(page, 'A3'))?.x?.fill).toBe('#FFC7CE')
     expect((await drawn(page, 'A1'))?.x).toBeUndefined()
     // The format follows the data.
@@ -44,7 +44,7 @@ test('conditional formatting: highlight rule, icon set, manage, undo, save and r
     await rows.nth(0).click()
     await page.getByRole('button', { name: 'Delete rule' }).click()
     await expect(rows).toHaveCount(1)
-    await page.getByRole('button', { name: 'Close' }).first().click()
+    await page.getByRole('button', { name: 'Close', exact: true }).first().click()
     await expect.poll(async () => (await drawn(page, 'A1'))?.icon).toBeUndefined()
     await page.keyboard.press(`${MOD}+z`)
     await expect.poll(async () => (await drawn(page, 'A1'))?.icon).toEqual({ set: '3Arrows', i: 2 })
