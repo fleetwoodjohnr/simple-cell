@@ -7,6 +7,7 @@ import type { Book } from '../state/client'
 import { get, set, toast, type Dialog } from '../state/store'
 import { areasOf, useViews } from '../state/view'
 import { Btn, Field, Modal, cx, inputCls } from '../ui'
+import { isSafeExternalUrl } from '@/shared/urls'
 import * as A from './actions'
 import { markDirty } from '../state/documents'
 
@@ -21,7 +22,7 @@ export function reportHover(tab: string, r: number, c: number) {
 /** Follow a link: web and mail addresses open outside; places in the workbook are selected. */
 export async function followLink(link: Link) {
   if (link.url) {
-    if (!/^(https?:|mailto:)/i.test(link.url)) return toast('Only web (http, https) and email links can be opened.', 'error')
+    if (!isSafeExternalUrl(link.url)) return toast('Only web (http, https) and email links can be opened.', 'error')
     try {
       await window.simpleCell.openExternal(link.url)
     } catch {

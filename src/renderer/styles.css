@@ -28,7 +28,7 @@
 }
 
 :root {
-  --accent: #1f8a5b;
+  --accent: #1b7f53;
   --accent-fg: #ffffff;
   --bg: #f7f7f8;
   --panel: #ffffff;
@@ -169,7 +169,7 @@ body {
 .ref-0 { color: #2f6fde; }
 .ref-1 { color: #d1414b; }
 .ref-2 { color: #7a46c9; }
-.ref-3 { color: #1f8a5b; }
+.ref-3 { color: #1b7f53; }
 .ref-4 { color: #c9741a; }
 .ref-5 { color: #c23f8c; }
 .ref-6 { color: #2697a6; }

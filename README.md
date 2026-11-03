@@ -36,7 +36,7 @@ npm test                    # unit tests (vitest)
 npm run e2e:headless        # Playwright drives the real app (Linux: under xvfb)
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the project's conventions and [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the project's conventions, [ARCHITECTURE.md](ARCHITECTURE.md) for how it fits together, [docs/BUILD_AND_RELEASE.md](docs/BUILD_AND_RELEASE.md) for installers and releases, and [docs/PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md) for measured performance.
 
 ## License
 

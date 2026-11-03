@@ -7,6 +7,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { EditorView, basicSetup } from 'codemirror'
 import { javascript } from '@codemirror/lang-javascript'
+import { HighlightStyle, syntaxHighlighting } from '@codemirror/language'
+import { tags as t } from '@lezer/highlight'
 import { Play, Plus, Square, Trash2 } from 'lucide-react'
 import type { Area } from '@/core/engine/values'
 import { areaName, parseArea } from '@/core/refs'
@@ -17,6 +19,22 @@ import { Btn, Modal, cx, inputCls } from '../ui'
 import * as A from './actions'
 
 export const MACRO_TIMEOUT_MS = 30_000
+
+// Syntax colours with at least 4.5:1 contrast in both themes (CodeMirror's default style is for light backgrounds only).
+const highlight = HighlightStyle.define([
+  { tag: t.keyword, color: 'light-dark(#7c3aed, #c4b5fd)' },
+  { tag: [t.string, t.regexp], color: 'light-dark(#b42318, #fca5a5)' },
+  { tag: [t.number, t.bool, t.null], color: 'light-dark(#15803d, #86efac)' },
+  { tag: [t.definition(t.variableName), t.function(t.variableName), t.function(t.propertyName)], color: 'light-dark(#1d4ed8, #93c5fd)' },
+  { tag: [t.propertyName, t.typeName, t.className], color: 'light-dark(#9a3412, #fdba74)' },
+  { tag: t.comment, color: 'var(--text-3)', fontStyle: 'italic' }
+])
+const editorTheme = EditorView.theme({
+  '&': { color: 'var(--text)', backgroundColor: 'var(--panel)' },
+  '.cm-gutters': { color: 'var(--text-3)', backgroundColor: 'var(--panel-2)', borderColor: 'var(--border)' },
+  '.cm-activeLine, .cm-activeLineGutter': { backgroundColor: 'var(--hover)' },
+  '.cm-cursor': { borderLeftColor: 'var(--text)' }
+})
 
 const PRELUDE = `"use strict";
 (() => {
@@ -217,7 +235,7 @@ export function MacrosDialog() {
     view.current?.destroy()
     view.current = new EditorView({
       doc: list[sel]?.code ?? '',
-      extensions: [basicSetup, javascript(), EditorView.updateListener.of((u) => u.docChanged && setList((l) => l && l.map((m, i) => (i === sel ? { ...m, code: u.state.doc.toString() } : m))))],
+      extensions: [basicSetup, javascript(), syntaxHighlighting(highlight), editorTheme, EditorView.contentAttributes.of({ 'aria-label': 'Macro code' }), EditorView.updateListener.of((u) => u.docChanged && setList((l) => l && l.map((m, i) => (i === sel ? { ...m, code: u.state.doc.toString() } : m))))],
       parent: hostEl
     })
     return () => view.current?.destroy()

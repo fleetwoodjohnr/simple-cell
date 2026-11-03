@@ -37,14 +37,14 @@ export function SheetTabs({ tab }: { tab: string }) {
   }
 
   return (
-    <div className="flex min-w-0 flex-1 items-center gap-0.5" role="tablist" aria-label="Sheets" data-testid="sheet-tabs">
+    <div className="flex min-w-0 flex-1 items-center gap-0.5" data-testid="sheet-tabs">
       <button aria-label="Scroll sheet tabs left" className="flex size-7 items-center justify-center rounded text-text-3 hover:bg-hover" onClick={() => scroller.current?.scrollBy({ left: -120 })}>
         <ChevronLeft className="size-4" />
       </button>
       <button aria-label="Scroll sheet tabs right" className="flex size-7 items-center justify-center rounded text-text-3 hover:bg-hover" onClick={() => scroller.current?.scrollBy({ left: 120 })}>
         <ChevronRight className="size-4" />
       </button>
-      <div ref={scroller} className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
+      <div ref={scroller} role="tablist" aria-label="Sheets" className="flex min-w-0 items-center gap-0.5 overflow-x-auto [scrollbar-width:none]">
         {sheets
           .filter((s) => !s.hidden)
           .map((s) => (

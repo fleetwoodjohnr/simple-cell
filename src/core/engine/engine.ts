@@ -308,16 +308,23 @@ export class Engine {
   /** Dirty formulas inside an area (rows/cols clipped to the used range by the caller's sheet). */
   private dirtyIn(a: Area, fn: (k: number) => void) {
     const cols = this.dirtyIndex.get(a.sheet)
+    // Per column, look up the area's rows when there are fewer of them than dirty rows (a chain of single-cell
+    // references would otherwise scan every dirty row each time: quadratic).
+    const inColumn = (c: number, rows: Set<number>) => {
+      if (a.r1 - a.r0 + 1 <= rows.size) {
+        for (let r = a.r0; r <= a.r1; r++) if (rows.has(r)) fn(cellKey(a.sheet, r, c))
+      } else for (const r of rows) if (r >= a.r0 && r <= a.r1) fn(cellKey(a.sheet, r, c))
+    }
     if (cols && cols.size) {
       if (a.c1 - a.c0 + 1 <= cols.size) {
         for (let c = a.c0; c <= a.c1; c++) {
           const rows = cols.get(c)
-          if (rows) for (const r of rows) if (r >= a.r0 && r <= a.r1) fn(cellKey(a.sheet, r, c))
+          if (rows) inColumn(c, rows)
         }
       } else
         for (const [c, rows] of cols) {
           if (c < a.c0 || c > a.c1) continue
-          for (const r of rows) if (r >= a.r0 && r <= a.r1) fn(cellKey(a.sheet, r, c))
+          inColumn(c, rows)
         }
     }
     // Anchors whose spilled values lie in the area.

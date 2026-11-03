@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits listed); M6 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits listed); M6 and M10 in progress; M8–M9 not started · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,10 @@ _Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 589 / 589 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 594 / 594 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 21 / 21 (every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 23 / 23, plus 2 that run only on request: the updater test (needs a packaged build) and scroll timing (`SC_PERF=1`). Every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
+| `npm run bench` | 5 of 7 targets met; recalculating a 100,000-cell chain is ~10% over target ([report](docs/PERFORMANCE_BENCHMARKS.md)) |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -198,6 +199,27 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 - No macro recorder, no Python, and no assigning macros to buttons or shortcuts (all planned).
 - Macros can't use the network or files (by design for now).
 
+## M10 — Hardening (in progress)
+
+### Done
+
+| Feature | Test |
+|---|---|
+| Benchmarks with targets, run on this machine; a quadratic slowdown in recalculation found and fixed (100,000-cell chain: 35 s → 0.55 s) | `npm run bench`, e2e `perf` (`SC_PERF=1`); [docs/PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md) |
+| Security: XML external entities and entity bombs, a hostile .xlsx (DOCTYPE, absurd row numbers and column spans), CSV formula injection, links limited to http/https/mailto (one shared check in the main process and the renderer), deeply nested formulas | unit `security` (5) |
+| Accessibility: axe-core WCAG 2.2 A/AA in light and dark, on the dashboard, all 8 ribbon tabs and the Format Cells, Settings and Macros dialogs. The fixes it led to: accent and cyan accent contrast; ribbon captions included in button names; the sheet tab list structure; checkbox spacing; a labelled macro editor with syntax colours that pass in both themes | e2e `a11y` (2) |
+| Updater against a local release feed: offer, sha512-verified download, restart prompt | e2e `update` (packaged build) |
+| Linux packages: AppImage, deb and rpm built locally; the whole E2E suite against the packaged app, part of it against the AppImage; the deb installs on clean Ubuntu 22.04/24.04 and the rpm on Fedora 44, with every library resolved | `SC_PACKAGED=… playwright test` (24/24), [docs/BUILD_AND_RELEASE.md](docs/BUILD_AND_RELEASE.md) |
+| Pressing a chart hands keyboard focus to the grid at once (the packaged run caught Delete being dropped when pressed within a frame of the click) | e2e `charts` |
+
+### Still to do in M10
+
+- Speed up the dependency-chain recalculation to meet its 500 ms target.
+- Accessibility audit of the remaining dialogs, and a screen-reader pass by hand.
+- Windows and macOS: needs the CI workflow and a remote.
+
 ## Next
 
-- **M5 onward.** See the plan in ARCHITECTURE.md.
+- **M6 remainder:** see "Still to do in M6".
+- **M8 Data connections** (not started): files, REST with permission, SQLite, PostgreSQL, MySQL, SQL Server, the query editor and refresh.
+- **M9 History and collaboration groundwork** (not started): version history UI, threaded comments, change history.

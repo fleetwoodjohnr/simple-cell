@@ -834,7 +834,7 @@ function FormatCellsDialog({ initial }: { initial?: string }) {
               {(CATEGORIES.find((cat) => cat.codes.includes(code))?.codes ?? CATEGORIES.flatMap((x) => x.codes)).map((k) => (
                 <li key={k} onClick={() => up({ numFmt: k === 'General' ? undefined : k })} className={cx('flex cursor-default justify-between gap-3 px-3 py-1 font-mono', k === code ? 'bg-accent-soft' : 'hover:bg-hover')}>
                   <span className="truncate">{k}</span>
-                  <span className="font-sans text-text-3">{formatValue(typeof sample === 'number' ? sample : 1234.5678, k).text}</span>
+                  <span className="font-sans text-text-2">{formatValue(typeof sample === 'number' ? sample : 1234.5678, k).text}</span>
                 </li>
               ))}
             </ul>
@@ -1146,7 +1146,7 @@ function ShortcutsDialog() {
 
 // ---------- settings ----------
 
-const ACCENTS = ['#1f8a5b', '#5b5bd6', '#2563eb', '#0891b2', '#c2410c', '#be185d', '#7c3aed', '#3f3f46']
+const ACCENTS = ['#1b7f53', '#5b5bd6', '#2563eb', '#0e7490', '#c2410c', '#be185d', '#7c3aed', '#3f3f46']
 
 function Row({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (

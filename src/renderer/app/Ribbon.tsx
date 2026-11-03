@@ -74,7 +74,9 @@ import {
   CopyMinus,
   Target,
   FileCode2,
-  Code2
+  Code2,
+  DecimalsArrowLeft,
+  DecimalsArrowRight
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -489,9 +491,9 @@ function HomeTab({ tab }: { tab: string }) {
           <div className="flex gap-0.5">
             <Cmd id="fmt.accounting" label="Accounting number format" icon={<DollarSign className="size-4" />} />
             <Cmd id="fmt.percent" label="Percent style" icon={<Percent className="size-4" />} />
-            <Cmd id="fmt.thousands" label="Comma style" icon={<span className="text-[15px] font-bold leading-none">,</span>} />
-            <Cmd id="fmt.moreDecimals" label="Increase decimal" icon={<span className="text-[10.5px] font-semibold">.0→</span>} />
-            <Cmd id="fmt.lessDecimals" label="Decrease decimal" icon={<span className="text-[10.5px] font-semibold">←.0</span>} />
+            <Cmd id="fmt.thousands" label="Comma style" icon={<span aria-hidden className="text-[15px] font-bold leading-none">,</span>} />
+            <Cmd id="fmt.moreDecimals" label="Increase decimal" icon={<DecimalsArrowRight className="size-4" />} />
+            <Cmd id="fmt.lessDecimals" label="Decrease decimal" icon={<DecimalsArrowLeft className="size-4" />} />
           </div>
         </div>
       </Group>
@@ -688,7 +690,7 @@ function FormulasTab({ tab }: { tab: string }) {
       <Sep />
       <Group label="Calculation">
         <Menu>
-          <DropBtn icon={<Calculator />} label="Calculation options" text={manual ? 'Manual' : 'Automatic'} />
+          <DropBtn icon={<Calculator />} label={`Calculation options: ${manual ? 'Manual' : 'Automatic'}`} text={manual ? 'Manual' : 'Automatic'} />
           <MenuContent>
             <MenuItem onSelect={() => runCommand('formulas.calcAuto')}>{!manual ? '✓ ' : ''}Automatic</MenuItem>
             <MenuItem onSelect={() => runCommand('formulas.calcManual')}>{manual ? '✓ ' : ''}Manual</MenuItem>
@@ -749,11 +751,11 @@ function PageTab({ tab }: { tab: string }) {
             <MenuItem onSelect={() => runCommand('page.resetBreaks')}>Reset all page breaks</MenuItem>
           </MenuContent>
         </Menu>
-        <Cmd id="page.printTitles" label="Print the selected rows at the top of every page" text="Titles" icon={<Rows3 />} />
+        <Cmd id="page.printTitles" label="Print titles: repeat the selected rows at the top of every page" text="Titles" icon={<Rows3 />} />
       </Group>
       <Sep />
       <Group label="Sheet options">
-        <div className="flex flex-col gap-1 px-1 text-[12px] text-text-2">
+        <div className="flex flex-col gap-2 px-1 text-[12px] text-text-2">
           <label className="flex items-center gap-1.5">
             <input type="checkbox" checked={!!ps?.gridlines} onChange={(e) => change({ gridlines: e.target.checked })} /> Print gridlines
           </label>
@@ -781,9 +783,9 @@ function DataTab() {
   return (
     <>
       <Group label="Sort">
-        <Cmd id="data.sortAsc" label="Sort A to Z" text="A→Z" icon={<ArrowDownAZ />} />
-        <Cmd id="data.sortDesc" label="Sort Z to A" text="Z→A" icon={<ArrowUpAZ />} />
-        <Cmd id="data.sort" label="Custom sort" text="Sort…" icon={<ArrowDownWideNarrow />} />
+        <Cmd id="data.sortAsc" label="Sort A to Z" text="A to Z" icon={<ArrowDownAZ />} />
+        <Cmd id="data.sortDesc" label="Sort Z to A" text="Z to A" icon={<ArrowUpAZ />} />
+        <Cmd id="data.sort" label="Custom sort" text="Sort" icon={<ArrowDownWideNarrow />} />
       </Group>
       <Sep />
       <Group label="Queries">
@@ -812,8 +814,8 @@ function DataTab() {
       <Sep />
       <Group label="Data tools">
         <Cmd id="data.flashFill" label="Flash Fill" text="Flash Fill" icon={<Wand2 />} />
-        <Cmd id="data.textToColumns" label="Text to columns" text="Split" icon={<Columns3 />} />
-        <Cmd id="data.removeDuplicates" label="Remove duplicates" text="Dedupe" icon={<CopyMinus />} />
+        <Cmd id="data.textToColumns" label="Split text to columns" text="Split" icon={<Columns3 />} />
+        <Cmd id="data.removeDuplicates" label="Remove duplicates" text="Duplicates" icon={<CopyMinus />} />
         <Menu>
           <DropBtn icon={<ListChecks />} label="Data validation" text="Validation" />
           <MenuContent>
@@ -860,7 +862,7 @@ function ViewTab({ tab }: { tab: string }) {
       </Group>
       <Sep />
       <Group label="Layout">
-        <Cmd id="view.ribbonMode" label="Compact toolbar or full ribbon" text="Ribbon layout" icon={<PanelTop />} />
+        <Cmd id="view.ribbonMode" label="Ribbon layout: compact toolbar or full ribbon" text="Ribbon layout" icon={<PanelTop />} />
       </Group>
     </>
   )

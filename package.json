@@ -21,13 +21,15 @@
     "e2e:headless": "npm run build && xvfb-run -a playwright test",
     "icons": "magick -background none resources/icon.svg -depth 8 resources/icon.png && magick -size 1024x1024 xc:none \\( resources/icon.png -resize 942x942 -background none -gravity center -extent 1024x1024 \\( +clone -background black -shadow 30x12+0+10 \\) +swap -background none -layers merge \\) -layers flatten -depth 8 resources/icon-mac.png && for s in 16 24 32 48 64 128 256 512; do magick resources/icon.png -filter Lanczos -resize ${s}x${s} -depth 8 resources/icons/${s}x${s}.png; done",
     "dist": "npm run build && electron-builder",
-    "crosscheck": "LO_CROSSCHECK=1 vitest run tests/unit/lo-crosscheck.test.ts"
+    "crosscheck": "LO_CROSSCHECK=1 vitest run tests/unit/lo-crosscheck.test.ts",
+    "bench": "node --expose-gc ./node_modules/vitest/vitest.mjs run --config vitest.bench.config.mts"
   },
   "desktopName": "simple-cell.desktop",
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
     "@codemirror/lang-javascript": "^6.2.5",
     "@fontsource-variable/inter": "^5.3.0",
+    "@lezer/highlight": "^1.2.5",
     "@playwright/test": "^1.64.1",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",

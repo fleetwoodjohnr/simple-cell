@@ -19,3 +19,5 @@
   - Charts: column, bar, line, area, pie, doughnut and scatter, created from data (Alt+F1), edited, moved and printed, and kept in .xlsx files; line, column and win/loss sparklines.
   - PivotTables (create, lay out, summarize, refresh; kept in .xlsx), Remove Duplicates, Text to Columns, Goal Seek, Descriptive Statistics.
   - JavaScript macros in a sandbox (no network, no files) with a trust prompt for files; read-only VBA viewer.
+  - Faster recalculation of long dependency chains (100,000 cells: 35 s → 0.55 s).
+  - Accessibility fixes from an axe WCAG 2.2 AA audit: contrast of the default and cyan accents, button names that include their visible captions, the sheet tab list, and the macro editor in dark mode.

@@ -57,7 +57,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
-  accent: '#1f8a5b',
+  accent: '#1b7f53',
   defaultFont: 'Calibri',
   defaultFontSize: 11,
   defaultSaveFormat: 'xlsx',

@@ -1,3 +1,4 @@
+import { isSafeExternalUrl } from '../shared/urls'
 import { app, BrowserWindow, dialog, ipcMain, Menu, nativeTheme, session, shell, type IpcMainInvokeEvent, type MenuItemConstructorOptions } from 'electron'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
@@ -173,7 +174,7 @@ function hardenSessions() {
       ev.preventDefault()
     })
     contents.setWindowOpenHandler(({ url }) => {
-      if (/^(https?:|mailto:)/i.test(url)) void shell.openExternal(url)
+      if (isSafeExternalUrl(url)) void shell.openExternal(url)
       return { action: 'deny' }
     })
   })
@@ -318,7 +319,7 @@ function registerIpc() {
     }
   })
   handle('shell:open-external', async (_e, url: unknown) => {
-    if (typeof url !== 'string' || !/^(https?:|mailto:)/i.test(url)) throw new Error('Blocked URL')
+    if (!isSafeExternalUrl(url)) throw new Error('Blocked URL')
     await shell.openExternal(url)
   })
   handle('update:check', () => checkForUpdates(mainWindow, true))

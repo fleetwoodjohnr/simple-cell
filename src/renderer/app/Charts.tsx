@@ -182,8 +182,12 @@ export function ChartsOverlay({ tab, book, L }: { tab: string; book: Book; L: La
             aria-label={`Chart: ${c.title ?? c.type}`}
             className={cx('pointer-events-auto absolute rounded-sm bg-white shadow-sm', dark && 'bg-[#1b1b1f]', sel ? 'ring-2 ring-accent' : 'ring-1 ring-border')}
             style={{ left: r.x, top: r.y, width: r.w, height: r.h, cursor: sel ? 'move' : 'default' }}
+            // Keys for a selected chart go through the grid's focused input: focus it now (a later focus would drop
+            // keys pressed in between) and keep the mousedown from moving focus to the page.
+            onMouseDown={(e) => e.preventDefault()}
             onPointerDown={(e) => {
               e.stopPropagation()
+              document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus()
               setView(tab, { chart: c.id })
               ;(e.currentTarget as HTMLElement).setPointerCapture(e.pointerId)
               setDrag({ id: c.id, kind: (e.target as HTMLElement).dataset.handle ? 'size' : 'move', x: e.clientX, y: e.clientY, dx: 0, dy: 0 })
@@ -192,7 +196,6 @@ export function ChartsOverlay({ tab, book, L }: { tab: string; book: Book; L: La
             onPointerUp={() => {
               if (drag?.id === c.id && (Math.abs(drag.dx) > 2 || Math.abs(drag.dy) > 2)) void finish(c, { x: r.x + L.headerW, y: r.y + L.headerH, w: r.w, h: r.h })
               setDrag(null)
-              requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
             }}
             onDoubleClick={() => set({ dialog: { kind: 'chart', id: c.id } })}
           >

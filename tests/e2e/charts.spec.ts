@@ -40,6 +40,18 @@ test('charts: Alt+F1 from data, edit, move, delete, undo', async () => {
     await page.mouse.move(box.x + 40, box.y + 140, { steps: 5 })
     await page.mouse.up()
     await expect.poll(async () => (await charts(page))[0].anchor.r0).toBeGreaterThan(chart.anchor.r0 + 2)
+    // Pressing a chart hands keyboard focus to the grid at once (a focus one frame later dropped keys typed in between).
+    const focusedAtOnce = await el.evaluate((node) => {
+      ;(document.activeElement as HTMLElement | null)?.blur()
+      const at = { bubbles: true, clientX: node.getBoundingClientRect().x + 20, clientY: node.getBoundingClientRect().y + 20, pointerId: 1, isPrimary: true }
+      node.dispatchEvent(new PointerEvent('pointerdown', at))
+      node.dispatchEvent(new MouseEvent('mousedown', at))
+      const ok = !!document.activeElement?.hasAttribute('data-grid-focus')
+      node.dispatchEvent(new PointerEvent('pointerup', at))
+      node.dispatchEvent(new MouseEvent('mouseup', at))
+      return ok
+    })
+    expect(focusedAtOnce).toBe(true)
     // Delete with the chart selected; undo brings it back.
     await el.click()
     await page.keyboard.press('Delete')
