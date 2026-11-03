@@ -65,6 +65,13 @@ test('paste special (operation, transpose) and format painter', async () => {
     await page.keyboard.press(`${MOD}+e`)
     await expect.poll(() => cell(page, 'I3')).toBe('Ray')
     expect(await cell(page, 'I2')).toBe('Zhang')
+    // Ctrl+[ selects the cells a formula uses; Ctrl+Shift+U makes the formula bar taller.
+    await typeCell(page, 'K1', '=A1+C1')
+    await goto(page, 'K1')
+    await page.keyboard.press(`${MOD}+BracketLeft`)
+    await expect(page.getByTestId('name-box')).toHaveValue('A1')
+    await page.keyboard.press(`${MOD}+Shift+u`)
+    await expect.poll(async () => (await page.getByTestId('formula-bar').boundingBox())!.height).toBeGreaterThan(80)
   } finally {
     await quit(app)
   }

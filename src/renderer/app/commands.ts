@@ -509,6 +509,16 @@ def({ id: 'data.group', label: 'Group', keywords: 'outline', run: (c) => { const
 def({ id: 'data.ungroup', label: 'Ungroup', keywords: 'outline', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.group(x.view.sheet, t.axis, t.from, t.to, -1)) } })
 def({ id: 'data.hideDetail', label: 'Hide detail', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.showDetail(x.view.sheet, t.axis, t.from, t.to, false)) } })
 def({ id: 'data.showDetail', label: 'Show detail', run: (c) => { const x = needsSelection(c); const t = outlineTarget(x); return A.edit(x, (b) => b.api.showDetail(x.view.sheet, t.axis, t.from, t.to, true)) } })
+def({ id: 'view.formulaBarTall', label: 'Expand or collapse the formula bar', run: () => set((x) => ({ formulaBarTall: !x.formulaBarTall })) })
+async function selectTrace(c: A.Ctx, which: 'precedents' | 'dependents') {
+  const { r, c: col } = c.view.sel.active
+  const t = await c.book.api.trace(c.view.sheet, r, col)
+  const list = which === 'precedents' ? t.precedents.filter((a) => a.sheet === c.view.sheet).map(({ r0, c0, r1, c1 }) => ({ r0, c0, r1, c1 })) : t.dependents.filter((d) => d.sheet === c.view.sheet).map((d) => ({ r0: d.r, c0: d.c, r1: d.r, c1: d.c }))
+  if (!list.length) return toast(which === 'precedents' ? 'This cell doesn’t refer to other cells on this sheet.' : 'No cells on this sheet use this cell.', 'info')
+  A.setSel(c, { ranges: list, active: { r: list[0].r0, c: list[0].c0 }, focus: { r: list[0].r1, c: list[0].c1 } })
+}
+def({ id: 'select.precedents', label: 'Select direct precedents', run: (c) => selectTrace(needsSelection(c), 'precedents') })
+def({ id: 'select.dependents', label: 'Select direct dependents', run: (c) => selectTrace(needsSelection(c), 'dependents') })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

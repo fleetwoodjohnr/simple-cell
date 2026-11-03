@@ -75,6 +75,8 @@ export interface AppState {
   showFormulas: boolean
   showHeadings: boolean
   showFormulaBar: boolean
+  /** The formula bar shows several lines (Ctrl+Shift+U). */
+  formulaBarTall: boolean
 }
 
 export const HOME = 'home'
@@ -94,7 +96,8 @@ export const useApp = create<AppState>(() => ({
   dark: false,
   showFormulas: false,
   showHeadings: true,
-  showFormulaBar: true
+  showFormulaBar: true,
+  formulaBarTall: false
 }))
 
 export const set = useApp.setState

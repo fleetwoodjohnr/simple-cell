@@ -1,8 +1,9 @@
 // Name Box and formula bar.
 import { useEffect, useRef, useState } from 'react'
-import { Check, FunctionSquare, X } from 'lucide-react'
+import { Check, ChevronDown, ChevronUp, FunctionSquare, X } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
-import { books, set, toast } from '../state/store'
+import { books, set, toast, useApp } from '../state/store'
+import { shortcutFor } from './commands'
 import { getView, setView, useViews } from '../state/view'
 import * as A from './actions'
 import { IconBtn, cx } from '../ui'
@@ -17,6 +18,7 @@ export function FormulaBar({ tab }: { tab: string }) {
   const [cellText, setCellText] = useState('')
   const [nameText, setNameText] = useState<string | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const tall = useApp((s) => s.formulaBarTall)
   const c = A.ctx()
   const last = sel?.ranges[sel.ranges.length - 1]
   const dragging = !!last && (last.r0 !== last.r1 || last.c0 !== last.c1) && sel!.focus.r !== sel!.active.r
@@ -36,7 +38,7 @@ export function FormulaBar({ tab }: { tab: string }) {
   const fnHint = editing?.text.startsWith('=') ? currentFunction(editing.text, editing.caret) : null
 
   return (
-    <div className="flex h-9 shrink-0 items-stretch gap-0 border-b border-border bg-panel text-[13px]" data-testid="formula-bar">
+    <div className={cx('flex shrink-0 items-stretch gap-0 border-b border-border bg-panel text-[13px]', tall ? 'h-[92px]' : 'h-9')} data-testid="formula-bar">
       <input
         aria-label="Name Box"
         data-testid="name-box"
@@ -90,7 +92,7 @@ export function FormulaBar({ tab }: { tab: string }) {
           data-testid="formula-input"
           rows={1}
           spellCheck={false}
-          className="formula-input absolute inset-0 resize-none overflow-hidden whitespace-pre bg-transparent px-2.5 py-[7px] text-[13px] leading-[20px] text-text outline-none"
+          className={cx('formula-input absolute inset-0 resize-none bg-transparent px-2.5 py-[7px] text-[13px] leading-[20px] text-text outline-none', tall ? 'overflow-y-auto whitespace-pre-wrap' : 'overflow-hidden whitespace-pre')}
           value={text}
           onFocus={() => {
             const cc = A.ctx()
@@ -139,6 +141,9 @@ export function FormulaBar({ tab }: { tab: string }) {
         {fnHint && <FunctionHint name={fnHint.name} arg={fnHint.arg} />}
         {editing && <Autocomplete tab={tab} text={editing.text} caret={editing.caret} />}
       </div>
+      <IconBtn label={tall ? 'Collapse formula bar' : 'Expand formula bar'} size="sm" shortcut={shortcutFor('view.formulaBarTall')} className="mx-1 self-start mt-1" onClick={() => set((x) => ({ formulaBarTall: !x.formulaBarTall }))}>
+        {tall ? <ChevronUp className="size-4" /> : <ChevronDown className="size-4" />}
+      </IconBtn>
     </div>
   )
 }

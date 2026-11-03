@@ -55,6 +55,9 @@ export const SHORTCUTS: ShortcutDef[] = [
   { command: 'data.flashFill', win: ['Mod-e'], mac: ['Mod-e'], sheets: [], context: 'grid' },
   { command: 'data.group', win: ['Alt-Shift-ArrowRight'], mac: ['Mod-Shift-k'], sheets: ['Alt-Shift-ArrowRight'], context: 'grid' },
   { command: 'data.ungroup', win: ['Alt-Shift-ArrowLeft'], mac: ['Mod-Shift-j'], sheets: ['Alt-Shift-ArrowLeft'], context: 'grid' },
+  { command: 'select.precedents', win: ['Mod-['], mac: ['Mod-['], sheets: [], context: 'grid' },
+  { command: 'select.dependents', win: ['Mod-]'], mac: ['Mod-]'], sheets: [], context: 'grid' },
+  { command: 'view.formulaBarTall', win: ['Mod-Shift-u'], mac: ['Ctrl-Shift-u'], context: 'global' },
   { command: 'insert.link', win: ['Mod-k'], mac: ['Mod-k'], context: 'grid' },
   { command: 'insert.note', win: ['Shift-F2'], mac: ['Shift-F2'], context: 'grid' },
   { command: 'data.table', win: ['Mod-t', 'Mod-l'], mac: ['Mod-t'], context: 'grid' },
@@ -131,11 +134,8 @@ export const BUILTIN: BuiltinShortcut[] = [
   { keys: 'F4', mac: 'Mod-t', action: 'Cycle the reference at the cursor through absolute/relative', context: 'editing', status: 'done' },
   { keys: 'Arrow keys (in a formula)', action: 'Point mode: insert and move a cell reference', context: 'editing', status: 'done' },
   { keys: 'Shift-Arrow (in a formula)', action: 'Point mode: extend the inserted reference to a range', context: 'editing', status: 'done' },
-  { keys: 'Mod-[', action: 'Select direct precedents', context: 'grid', status: 'planned' },
-  { keys: 'Mod-]', action: 'Select direct dependents', context: 'grid', status: 'planned' },
   { keys: 'Alt-F1', action: 'Insert a chart of the current data', context: 'grid', status: 'planned' },
-  { keys: 'Alt (ribbon KeyTips)', action: 'Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names', context: 'global', status: 'done' },
-  { keys: 'Mod-Shift-u', action: 'Expand or collapse the formula bar', context: 'grid', status: 'planned' }
+  { keys: 'Alt (ribbon KeyTips)', action: 'Show KeyTips for the ribbon (Windows and Linux): tab letters as in Excel, command letters assigned from their names', context: 'global', status: 'done' }
 ]
 
 /** Shortcuts the operating system keeps for itself, so Simple Cell can't receive them. */
