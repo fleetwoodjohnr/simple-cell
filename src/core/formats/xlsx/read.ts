@@ -18,6 +18,7 @@ import { PAGE_ELEMENTS, readPageSetup } from './pagesetup'
 import { drawingAnchors, readAnchors, readChart } from './charts'
 import { readSparklines } from '../../sparklines'
 import { REL_PIVOT_CACHE, REL_PIVOT_TABLE, readPivot } from './pivot'
+import { readMacros } from '../macros'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -34,6 +35,8 @@ export interface XlsxCarry {
   /** Sheet id → its package path and preserved parts. */
   sheets: Record<number, SheetCarry>
   tablePaths: Record<string, string>
+  /** Our macros' customXml part, when the file had one. */
+  macrosPath?: string
   /** Cached formula results from the file, to compare with Simple Cell's own results after loading. */
   cached: { sheet: number; r: number; c: number; v: Scalar }[]
 }
@@ -383,6 +386,16 @@ export function readXlsx(bytes: Uint8Array): ImportResult & { carry: XlsxCarry }
 
   for (const p of pending) readSheet(p.sheet, p.path, p.xml, { theme, files, wb, styles, shared, sheetId, w, carry })
 
+  // JavaScript macros (Simple Cell's customXml part).
+  for (const r of wbRels.filter((x) => /\/customXml$/.test(x.type))) {
+    const p = resolveTarget(wbPath, r.target)
+    const list = files[p] ? readMacros(text(files[p])) : null
+    if (list) {
+      wb.macros = list
+      carry.macrosPath = p
+    }
+  }
+  if (wb.macros.length) w.add('info', `This workbook contains ${wb.macros.length === 1 ? 'a JavaScript macro' : `${wb.macros.length} JavaScript macros`}. Macros never run on their own; you'll be asked before the first run.`)
   if (files['xl/vbaProject.bin'] || wbRels.some((r) => r.type === REL.vba)) w.add('info', 'This workbook contains VBA macros. They are kept unchanged when you save as .xlsm, but Simple Cell does not run them.')
   wb.carry = carry
   return { workbook: wb, warnings: w.list, carry }

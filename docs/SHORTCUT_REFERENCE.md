@@ -41,6 +41,8 @@ Simple Cell follows Microsoft Excel’s shortcuts (from Microsoft’s “Keyboar
 | Expand or collapse the formula bar | `Ctrl+Shift+U` | `⌃⇧U` | same |
 | Insert chart | `Alt+F1` | `⌥F1` |  |
 | Refresh all | `Ctrl+Alt+F5` | `⌘⌥F5` |  |
+| Macros… | `Alt+F8` | `⌥F8` |  |
+| View VBA code | `Alt+F11` | `⌥F11` |  |
 | Insert link… | `Ctrl+K` | `⌘K` | same |
 | New or edit note | `Shift+F2` | `⇧F2` | same |
 | Create table… | `Ctrl+T`, `Ctrl+L` | `⌘T` | same |

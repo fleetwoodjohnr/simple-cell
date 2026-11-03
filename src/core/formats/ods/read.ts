@@ -8,6 +8,7 @@ import { readZip, text } from '../zip'
 import { attr, deep, elements, kid, kids, parseXml, serialize, textOf, type El } from '../xml'
 import { Warnings, type ImportResult } from '../types'
 import { odfRefToA1, odfToExcel } from './formula'
+import { readMacros } from '../macros'
 
 export interface OdsCarry {
   kind: 'ods'
@@ -266,6 +267,7 @@ export function readOds(bytes: Uint8Array): ImportResult & { carry: OdsCarry } {
   tables.forEach((t, i) => readTable(t, wb.sheets[i], { styleId, colWidth, rowHeight, sheetId, w, carry, date1904: wb.date1904 }))
   readSettings(text(files['settings.xml']), wb)
   wb.carry = carry
+  if (files['SimpleCell/macros.xml']) wb.macros = readMacros(text(files['SimpleCell/macros.xml'])) ?? []
   return { workbook: wb, warnings: w.list, carry }
 }
 

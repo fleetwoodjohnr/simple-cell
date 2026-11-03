@@ -36,6 +36,8 @@ export interface Settings {
   autosaveIntervalSec: number
   recoveryIntervalSec: number
   authorName: string
+  /** SHA-256 hashes of macro sets the user enabled (a changed macro asks again). */
+  trustedMacros: string[]
   ribbonCollapsed: boolean
   /** Ribbon layout: the full Excel-style ribbon, or one compact row. */
   ribbonMode: 'expanded' | 'compact'
@@ -63,6 +65,7 @@ export const DEFAULT_SETTINGS: Settings = {
   autosaveIntervalSec: 30,
   recoveryIntervalSec: 5,
   authorName: '',
+  trustedMacros: [],
   ribbonCollapsed: false,
   ribbonMode: 'expanded',
   reduceMotion: false,

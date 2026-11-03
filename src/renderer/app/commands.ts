@@ -540,6 +540,8 @@ def({ id: 'data.removeDuplicates', label: 'Remove duplicates…', keywords: 'ded
 def({ id: 'data.textToColumns', label: 'Text to columns…', keywords: 'split delimiter', run: (c) => (needsSelection(c), openTool('text-to-columns')) })
 def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
 def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })
+def({ id: 'tools.macros', label: 'Macros…', keywords: 'script automate javascript', run: () => set({ dialog: { kind: 'macros' } }) })
+def({ id: 'tools.vba', label: 'View VBA code', keywords: 'visual basic macros xlsm', run: (c) => { const x = needsSelection(c); if (!x.book.meta.vba) return toast('This workbook has no VBA project.', 'info'); set({ dialog: { kind: 'vba' } }) } })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({
   id: 'data.circleInvalid',

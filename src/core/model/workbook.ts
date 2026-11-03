@@ -251,6 +251,8 @@ export class Workbook {
   styles = new StyleTable()
   /** 1904 date system (old Mac workbooks): serial 0 is 1904-01-01. */
   date1904 = false
+  /** JavaScript macros stored with the workbook (never run on open). */
+  macros: { name: string; code: string }[] = []
   /** Theme colours (lt1, dk1, lt2, dk2, accent1–6, links) as hex without #; used by table styles. */
   theme: string[] | null = null
   calc: CalcSettings = { mode: 'auto', iterate: false, maxIterations: 100, maxChange: 0.001, fullPrecision: true }

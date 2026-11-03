@@ -72,7 +72,9 @@ import {
   ArrowUpDown,
   Grid2x2,
   CopyMinus,
-  Target
+  Target,
+  FileCode2,
+  Code2
 } from 'lucide-react'
 import { useShallow } from 'zustand/react/shallow'
 import { useApp, set, updateSettings, books, type RibbonTab } from '../state/store'
@@ -95,6 +97,7 @@ const TABS: { id: RibbonTab; label: string }[] = [
   { id: 'formulas', label: 'Formulas' },
   { id: 'data', label: 'Data' },
   { id: 'view', label: 'View' },
+  { id: 'automate', label: 'Automate' },
   { id: 'help', label: 'Help' }
 ]
 
@@ -763,6 +766,17 @@ function PageTab({ tab }: { tab: string }) {
   )
 }
 
+function AutomateTab() {
+  return (
+    <>
+      <Group label="Scripts">
+        <Cmd id="tools.macros" label="Macros" text="Macros" icon={<FileCode2 />} />
+        <Cmd id="tools.vba" label="View VBA code" text="VBA" icon={<Code2 />} />
+      </Group>
+    </>
+  )
+}
+
 function DataTab() {
   return (
     <>
@@ -914,6 +928,7 @@ export function Ribbon({ tab: docTab }: { tab: string }) {
           {tab === 'data' && <DataTab />}
           {tab === 'view' && <ViewTab tab={docTab} />}
           {tab === 'help' && <HelpTab />}
+          {tab === 'automate' && <AutomateTab />}
           {tab === 'table' && <TableTab tab={docTab} />}
         </div>
       )}

@@ -19,6 +19,7 @@ import { ValidationAlert, ValidationDialog } from './Validation'
 import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
 import { PrintDialog } from './Print'
+import { MacrosDialog, VbaDialog } from './Macros'
 import { ChartDialog } from './Charts'
 import { InsertPivotDialog } from './Pivot'
 import { ToolDialog } from './AnalysisDialogs'
@@ -72,6 +73,10 @@ export function Dialogs() {
       return <GoToSpecialDialog />
     case 'print':
       return <PrintDialog />
+    case 'macros':
+      return <MacrosDialog />
+    case 'vba':
+      return <VbaDialog />
     case 'chart':
       return <ChartDialog d={d} />
     case 'pivot-insert':

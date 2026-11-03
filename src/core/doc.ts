@@ -605,6 +605,13 @@ export class Doc {
     return todo.length
   }
 
+  // ---------- macros ----------
+
+  /** Replace the workbook's macros (the editor saves them all at once). */
+  setMacros(list: { name: string; code: string }[]) {
+    return this.transact('Macros', (tx) => tx.prop(this.wb, 'macros', list.map((m) => ({ name: m.name, code: m.code }))))
+  }
+
   // ---------- PivotTables ----------
 
   /** The source of a PivotTable: header names (made unique) and records. */

@@ -3,12 +3,14 @@
 
 import { Doc, type CfSpec, type DvSpec, type GoToKind, type PasteSpecialOptions, type ViewCell } from './doc'
 import type { DvAlert } from './validation'
+import { CellError, numberToText } from './engine/values'
 import type { FilterColumn } from './filter'
 import type { Link } from './model/workbook'
 import type { PageSetup } from './print'
 import type { Chart, ChartType } from './charts'
 import type { PivotConfig } from './pivot'
 import { descriptiveStats, goalSeek, removeDuplicates, textToColumns } from './analysis'
+import { vbaModules } from './vba'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -71,6 +73,8 @@ export interface WorkbookMeta {
   /** Bumped when the display changed beyond the edited cells (conditional formats). */
   viewVersion: number
   date1904: boolean
+  macros: number
+  vba: boolean
 }
 
 export interface Stats {
@@ -150,7 +154,9 @@ export class Host {
       version: this.doc.version,
       structureVersion: this.doc.structureVersion,
       viewVersion: this.doc.viewVersion,
-      date1904: wb.date1904
+      date1904: wb.date1904,
+      macros: wb.macros.length,
+      vba: !!(wb.carry as { files?: Record<string, Uint8Array> } | null)?.files?.['xl/vbaProject.bin']
     }
   }
 
@@ -566,6 +572,54 @@ export class Host {
   }
   filterValues(sheet: number, key: string, col: number) {
     return this.doc.filterValues(sheet, key, col)
+  }
+  macros() {
+    return this.doc.wb.macros
+  }
+  /** A range's values as plain data (errors as their codes), row by row — for macros. At most 100,000 cells. */
+  rangeValues(sheet: number, a: Area, formulas = false): (string | number | boolean | null)[][] {
+    if ((a.r1 - a.r0 + 1) * (a.c1 - a.c0 + 1) > 100_000) throw new Error('That range is too large (more than 100,000 cells).')
+    const out: (string | number | boolean | null)[][] = []
+    for (let r = a.r0; r <= a.r1; r++) {
+      const row: (string | number | boolean | null)[] = []
+      for (let c = a.c0; c <= a.c1; c++) {
+        const f = formulas ? this.doc.formulaText(sheet, r, c) : null
+        const v = this.doc.value(sheet, r, c)
+        row.push(f ?? (v instanceof CellError ? v.code : v))
+      }
+      out.push(row)
+    }
+    return out
+  }
+  /** Write values into a range as if typed (one undoable step). A single value fills the whole range. */
+  setRangeValues(sheet: number, a: Area, values: unknown[][]) {
+    return this.run(() => {
+      if ((a.r1 - a.r0 + 1) * (a.c1 - a.c0 + 1) > 100_000) throw new Error('That range is too large (more than 100,000 cells).')
+      const one = values.length === 1 && values[0]?.length === 1
+      if (!one && (values.length !== a.r1 - a.r0 + 1 || values.some((row) => !Array.isArray(row) || row.length !== a.c1 - a.c0 + 1))) throw new Error(`The values are ${values.length} × ${values[0]?.length ?? 0}, but the range is ${a.r1 - a.r0 + 1} × ${a.c1 - a.c0 + 1}.`)
+      this.doc.transact('Macro', (tx) => {
+        for (let r = a.r0; r <= a.r1; r++)
+          for (let c = a.c0; c <= a.c1; c++) {
+            const v = one ? values[0][0] : values[r - a.r0][c - a.c0]
+            const text = v === null || v === undefined ? '' : typeof v === 'number' ? numberToText(v) : typeof v === 'boolean' ? (v ? 'TRUE' : 'FALSE') : String(v)
+            this.doc.inputTx(tx, sheet, r, c, text)
+          }
+      })
+    })
+  }
+  setMacros(list: { name: string; code: string }[]) {
+    return this.run(() => this.doc.setMacros(list))
+  }
+  /** The VBA modules of an .xlsm (read only; never run). */
+  vba(): { name: string; code: string }[] | null {
+    const carry = this.doc.wb.carry as { files?: Record<string, Uint8Array> } | null
+    const bin = carry?.files?.['xl/vbaProject.bin']
+    if (!bin) return null
+    try {
+      return vbaModules(bin)
+    } catch {
+      return []
+    }
   }
   removeDuplicates(a: Area, cols: number[], headers: boolean) {
     try {

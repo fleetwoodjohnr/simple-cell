@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed); M6 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits listed); M6 in progress · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -9,9 +9,9 @@ _Last updated: 2026-11-03 · Milestones M0–M5 complete (with the limits listed
 | Suite | Result |
 |---|---|
 | `npm run typecheck` | ✅ clean |
-| `npm test` (vitest) | ✅ 587 / 587 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
+| `npm test` (vitest) | ✅ 589 / 589 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
-| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 20 / 20 (every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
+| `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 21 / 21 (every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -178,6 +178,25 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
   - Solver, Scenario Manager, Data Tables (what-if), Consolidate, column profiling.
   - The rest of the Analysis ToolPak (histogram, regression, t-tests…).
 - The data model: DAX and relationships remain planned.
+
+## M7 — Automation ✅
+
+See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
+
+### Done
+
+| Feature | Test |
+|---|---|
+| JavaScript macros: editor (CodeMirror) with a list of macros, Run and Stop, output log; Automate tab, Alt+F8 | e2e `macros` |
+| Sandbox: a dedicated Web Worker per run; no network (CSP and removed APIs, which can't be put back), no files, no DOM, 30-second limit, Stop; a fixed, checked workbook API | e2e `macros` (checks the sandbox from inside a macro) |
+| Trust: a file's macros run only after Enable macros; trust is stored as a hash of the exact code, so a changed macro asks again; never run on open | e2e `macros` |
+| Macros kept in .xlsx/.xlsm (customXml part) and .ods | unit `macros` |
+| VBA: kept byte for byte in .xlsm; read-only source viewer (compound file reader, MS-OVBA decompression, dir stream); never run | unit `macros` |
+
+### Known limitations
+
+- No macro recorder, no Python, and no assigning macros to buttons or shortcuts (all planned).
+- Macros can't use the network or files (by design for now).
 
 ## Next
 

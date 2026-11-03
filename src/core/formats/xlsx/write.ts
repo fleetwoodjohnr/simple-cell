@@ -23,6 +23,7 @@ import { withSparklines } from '../../sparklines'
 import { CT_PIVOT_CACHE, CT_PIVOT_TABLE, REL_PIVOT_CACHE, REL_PIVOT_RECORDS, REL_PIVOT_TABLE, pivotSig, pivotXml } from './pivot'
 import type { Scalar } from '../../engine/values'
 import { parseArea } from '../../refs'
+import { macrosXml } from '../macros'
 import { topLevel } from '../xml'
 
 export type XlsxKind = 'xlsx' | 'xlsm' | 'xltx' | 'xltm'
@@ -491,6 +492,26 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
     else delete files[relsPath(path)]
   }
 
+  // JavaScript macros: a customXml part related from the workbook (with its item properties).
+  const REL_CUSTOM = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXml'
+  const REL_PROPS = 'http://schemas.openxmlformats.org/officeDocument/2006/relationships/customXmlProps'
+  let mp = carry?.macrosPath
+  if (wb.macros.length) {
+    if (!mp) {
+      let k = 1
+      while (files[`customXml/item${k}.xml`]) k++
+      mp = `customXml/item${k}.xml`
+      const props = `customXml/itemProps${k}.xml`
+      files[props] = bytes(`<?xml version="1.0" encoding="UTF-8" standalone="no"?>\n<ds:datastoreItem ds:itemID="{5C1E5C11-0000-4000-8000-0000000000${String(k).padStart(2, '0')}}" xmlns:ds="http://schemas.openxmlformats.org/officeDocument/2006/customXml"><ds:schemaRefs><ds:schemaRef ds:uri="urn:simple-cell:macros:1"/></ds:schemaRefs></ds:datastoreItem>`)
+      files[relsPath(mp)] = bytes(relsXml([{ id: 'rId1', type: REL_PROPS, target: `itemProps${k}.xml` }]))
+      wbRels.push({ id: newRid(), type: REL_CUSTOM, target: relTarget(wbPath, mp) })
+    }
+    files[mp] = bytes(macrosXml(wb.macros))
+  } else if (mp) {
+    const i = wbRels.findIndex((r) => r.type === REL_CUSTOM && resolveTarget(wbPath, r.target) === mp)
+    if (i >= 0) wbRels.splice(i, 1)
+  }
+
   // Styles, shared strings, metadata
   const stylesPath = `${dir}styles.xml`
   files[stylesPath] = bytes(styles.xml())
@@ -553,6 +574,7 @@ export function writeXlsx(wb: Workbook, kind: XlsxKind = 'xlsx', defaultFont = {
   for (const p of Object.keys(files)) if (/\/tables\/table\d+\.xml$/.test(p)) overrides[p] = CT.table
   for (const p of Object.keys(files)) if (/\/charts\/chart\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_CHART
   for (const p of Object.keys(files)) if (/\/pivotTables\/pivotTable\d+\.xml$/.test(p)) overrides[p] = CT_PIVOT_TABLE
+  for (const p of Object.keys(files)) if (/^customXml\/itemProps\d+\.xml$/.test(p)) overrides[p] = 'application/vnd.openxmlformats-officedocument.customXmlProperties+xml'
   for (const p of Object.keys(files)) if (/\/pivotCache\/pivotCacheDefinition\d+\.xml$/.test(p)) overrides[p] = CT_PIVOT_CACHE
   for (const p of Object.keys(files)) if (/\/drawings\/drawing\d+\.xml$/.test(p) && !overrides[p]) overrides[p] = CT_DRAWING
   for (const p of Object.keys(files)) if (/\/comments\d*\.xml$/.test(p)) overrides[p] = 'application/vnd.openxmlformats-officedocument.spreadsheetml.comments+xml'

@@ -18,6 +18,7 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
 - **PivotTables and data tools.** PivotTables with a field list, Remove Duplicates, Text to Columns, Goal Seek and Descriptive Statistics.
 - **Charts.** Column, bar, line, area, pie, doughnut and scatter charts, created from a range (Alt+F1), edited, printed, and read from and saved to .xlsx.
 - **Printing and PDF.** Page setup, print areas and titles, page breaks, headers and footers, fit to page, a preview, and Save as PDF.
+- **Macros.** JavaScript macros in a sandbox that can only touch the workbook, with a trust prompt for macros from files. VBA in .xlsm files is kept and can be read, but is never run. See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 - **Shortcuts.** Excel keyboard shortcuts for navigation, editing and formatting, plus a Google Sheets preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
 - **Files.** Excel (.xlsx, .xlsm, templates) and OpenDocument (.ods), read and written by Simple Cell itself. Charts, comments, conditional formatting and other content it can't show yet are kept and saved unchanged.
   - .xls through LibreOffice when it is installed.

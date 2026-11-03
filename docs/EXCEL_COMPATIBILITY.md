@@ -23,8 +23,8 @@ This matrix tracks every area of Excel that Simple Cell aims to match. A feature
 | Tables | 🟡 | Create (Ctrl+T), styles, total row, filters, rename, convert to range ✅; calculated columns and auto-expansion 📋 |
 | PivotTables | 🟡 | Rows, columns, filters, values (11 summary functions, % of totals), subtotals, grand totals, date grouping, refresh ✅; read from and written to .xlsx ✅; compact/outline layouts, calculated fields, slicers, PivotCharts 📋 |
 | Charts | 🟡 | Column, bar, line, area, pie, doughnut, scatter (clustered, stacked, 100%) ✅ shown, created, edited and saved; other types kept 🔒; sparklines (line, column, win/loss) ✅ |
-| Macros | 📋 | VBA will be preserved and shown read-only; native JavaScript macros planned ([MACRO_SECURITY.md](MACRO_SECURITY.md) when available) |
-| Automation | 📋 | |
+| Macros | 🟡 | VBA kept (.xlsm) and shown read-only, never run 🔒; JavaScript macros in a sandbox ✅ ([MACRO_SECURITY.md](MACRO_SECURITY.md)); recorder and Python 📋 |
+| Automation | 🟡 | JavaScript macro API (ranges, values, formulas, formats, sheets) ✅; recorder, buttons, events 📋 |
 | Data connectors | 📋 | |
 | Printing and PDF | 🟡 | Page setup, print area/titles, breaks, headers/footers, fit to page, preview, PDF, charts on pages ✅; pictures on printed pages 📋 |
 

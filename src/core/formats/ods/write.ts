@@ -9,6 +9,7 @@ import { bytes, text, writeZip } from '../zip'
 import { esc } from '../opc'
 import { Warnings, type ExportResult } from '../types'
 import { excelToOdf } from './formula'
+import { macrosXml } from '../macros'
 import type { OdsCarry } from './read'
 
 const NS: Record<string, string> = {
@@ -235,6 +236,8 @@ export function writeOds(wb: Workbook): ExportResult {
       `<?xml version="1.0" encoding="UTF-8"?>\n<office:document-styles ${Object.entries(NS).map(([k, v]) => `${k}="${v}"`).join(' ')} office:version="1.3"><office:font-face-decls><style:font-face style:name="Calibri" svg:font-family="Calibri" style:font-family-generic="swiss"/></office:font-face-decls><office:styles><style:default-style style:family="table-cell"><style:text-properties style:font-name="Calibri" fo:font-size="11pt"/></style:default-style><style:style style:name="Default" style:family="table-cell"/></office:styles><office:automatic-styles><style:page-layout style:name="pm1"/></office:automatic-styles><office:master-styles><style:master-page style:name="Default" style:page-layout-name="pm1"/></office:master-styles></office:document-styles>`
     )
   files['settings.xml'] = bytes(settingsXml(wb))
+  if (wb.macros.length) files['SimpleCell/macros.xml'] = bytes(macrosXml(wb.macros))
+  else delete files['SimpleCell/macros.xml']
   const now = new Date().toISOString().replace(/\.\d+Z$/, '')
   files['meta.xml'] = files['meta.xml'] ? bytes(text(files['meta.xml']).replace(/(<dc:date>)[^<]*(<\/dc:date>)/, `$1${now}$2`).replace(/<meta:generator>[^<]*<\/meta:generator>/, '<meta:generator>Simple Cell</meta:generator>')) : bytes(`<?xml version="1.0" encoding="UTF-8"?>\n<office:document-meta xmlns:office="${NS['xmlns:office']}" xmlns:meta="${NS['xmlns:meta']}" xmlns:dc="${NS['xmlns:dc']}" office:version="1.3"><office:meta><meta:generator>Simple Cell</meta:generator><dc:date>${now}</dc:date></office:meta></office:document-meta>`)
   files['META-INF/manifest.xml'] = bytes(manifestXml(files))

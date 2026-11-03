@@ -69,6 +69,8 @@ A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled rang
 - **File access.** The main process reads and writes only files the user granted through a dialog, recents, drag-and-drop or the command line.
 - **CSV export.** By default, text starting with `= + - @` gets a leading apostrophe so other applications don't run it as a formula (CSV injection).
 
+**Macros run in a throwaway Web Worker.** A run gets a new worker from a `blob:` URL. The prelude removes the network and storage APIs, and the page's CSP blocks network access from it anyway. The worker reaches the workbook only by sending messages naming operations from a fixed, checked list, which the renderer carries out through the core. See docs/MACRO_SECURITY.md.
+
 ## Third-party licenses
 
 | Component | License |
@@ -79,4 +81,5 @@ A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled rang
 | Caladea (bundled) | Apache-2.0 |
 | electron-updater | MIT |
 | Apache ECharts (charts) | Apache-2.0 |
+| CodeMirror 6 (macro editor) | MIT |
 | LibreOffice (optional, not bundled; used for XLS/XLSB) | MPL-2.0 |

@@ -44,6 +44,8 @@ export type Dialog =
   | { kind: 'paste-special' }
   | { kind: 'goto-special' }
   | { kind: 'print' }
+  | { kind: 'macros' }
+  | { kind: 'vba' }
   | { kind: 'chart'; id: number }
   | { kind: 'tool'; tool: ToolKind }
   | { kind: 'pivot-insert'; area: { r0: number; c0: number; r1: number; c1: number } }
