@@ -15,6 +15,7 @@ import { createDataTable, scenarioSummary, setScenarios, showScenario } from './
 import { runTool, type ToolId, type ToolParams } from './toolpak'
 import type { Scenario, ScenarioSet } from './model/workbook'
 import { vbaModules } from './vba'
+import type { SqlOut, SqlRange } from './sql'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
 import type { Style } from './model/styles'
@@ -608,6 +609,29 @@ export class Host {
       return vbaModules(bin)
     } catch {
       return []
+    }
+  }
+  /** The workbook's tables as SQL sees them. */
+  sqlTables() {
+    return this.doc.wb.tables.map((t) => ({ name: t.name, sheet: t.sheet, columns: t.columns.map((c) => c.name) }))
+  }
+  async sqlPreview(sql: string, source?: SqlRange) {
+    try {
+      return { ok: true as const, ...(await (await import('./sql')).previewSql(this.doc, sql, source)) }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
+    }
+  }
+  async cancelSql() { (await import('./sql')).cancelSql(this.doc) }
+  sqlRange(source: SqlRange) {
+    return import('./sql').then(({ rangeSource }) => { const t = rangeSource(this.doc, source); return { name: t.name, sheet: t.sheet, columns: t.columns.map((c) => c.name) } })
+  }
+  /** Run SQL over the tables (one undoable step). */
+  async runSql(sql: string, out: SqlOut, source?: SqlRange) {
+    try {
+      return { ok: true as const, ...(await (await import('./sql')).runSql(this.doc, sql, out, source)) }
+    } catch (e) {
+      return { ok: false as const, error: (e as Error).message }
     }
   }
   removeDuplicates(a: Area, cols: number[], headers: boolean) {

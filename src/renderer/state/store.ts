@@ -45,6 +45,7 @@ export type Dialog =
   | { kind: 'goto-special' }
   | { kind: 'print' }
   | { kind: 'macros' }
+  | { kind: 'sql' }
   | { kind: 'vba' }
   | { kind: 'chart'; id: number }
   | { kind: 'tool'; tool: ToolKind }

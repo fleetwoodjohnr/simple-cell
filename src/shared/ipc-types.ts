@@ -43,6 +43,8 @@ export interface Settings {
   ribbonMode: 'expanded' | 'compact'
   reduceMotion: boolean
   uiScale: number
+  /** Mouse pointer over cells: the system arrow, or Excel's fat white cross. */
+  cellCursor: 'arrow' | 'cross'
   /** Keyboard preset the shortcuts start from; `shortcuts` overrides individual commands. */
   shortcutPreset: 'excel' | 'sheets'
   shortcuts: Record<string, string>
@@ -70,6 +72,7 @@ export const DEFAULT_SETTINGS: Settings = {
   ribbonMode: 'expanded',
   reduceMotion: false,
   uiScale: 1,
+  cellCursor: 'arrow',
   shortcutPreset: 'excel',
   shortcuts: {},
   quickAccess: ['file.save', 'edit.undo', 'edit.redo'],

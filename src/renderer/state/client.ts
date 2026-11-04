@@ -1,5 +1,6 @@
 // The renderer's side of the core worker: typed calls, and a per-workbook cache of what is on screen.
 import CoreWorker from '@/core/worker?worker'
+import { getView, setView, cellSel } from './view'
 import type { Host, SheetMeta, WorkbookMeta } from '@/core/host'
 import type { ViewCell } from '@/core/doc'
 import type { Area } from '@/core/engine/values'
@@ -166,6 +167,12 @@ export class Book {
     const widths = (m: WorkbookMeta) => new Map(m.sheets.map((s) => [s.id, JSON.stringify(s.cols)]))
     const before = widths(this.meta)
     this.meta = meta
+    // Undo can remove the active result sheet. Select a surviving sheet before subscribers render.
+    const view = getView(this.id)
+    if (view && !meta.sheets.some((s) => s.id === view.sheet)) {
+      const first = meta.sheets.find((s) => !s.hidden) ?? meta.sheets[0]
+      if (first) setView(this.id, { sheet: first.id, editing: null, sel: cellSel(0, 0) })
+    }
     // Column widths change how General numbers are shown: refetch those sheets.
     for (const [id, w] of widths(meta)) if (before.get(id) !== w) this.invalidate(id)
     if (structural) this.invalidate()

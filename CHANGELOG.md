@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 (2026-11-04)
+
+- New app icon: a sheet with column and row headings and the active cell's fill handle; Linux windows now show it instead of Electron's.
+- Borders menu shows Excel's border pictograms, and adds Thick outside, Top and bottom, Top and thick bottom, and More borders….
+- Settings ▸ General ▸ Pointer over cells: the normal arrow (new default) or Excel's fat white cross.
+- SQL query (Automate ▸ SQL): SQLite over named tables and selected datasets, with headers or generated column names. Preview changes nothing; UPDATE/DELETE/INSERT edit source cells, and returned rows go to a new sheet or output range, together as one undo step. Queries are cancellable, stop after 30 seconds, and run offline in a separate worker.
+
+- Fixed: undoing creation of a SQL result sheet keeps a surviving sheet active instead of crashing the renderer.
+
 ## 0.1.0 (2026-11-04)
 
 - First development version:

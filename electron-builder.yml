@@ -14,6 +14,8 @@ directories:
 files:
   - out/**
   - package.json
+  # the Linux window icon (src/main/index.ts imports it with ?asset); build resources aren't packed unless listed
+  - resources/icon.png
 asar: true
 fileAssociations:
   - ext: xlsx

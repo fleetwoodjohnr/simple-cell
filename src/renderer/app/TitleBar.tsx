@@ -15,12 +15,19 @@ export function Logo({ size = 22 }: { size?: number }) {
           <stop offset="0" stopColor="color-mix(in oklab, var(--accent) 82%, #fff)" />
           <stop offset="1" stopColor="color-mix(in oklab, var(--accent) 55%, #0f2a1d)" />
         </linearGradient>
+        <clipPath id="sc-logo-sheet">
+          <rect x="7" y="7.25" width="18" height="17.5" rx="1.6" />
+        </clipPath>
       </defs>
       {/* the app icon (resources/icon.svg) without its shadow and sheen */}
       <rect x="1" y="1" width="30" height="30" rx="7" fill="url(#sc-logo)" />
-      <rect x="7.5" y="8" width="17" height="16" rx="1.8" fill="#fff" />
-      <path d="M7.5 13.3H24.5M7.5 18.7H24.5M13.2 8V24" stroke="color-mix(in oklab, var(--accent) 45%, #fff)" strokeWidth="1.3" />
-      <rect x="13.2" y="13.3" width="5.7" height="5.4" fill="var(--accent)" />
+      <g clipPath="url(#sc-logo-sheet)">
+        <rect x="7" y="7.25" width="18" height="17.5" fill="#fff" />
+        <path d="M7 7.25H25V10.5H7ZM7 10.5H10V24.75H7Z" fill="color-mix(in oklab, var(--accent) 24%, #fff)" />
+        <path d="M7 10.5H25M7 15.25H25M7 20H25M10 7.25V24.75M15 7.25V24.75M20 7.25V24.75" stroke="color-mix(in oklab, var(--accent) 40%, #fff)" strokeWidth="0.6" />
+      </g>
+      <rect x="15" y="15.25" width="5" height="4.75" fill="var(--accent)" />
+      <rect x="19" y="19" width="2" height="2" fill="color-mix(in oklab, var(--accent) 55%, #0f2a1d)" stroke="#fff" strokeWidth="0.45" />
     </svg>
   )
 }

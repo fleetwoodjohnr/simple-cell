@@ -12,12 +12,13 @@
     </linearGradient>
     <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#fff"/>
-      <stop offset="1" stop-color="#e6f5ee"/>
+      <stop offset="1" stop-color="#eef8f3"/>
     </linearGradient>
     <linearGradient id="cell" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2fae74"/>
-      <stop offset="1" stop-color="#16744b"/>
+      <stop offset="0" stop-color="#34b87c"/>
+      <stop offset="1" stop-color="#1a7d51"/>
     </linearGradient>
+    <clipPath id="sheet"><rect x="224" y="232" width="576" height="560" rx="52"/></clipPath>
     <filter id="lift" x="-25%" y="-20%" width="150%" height="150%" color-interpolation-filters="sRGB">
       <feGaussianBlur in="SourceAlpha" stdDeviation="30" result="b"/>
       <feOffset in="b" dy="36" result="o"/>
@@ -30,9 +31,14 @@
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#tile)"/>
   <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#sheen)"/>
   <rect x="65" y="65" width="894" height="894" rx="199" fill="none" stroke="#fff" stroke-opacity=".14" stroke-width="2"/>
-  <!-- a sheet of cells with the active cell highlighted -->
-  <rect x="236" y="250" width="552" height="524" rx="48" fill="url(#paper)" filter="url(#lift)"/>
-  <path d="M236 424H788M236 600H788M420 250V774M604 250V774" stroke="#b9e3cf" stroke-width="14"/>
-  <rect x="420" y="424" width="184" height="176" fill="url(#cell)"/>
-  <rect x="420" y="424" width="184" height="176" fill="none" stroke="#0f4d33" stroke-width="10"/>
+  <!-- a sheet with column and row headings, a grid, and the active cell with its fill handle -->
+  <rect x="224" y="232" width="576" height="560" rx="52" fill="url(#paper)" filter="url(#lift)"/>
+  <g clip-path="url(#sheet)">
+    <path d="M224 232H800V336H224ZM224 336H320V792H224Z" fill="#c4e9d6"/>
+    <path d="M480 232H640V336H480ZM224 488H320V640H224Z" fill="#8ccfae"/>
+    <path d="M224 336H800M224 488H800M224 640H800M320 232V792M480 232V792M640 232V792" stroke="#a6d9c0" stroke-width="12"/>
+  </g>
+  <rect x="480" y="488" width="160" height="152" fill="url(#cell)"/>
+  <rect x="480" y="488" width="160" height="152" fill="none" stroke="#0f4d33" stroke-width="16"/>
+  <rect x="610" y="610" width="60" height="60" fill="#0f4d33" stroke="#fff" stroke-width="12"/>
 </svg>

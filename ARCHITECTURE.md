@@ -64,7 +64,7 @@ A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled rang
 ## Security
 
 - **Window isolation.** `contextIsolation` and `sandbox` are on and `nodeIntegration` is off.
-- **Content-Security-Policy.** The packaged renderer has a strict policy: no inline scripts and no `eval`. Every E2E test fails on a policy violation.
+- **Content-Security-Policy.** The packaged renderer has a strict policy: no inline scripts and no `eval`. WebAssembly may compile (`'wasm-unsafe-eval'`, for SQLite). Every E2E test fails on a policy violation.
 - **No navigation.** Navigation and new windows are blocked.
 - **File access.** The main process reads and writes only files the user granted through a dialog, recents, drag-and-drop or the command line.
 - **CSV export.** By default, text starting with `= + - @` gets a leading apostrophe so other applications don't run it as a formula (CSV injection).
@@ -83,3 +83,14 @@ A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled rang
 | Apache ECharts (charts) | Apache-2.0 |
 | CodeMirror 6 (macro editor) | MIT |
 | LibreOffice (optional, not bundled; used for XLS/XLSB) | MPL-2.0 |
+
+## SQL automation
+
+`core/sql.ts` snapshots named tables and optional selected data as values. SQLite runs in a
+separate disposable `sql-worker.ts`, using `sql-engine.ts` and bundled inline WebAssembly.
+The calculation worker remains available while a query runs. Cancellation and a 30-second
+timer terminate only the SQL worker. A workbook-version check rejects stale results before
+source edits and ordinary result ranges are applied together in one document transaction.
+Source and result snapshots are capped at one million cells. Schema-changing SQL is rejected.
+The renderer repairs active-sheet selection before notifying subscribers when undo removes
+a result sheet. See [SQL usage and limits](docs/SQL.md).

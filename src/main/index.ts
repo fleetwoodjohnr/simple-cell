@@ -6,6 +6,7 @@ import type { OpenedFile, RecentFile, Settings } from '../shared/ipc-types'
 import * as store from './store'
 import * as lo from './libreoffice'
 import { checkForUpdates, installIfRequested, scheduleUpdateCheck } from './updater'
+import icon from '../../resources/icon.png?asset'
 
 const isMac = process.platform === 'darwin'
 const DOC_EXTENSIONS = ['xlsx', 'xlsm', 'xltx', 'xltm', 'ods', 'csv', 'tsv', 'txt', 'json', 'html', 'htm', 'xml', 'xls', 'xlsb']
@@ -74,6 +75,8 @@ function createWindow(settings: Settings) {
     minHeight: 560,
     show: false,
     title: 'Simple Cell',
+    // Linux window managers take the window's own icon (macOS and Windows use the app bundle's).
+    ...(process.platform === 'linux' ? { icon } : {}),
     backgroundColor: dark ? '#111113' : '#f6f6f7',
     titleBarStyle: isMac ? 'hiddenInset' : 'hidden',
     trafficLightPosition: { x: 14, y: 14 },

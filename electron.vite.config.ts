@@ -9,7 +9,8 @@ const alias = { '@': resolve(__dirname, 'src') }
 // Not applied in dev, where Vite injects an inline HMR preamble. Inline styles: Radix positions popovers with them.
 const CSP = [
   "default-src 'self'",
-  "script-src 'self'",
+  // wasm-unsafe-eval: SQLite (Automate ▸ SQL) is WebAssembly; it compiles wasm only, never JS strings.
+  "script-src 'self' 'wasm-unsafe-eval'",
   "style-src 'self' 'unsafe-inline'",
   "img-src 'self' data: blob:",
   "font-src 'self' data:",

@@ -29,10 +29,13 @@ type Drag =
   | { kind: 'fill'; src: { r0: number; c0: number; r1: number; c1: number } }
   | { kind: 'point'; anchor: { r: number; c: number } }
 
+// Excel's pointer over cells: a chunky white plus with a dark outline (hotspot at its centre).
+const FAT_CROSS = `url("data:image/svg+xml,${encodeURIComponent("<svg xmlns='http://www.w3.org/2000/svg' width='22' height='22'><path d='M8 1.5h6v6.5h6.5v6H14v6.5H8V14H1.5V8H8z' fill='white' stroke='black' stroke-width='1.2'/></svg>")}") 11 11, cell`
+
 export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
   const book = books.get(tab)!
   const view = useViews((s) => s.views[tab])
-  const { dark, showFormulas, showHeadings, defaultFont, defaultFontSize } = useApp(useShallow((s) => ({ dark: s.dark, showFormulas: s.showFormulas, showHeadings: s.showHeadings, defaultFont: s.settings.defaultFont, defaultFontSize: s.settings.defaultFontSize })))
+  const { dark, showFormulas, showHeadings, defaultFont, defaultFontSize, cellCursor } = useApp(useShallow((s) => ({ dark: s.dark, showFormulas: s.showFormulas, showHeadings: s.showHeadings, defaultFont: s.settings.defaultFont, defaultFontSize: s.settings.defaultFontSize, cellCursor: s.settings.cellCursor })))
   const version = useSyncExternalStore(
     useCallback((fn) => book.subscribe(fn), [book]),
     () => book.version
@@ -306,7 +309,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
       const h = hit(L, x, y)
       if (h.zone === 'cell') reportHover(tab, h.r, h.c)
       const cur = h.zone === 'colhdr' && nearEdge(L, x, 'col') !== null ? 'col-resize' : h.zone === 'rowhdr' && nearEdge(L, y, 'row') !== null ? 'row-resize' : h.zone === 'colhdr' ? 's-resize' : h.zone === 'rowhdr' ? 'e-resize' : 'cell'
-      el.style.cursor = cur === 'cell' ? (nearFillHandle(L, x, y) ? 'crosshair' : 'cell') : cur
+      el.style.cursor = cur === 'cell' ? (nearFillHandle(L, x, y) ? 'crosshair' : cellCursor === 'cross' ? FAT_CROSS : 'default') : cur
       return
     }
     // Auto-scroll when dragging past the edge.

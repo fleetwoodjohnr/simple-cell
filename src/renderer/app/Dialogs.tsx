@@ -20,6 +20,7 @@ import { CreateTableDialog } from './Tables'
 import { LinkDialog, NoteDialog } from './Notes'
 import { PrintDialog } from './Print'
 import { MacrosDialog, VbaDialog } from './Macros'
+import { SqlDialog } from './Sql'
 import { ChartDialog } from './Charts'
 import { InsertPivotDialog } from './Pivot'
 import { ToolDialog } from './AnalysisDialogs'
@@ -76,6 +77,8 @@ export function Dialogs() {
       return <PrintDialog />
     case 'macros':
       return <MacrosDialog />
+    case 'sql':
+      return <SqlDialog />
     case 'vba':
       return <VbaDialog />
     case 'chart':
@@ -1232,6 +1235,9 @@ function SettingsDialog({ initial }: { initial?: string }) {
               </Row>
               <Row label="Interface size">
                 <Segmented value={String(s.uiScale)} onChange={(v) => updateSettings({ uiScale: Number(v) })} label="Interface size" options={['0.9', '1', '1.1', '1.25'].map((v) => ({ value: v, label: `${Math.round(Number(v) * 100)}%` }))} />
+              </Row>
+              <Row label="Pointer over cells" hint="The normal arrow, or Excel’s fat white cross">
+                <Segmented value={s.cellCursor} onChange={(v) => updateSettings({ cellCursor: v })} label="Pointer over cells" options={[{ value: 'arrow', label: 'Arrow' }, { value: 'cross', label: 'Excel cross' }]} />
               </Row>
               <Row label="Reduce motion">
                 <Switch checked={s.reduceMotion} onChange={(v) => updateSettings({ reduceMotion: v })} label="Reduce motion" />

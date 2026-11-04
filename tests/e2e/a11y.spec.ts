@@ -17,6 +17,7 @@ const DIALOGS: [string, Record<string, unknown>][] = [
   ...['general', 'editing', 'keyboard', 'updates'].map((section): [string, Record<string, unknown>] => [`Settings ${section}`, { kind: 'settings', section }]),
   ...['number', 'alignment', 'font', 'border', 'fill', 'protection'].map((tab): [string, Record<string, unknown>] => [`Format cells ${tab}`, { kind: 'format-cells', tab }]),
   ['Macros', { kind: 'macros' }],
+  ['SQL query', { kind: 'sql' }],
   ['Close confirmation', { kind: 'confirm-close', tabIds: '$tabs' }],
   ['Compatibility report', { kind: 'compat', tabId: '$tab' }],
   ['Keyboard shortcuts', { kind: 'shortcuts' }],

@@ -87,6 +87,23 @@ podman run --rm -v "$PWD/release":/rel:ro registry.fedoraproject.org/fedora:44 b
 - **rpm:** installs on clean Fedora 44 with every library resolved.
 - **Not yet started from a desktop menu:** the installed deb and rpm builds. File associations have not been tried either.
 
+## Version 0.2.0 validation (Linux, 2026-11-04)
+
+- Strict type checking and all 665 unit tests pass; the optional LibreOffice cross-check is skipped.
+- All 35 ordinary Electron end-to-end tests pass, including light/dark accessibility. The benchmark,
+  screenshot generation, and packaged-only updater test skip in this run as intended.
+- Nine checks pass against the final unpacked app: files, macros, print/PDF, spreadsheet editing,
+  border icons, cursor preference persistence, SQL (including cancellation and result-sheet undo/redo), and updater download verification.
+- Four checks pass against the final AppImage itself: spreadsheet editing, both SQL flows, and the updater.
+- Linux AppImage, deb and rpm installers build; the release validator checks all installer versions,
+  sizes and SHA-512 hashes against the combined Linux update feed.
+- The new Windows/macOS installers are verified by CI after the tag is pushed; they have not been run locally on Linux.
+
+The production dependency audit is clean. The full development audit reports 15 moderate findings
+in existing electron-builder dependencies (minimatch and its consumers); no high/critical findings.
+These build-time globs process trusted local paths. The suggested forced fix would downgrade
+our builder incompatibly; defer that tooling migration and review again by 2026-12-04.
+
 ## Updates
 
 Installed copies check the newest **published** GitHub release of `fleetwoodjohnr/simple-cell` (the `publish` block in `electron-builder.yml`). They check at most once a day, and never if the user turns it off in Settings → Updates.

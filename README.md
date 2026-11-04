@@ -4,7 +4,7 @@ A fast, private spreadsheet for Windows, macOS and Linux that opens and saves Ex
 
 ![Simple Cell: a sales table with data bars, a SUM formula and a column chart](docs/screenshots/main.png)
 
-> **Early development (0.1.0).** Simple Cell does **not** claim full Excel compatibility. What works, with the tests that prove it, is listed in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), and Excel compatibility is tracked feature by feature in [docs/EXCEL_COMPATIBILITY.md](docs/EXCEL_COMPATIBILITY.md).
+> **Early development (0.2.0).** Simple Cell does **not** claim full Excel compatibility. What works, with the tests that prove it, is listed in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), and Excel compatibility is tracked feature by feature in [docs/EXCEL_COMPATIBILITY.md](docs/EXCEL_COMPATIBILITY.md).
 
 ## Install
 
@@ -57,6 +57,7 @@ Download the file for your system from the [latest release](https://github.com/f
 - **Notes and links.** Cell notes and hyperlinks.
 - **Printing and PDF.** Page setup, print areas and titles, page breaks, headers and footers, fit to page, a preview, and Save as PDF.
 - **Macros.** JavaScript macros in a sandbox that can only touch the workbook, with a trust prompt for macros that come from files. VBA in .xlsm files is kept and can be read, but never runs ([docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md)).
+- **SQL.** Query named tables or selected datasets with SQLite (Automate ▸ SQL). UPDATE, DELETE and INSERT edit source data; returned rows go to a new sheet or an output range. Preview changes nothing; Run is one undo step. Queries can be cancelled and stop after 30 seconds. See [SQL guide](docs/SQL.md).
 - **Keyboard first.**
   - Excel's keyboard shortcuts, KeyTips (Alt), a command palette, and a Google Sheets shortcut preset ([docs/SHORTCUT_REFERENCE.md](docs/SHORTCUT_REFERENCE.md)).
   - Light and dark themes.

@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-04 · Milestones M0–M5 and M7 complete (with the limits listed); M6 and M10 in progress; M8–M9 not started · version 0.1.0 · tested on Linux by hand; CI builds and runs the tests on Linux, Windows and macOS._
+_Last updated: 2026-11-04 · Milestones M0–M5 and M7 complete (with the limits listed); M6 and M10 in progress; M8–M9 not started · version 0.2.0 · verified with automated tests on Linux; CI builds and runs the tests on Linux, Windows and macOS._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 
@@ -199,6 +199,7 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 | Trust: a file's macros run only after Enable macros; trust is stored as a hash of the exact code, so a changed macro asks again; never run on open | e2e `macros` |
 | Macros kept in .xlsx/.xlsm (customXml part) and .ods | unit `macros` |
 | VBA: kept byte for byte in .xlsm; read-only source viewer (compound file reader, MS-OVBA decompression, dir stream); never run | unit `macros` |
+| SQL (Automate ▸ SQL): SQLite (sql.js) over named tables and selected ranges; UPDATE/DELETE/INSERT edit source cells, query results go to a new sheet or output range; preview; cancellation and 30-second timeout; one undo step | unit `sql`, e2e `sql` |
 
 ### Known limitations
 
@@ -226,5 +227,5 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 ## Next
 
 - **M6 remainder:** see "Still to do in M6".
-- **M8 Data connections** (not started): files, REST with permission, SQLite, PostgreSQL, MySQL, SQL Server, the query editor and refresh.
+- **M8 Data connections** (SQL over the workbook's own tables is done, see M7): files, REST with permission, external SQLite, PostgreSQL, MySQL, SQL Server, refresh.
 - **M9 History and collaboration groundwork** (not started): version history UI, threaded comments, change history.

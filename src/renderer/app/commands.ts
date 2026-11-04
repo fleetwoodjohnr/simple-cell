@@ -352,6 +352,7 @@ def({ id: 'fmt.thousands', label: 'Comma style', run: (c) => A.formatSel(needsSe
 def({ id: 'fmt.moreDecimals', label: 'Increase decimal', run: (c) => changeDecimals(needsSelection(c), 1) })
 def({ id: 'fmt.lessDecimals', label: 'Decrease decimal', run: (c) => changeDecimals(needsSelection(c), -1) })
 def({ id: 'fmt.outlineBorder', label: 'Outline border', run: (c) => outline(needsSelection(c)) })
+def({ id: 'fmt.thickOutlineBorder', label: 'Thick outside borders', run: (c) => outline(needsSelection(c), 'thick') })
 def({ id: 'fmt.noBorder', label: 'Remove borders', run: (c) => A.formatSel(needsSelection(c), { borderTop: undefined, borderBottom: undefined, borderLeft: undefined, borderRight: undefined, borderDiagDown: undefined, borderDiagUp: undefined }) })
 def({ id: 'fmt.cells', label: 'Format cells…', run: () => set({ dialog: { kind: 'format-cells' } }) })
 def({ id: 'fmt.font', label: 'Format font…', run: () => set({ dialog: { kind: 'format-cells', tab: 'font' } }) })
@@ -383,9 +384,9 @@ async function changeDecimals(c: A.Ctx, d: number) {
   return A.formatSel(c, { numFmt: next })
 }
 
-function outline(c: A.Ctx) {
+function outline(c: A.Ctx, style: 'thin' | 'thick' = 'thin') {
   const r = lastRange(c)
-  const side = { style: 'thin' as const }
+  const side = { style }
   const areas = (o: Partial<typeof r>) => [{ sheet: c.view.sheet, ...r, ...o }]
   return A.edit(c, async (b) => {
     await b.api.formatCells(areas({ r1: r.r0 }), { borderTop: side })
@@ -559,6 +560,7 @@ def({ id: 'data.solver', label: 'Solver…', keywords: 'optimize optimise linear
 def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
 def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })
 def({ id: 'tools.macros', label: 'Macros…', keywords: 'script automate javascript', run: () => set({ dialog: { kind: 'macros' } }) })
+def({ id: 'tools.sql', label: 'SQL query…', keywords: 'sql sqlite query select update delete insert transform database', run: (c) => (needsSelection(c), set({ dialog: { kind: 'sql' } })) })
 def({ id: 'tools.vba', label: 'View VBA code', keywords: 'visual basic macros xlsm', run: (c) => { const x = needsSelection(c); if (!x.book.meta.vba) return toast('This workbook has no VBA project.', 'info'); set({ dialog: { kind: 'vba' } }) } })
 def({ id: 'data.validation', label: 'Data validation…', keywords: 'dropdown list restrict allowed values', run: () => set({ dialog: { kind: 'data-validation' } }) })
 def({

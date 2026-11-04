@@ -1643,7 +1643,7 @@ export class Doc {
    * Hide the rows any filter on the sheet excludes and show filtered rows that every filter now passes (a row is
    * hidden if any filter hides it). Call after changing the model; `extra` adds ranges whose filter was removed.
    */
-  private refilterTx(tx: Tx, sheet: number, extra: Area[] = []) {
+  refilterTx(tx: Tx, sheet: number, extra: Area[] = []) {
     const sh = this.sheet(sheet)
     const hide = new Set<number>()
     const rows = new Set<number>()

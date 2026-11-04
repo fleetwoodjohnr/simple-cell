@@ -13,6 +13,7 @@ import {
   ClipboardPaste,
   Copy,
   Eraser,
+  Database,
   Grid3x3,
   Italic,
   Keyboard,
@@ -220,30 +221,50 @@ function withCtx(fn: (c: A.Ctx) => unknown) {
   if (c) void fn(c)
 }
 
+/** Excel's border pictograms: a dotted cell grid with the sides the command draws in solid. Half-pixel lines stay crisp at 1x. */
+function BorderIcon({ on = '', thick, bottom }: { on?: string; thick?: boolean; bottom?: 'thick' | 'double' }) {
+  const [a, z, m] = [2.5, 14.5, 8.5]
+  const edge: Record<string, string> = { t: `M${a} ${a}H${z}`, b: `M${a} ${z}H${z}`, l: `M${a} ${a}V${z}`, r: `M${z} ${a}V${z}`, h: `M${a} ${m}H${z}`, v: `M${m} ${a}V${z}` }
+  return (
+    <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1} aria-hidden="true">
+      <path d={Object.values(edge).join('')} strokeDasharray="1 1" opacity={0.4} />
+      {thick ? <path d="M2 2H15V15H2Z" strokeWidth={2} /> : on && <path d={[...on].map((k) => edge[k]).join('')} strokeLinecap="square" />}
+      {bottom === 'thick' && <path d="M2 14H15" strokeWidth={2} />}
+      {bottom === 'double' && <path d={`M${a} 12.5H${z}M${a} 14.5H${z}`} strokeLinecap="square" />}
+    </svg>
+  )
+}
+
 function BorderMenu() {
   const set1 = (patch: Partial<Style>) => withCtx((c) => A.formatSel(c, patch))
-  const thin = (style: BorderStyle = 'thin') => ({ style })
-  const sides = (o: { t?: boolean; b?: boolean; l?: boolean; r?: boolean }, style: BorderStyle = 'thin') =>
-    set1({ borderTop: o.t ? thin(style) : undefined, borderBottom: o.b ? thin(style) : undefined, borderLeft: o.l ? thin(style) : undefined, borderRight: o.r ? thin(style) : undefined })
+  const line = (style: BorderStyle = 'thin') => ({ style })
+  const item = (label: string, icon: ReactNode, run: () => void, shortcut?: string) => (
+    <MenuItem icon={icon} shortcut={shortcut} onSelect={run}>
+      {label}
+    </MenuItem>
+  )
   return (
     <Menu>
-      <DropBtn icon={<Grid3x3 />} label="Borders" text="Borders" />
-      <MenuContent>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderBottom: thin() }))}>Bottom border</MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderTop: thin() }))}>Top border</MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderLeft: thin() }))}>Left border</MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderRight: thin() }))}>Right border</MenuItem>
+      <DropBtn icon={<BorderIcon on="b" />} label="Borders" />
+      <MenuContent className="min-w-[240px]">
+        <MenuLabel>Borders</MenuLabel>
+        {item('Bottom border', <BorderIcon on="b" />, () => set1({ borderBottom: line() }))}
+        {item('Top border', <BorderIcon on="t" />, () => set1({ borderTop: line() }))}
+        {item('Left border', <BorderIcon on="l" />, () => set1({ borderLeft: line() }))}
+        {item('Right border', <BorderIcon on="r" />, () => set1({ borderRight: line() }))}
         <MenuSep />
-        <MenuItem shortcut={shortcutFor('fmt.noBorder')} onSelect={() => runCommand('fmt.noBorder')}>
-          No border
-        </MenuItem>
-        <MenuItem onSelect={() => sides({ t: true, b: true, l: true, r: true })}>All borders</MenuItem>
-        <MenuItem shortcut={shortcutFor('fmt.outlineBorder')} onSelect={() => runCommand('fmt.outlineBorder')}>
-          Outside borders
-        </MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderBottom: thin('thick') }))}>Thick bottom border</MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderBottom: thin('double') }))}>Bottom double border</MenuItem>
-        <MenuItem onSelect={() => withCtx((c) => A.formatSel(c, { borderTop: thin(), borderBottom: thin('double') }))}>Top and double bottom border</MenuItem>
+        {item('No border', <BorderIcon />, () => runCommand('fmt.noBorder'), shortcutFor('fmt.noBorder'))}
+        {item('All borders', <BorderIcon on="tblrhv" />, () => set1({ borderTop: line(), borderBottom: line(), borderLeft: line(), borderRight: line() }))}
+        {item('Outside borders', <BorderIcon on="tblr" />, () => runCommand('fmt.outlineBorder'), shortcutFor('fmt.outlineBorder'))}
+        {item('Thick outside borders', <BorderIcon on="tblr" thick />, () => runCommand('fmt.thickOutlineBorder'))}
+        <MenuSep />
+        {item('Bottom double border', <BorderIcon bottom="double" />, () => set1({ borderBottom: line('double') }))}
+        {item('Thick bottom border', <BorderIcon bottom="thick" />, () => set1({ borderBottom: line('thick') }))}
+        {item('Top and bottom border', <BorderIcon on="tb" />, () => set1({ borderTop: line(), borderBottom: line() }))}
+        {item('Top and thick bottom border', <BorderIcon on="t" bottom="thick" />, () => set1({ borderTop: line(), borderBottom: line('thick') }))}
+        {item('Top and double bottom border', <BorderIcon on="t" bottom="double" />, () => set1({ borderTop: line(), borderBottom: line('double') }))}
+        <MenuSep />
+        {item('More borders…', <BorderIcon on="tblrhv" />, () => set({ dialog: { kind: 'format-cells', tab: 'border' } }))}
       </MenuContent>
     </Menu>
   )
@@ -779,6 +800,10 @@ function AutomateTab() {
       <Group label="Scripts">
         <Cmd id="tools.macros" label="Macros" text="Macros" icon={<FileCode2 />} />
         <Cmd id="tools.vba" label="View VBA code" text="VBA" icon={<Code2 />} />
+      </Group>
+      <Sep />
+      <Group label="Data">
+        <Cmd id="tools.sql" label="SQL query" text="SQL" icon={<Database />} />
       </Group>
     </>
   )
