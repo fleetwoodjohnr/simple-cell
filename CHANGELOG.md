@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-04)
 
 - First development version:
   - Canvas grid, cell editing, formula bar, Name Box, sheet tabs and status bar.

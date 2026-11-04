@@ -1,6 +1,6 @@
 # Implementation status
 
-_Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits listed); M6 and M10 in progress; M8–M9 not started · version 0.1.0 (unreleased) · tested on Linux only (Windows/macOS: CI workflow written, not yet run — there is no GitHub remote yet)._
+_Last updated: 2026-11-04 · Milestones M0–M5 and M7 complete (with the limits listed); M6 and M10 in progress; M8–M9 not started · version 0.1.0 · tested on Linux by hand; CI builds and runs the tests on Linux, Windows and macOS._
 
 "Done" means implemented **and** covered by a passing automated test. A button existing in the UI does not count.
 

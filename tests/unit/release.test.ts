@@ -136,7 +136,7 @@ describe('draft releases', () => {
 
   it('rejects a tag that moved after the build', () => {
     const gh = vi.fn(() => 'different-commit')
-    expect(() => draftRelease(options, gh)).toThrow(/commit/)
+    expect(() => draftRelease(options, gh)).toThrow('no longer points to the built commit')
     expect(gh).toHaveBeenCalledTimes(1)
   })
 
