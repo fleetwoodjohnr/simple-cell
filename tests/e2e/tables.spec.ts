@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor, holdWorkerReply } from './helpers'
 
 const hiddenRows = (page: Page) =>
   page.evaluate(() => {
@@ -8,6 +8,28 @@ const hiddenRows = (page: Page) =>
     const m = sc.books.get(tab).sheetMeta(sc.getView(tab).sheet)
     return m.rows.filter(([, h]: [number, number]) => h === 0).map(([r]: [number, number]) => r).sort((a: number, b: number) => a - b)
   })
+
+test('filter search waits for its values before it can hide rows', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    for (const [ref, value] of [['F1', 'Name'], ['F2', 'Ann'], ['F3', 'Bob']]) await typeCell(page, ref, value)
+    await goto(page, 'F2')
+    await page.keyboard.press(keyFor('data.filter'))
+    const release = await holdWorkerReply(page, 'filterValues')
+    await page.getByTestId('filter-button-F1').click()
+    const menu = page.getByTestId('filter-menu')
+    await expect(menu.getByLabel('Search values')).toBeDisabled()
+    await expect(menu.getByRole('button', { name: 'OK', exact: true })).toBeDisabled()
+    expect(await hiddenRows(page)).toEqual([])
+    await release()
+    await menu.getByLabel('Search values').fill('bo')
+    await menu.getByLabel('Search values').press('Enter')
+    await expect.poll(() => hiddenRows(page)).toEqual([1])
+  } finally {
+    await quit(app)
+  }
+})
 
 test('tables: Ctrl+T, total row, header filter menu, Ctrl+Shift+L', async () => {
   const { app, page } = await launch()

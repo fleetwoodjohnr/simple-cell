@@ -1,5 +1,38 @@
 import { test, expect } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell, MOD } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, holdWorkerReply } from './helpers'
+
+for (const text of ['Typed while the note loads', '']) {
+  test(`a delayed note lookup preserves ${text ? 'new text' : 'a deliberate deletion'}`, async () => {
+    const { app, page } = await launch()
+    try {
+      await newWorkbook(page)
+      await page.evaluate(async () => {
+        const sc = (window as any).__sc
+        const tab = sc.get().active
+        await sc.books.get(tab).api.setNote(sc.getView(tab).sheet, 0, 0, 'Original note', 'Tester')
+      })
+      const release = await holdWorkerReply(page, 'noteAt')
+      await page.keyboard.press('Shift+F2')
+      const note = page.getByLabel('Note', { exact: true })
+      await note.fill('Pending edit')
+      await note.fill(text)
+      const save = page.getByRole('button', { name: 'Save', exact: true })
+      await expect(save).toBeDisabled()
+      await release()
+      await expect(save).toBeEnabled()
+      await expect(note).toHaveValue(text)
+      await save.click()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      expect(await page.evaluate(async () => {
+        const sc = (window as any).__sc
+        const tab = sc.get().active
+        return (await sc.books.get(tab).api.noteAt(sc.getView(tab).sheet, 0, 0))?.text ?? null
+      })).toBe(text || null)
+    } finally {
+      await quit(app)
+    }
+  })
+}
 
 test('notes (Shift+F2, hover) and links (Ctrl+K, chip, open, internal jump)', async () => {
   const { app, page } = await launch()

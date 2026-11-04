@@ -1,7 +1,7 @@
 # Build and test on Linux, Windows and macOS, then install the deb and rpm into clean Ubuntu and Fedora containers.
-# Tags (v*) also draft a GitHub release with the installers and the latest*.yml files the in-app updater reads
+# Tags (v*) and manual rebuilds also draft a GitHub release with installers and the latest*.yml files the updater reads
 # (it only sees the release once the draft is published).
-# Builds are unsigned (see RELEASE.md): macOS gets an ad-hoc signature so Apple Silicon will run it.
+# Builds are unsigned (see docs/BUILD_AND_RELEASE.md): macOS gets an ad-hoc signature so Apple Silicon will run it.
 name: CI
 
 on:
@@ -10,27 +10,60 @@ on:
     tags: ['v*']
   pull_request:
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Existing version tag to rebuild as a release draft (blank runs ordinary CI)'
+        required: false
+        type: string
 
 # A newer push to the same branch cancels the run in progress; tag runs always finish.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+  group: ${{ github.workflow }}-${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+  cancel-in-progress: ${{ inputs.tag == '' && !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   contents: read
 
 jobs:
+  prepare:
+    name: Validate source and release tag
+    runs-on: ubuntu-latest
+    outputs:
+      sha: ${{ steps.source.outputs.sha }}
+      tag: ${{ steps.source.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag && format('refs/tags/{0}', inputs.tag) || github.ref }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Resolve the commit and validate its version
+        id: source
+        run: node scripts/release.ts prepare
+        env:
+          RELEASE_TAG: ${{ inputs.tag || (startsWith(github.ref, 'refs/tags/') && github.ref_name) || '' }}
+
   build:
     name: ${{ matrix.os }}
+    needs: prepare
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+        include:
+          - os: ubuntu-latest
+            builder-args: --linux --x64
+          - os: windows-latest
+            builder-args: --win --x64
+          - os: macos-latest
+            builder-args: --mac
     runs-on: ${{ matrix.os }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: 'false'
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
       - uses: actions/setup-node@v7
         with:
           node-version: 24
@@ -61,7 +94,7 @@ jobs:
           if [ "$RUNNER_OS" = Linux ]; then xvfb-run -a npx playwright test; else npx playwright test; fi
 
       - name: Installers
-        run: npx electron-builder --publish never
+        run: npx electron-builder ${{ matrix.builder-args }} --publish never
 
       - name: End-to-end tests against the packaged app
         shell: bash
@@ -71,6 +104,9 @@ jobs:
             Windows) SC_PACKAGED="$PWD/release/win-unpacked/Simple Cell.exe" npx playwright test ;;
             macOS) SC_PACKAGED="$PWD/release/mac-arm64/Simple Cell.app/Contents/MacOS/Simple Cell" npx playwright test ;;
           esac
+
+      - name: Validate platform downloads and update feed
+        run: node scripts/release.ts verify release
 
       - uses: actions/upload-artifact@v7
         with:
@@ -124,26 +160,28 @@ jobs:
           ! grep "not found" ldd.txt
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [build, linux-install]
+    if: needs.prepare.outputs.tag != ''
+    needs: [prepare, build, linux-install]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.prepare.outputs.sha }}
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      # Only the manifest parser is used here; do not download Electron again.
+      - run: npm ci --ignore-scripts
       - uses: actions/download-artifact@v8
         with:
           path: dist
           pattern: installers-*
           merge-multiple: true
-      - name: Draft release
+      - name: Validate all downloads and create or refresh the draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          # The updater compares package.json's version: a tag that differs would publish a broken update feed
-          [ "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")" ] || { echo "::error::tag $GITHUB_REF_NAME does not match package.json"; exit 1; }
-          # The in-app updater downloads the names written in latest*.yml, where spaces are dashes
-          for f in dist/*' '*; do [ -e "$f" ] && mv "$f" "${f// /-}"; done
-          # Notes: the newest CHANGELOG section
-          awk '/^## /{n++} n==1' CHANGELOG.md > notes.md
-          gh release create "$GITHUB_REF_NAME" dist/* --draft --title "Simple Cell ${GITHUB_REF_NAME#v}" --notes-file notes.md
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
+        run: node scripts/release.ts draft dist

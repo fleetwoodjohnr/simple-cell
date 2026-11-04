@@ -99,14 +99,33 @@ Installed copies check the newest **published** GitHub release of `fleetwoodjohn
 
 ## Release
 
-1. Bump `version` in `package.json`, turn the top `CHANGELOG.md` section into that version, and update the date line in `IMPLEMENTATION_STATUS.md`.
-2. Push a tag `v<version>` (it must match `package.json`, or the release job stops). CI builds and tests on all three OSes and installs the deb and rpm into clean Ubuntu and Fedora containers. If that passes, it creates a **draft** release with every installer and the changelog section as notes.
-3. Check by hand before publishing:
+1. Set the version with `npm version <version> --no-git-tag-version` (this keeps `package.json` and `package-lock.json` in sync), turn the top `CHANGELOG.md` section into that version, and update the date line in `IMPLEMENTATION_STATUS.md`. Use a stable version such as `0.1.0`; the workflow checks the `latest*.yml` update feeds.
+2. Commit the release changes, then create and push its tag:
+   ```bash
+   git tag v<version>
+   git push origin HEAD
+   git push origin v<version>
+   ```
+   The tag must already exist and match `package.json`; the preflight job rejects mismatches before building. All jobs use the same resolved commit. CI builds and tests on all three OSes and installs the deb and rpm into clean Ubuntu and Fedora containers.
+3. After the checks pass, CI validates **all eight installers**: Windows x64 NSIS; macOS Intel and Apple Silicon DMG and ZIP; Linux x64 AppImage, deb and rpm. It checks the generated blockmaps and all three updater manifests, including every referenced file's version, size and SHA-512 hash. Filenames use dashes instead of spaces, matching the manifests and README. Only these validated assets are uploaded to a **draft** release, with the newest changelog section as notes. The workflow summary links to the draft and lists its assets.
+4. Check by hand before publishing:
    - Open files from Excel and LibreOffice, save them, and reopen the results in both.
    - Print a page and export a PDF.
    - Run a macro.
    - Update from the previous release.
    - With the update check off, confirm the app makes no network traffic.
-4. Publish the draft. Publishing is what ships the update to installed copies.
+5. Wait for the last workflow run for the tag to finish, then publish the draft in GitHub. **Draft downloads are not public.** Publishing makes the README's latest-release link work and ships the update to installed copies. Do not publish while an upload or retry is running.
+
+### Rebuild or retry a draft
+
+Rerun a failed tag workflow, or use **Actions → CI → Run workflow** with the existing version in the **tag** input. The CLI equivalent is:
+
+```bash
+gh workflow run ci.yml --ref main -f tag=v<version>
+```
+
+A blank tag input runs ordinary CI without creating a release (unless the selected workflow ref is itself a version tag). Manual rebuilds check out the supplied tag, not the selected branch. Tag pushes and manual rebuilds for the same tag share a concurrency group.
+
+Retries replace matching assets and refresh the notes on an existing draft, so an interrupted upload can be resumed. The workflow refuses to modify a published release and rechecks draft status before uploads and before editing notes. Keep publishing and retries separate: publish only after the last run completes. Never move or reuse a version tag; the workflow checks the remote tag against the built commit again before drafting. Release a new version to change public downloads. Builds stay unsigned on Windows and signed ad hoc on macOS; publishing a draft does not add a certificate or notarization.
 
 No release has been published yet.

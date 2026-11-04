@@ -1,5 +1,5 @@
 // Notes and hyperlinks in the UI: the note popup on hover, the link chip under the active cell, and their dialogs.
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { ExternalLink, Link2, Pencil, Trash2 } from 'lucide-react'
 import type { Link, Note } from '@/core/model/workbook'
 import { colX, rowY, type Layout } from '@/grid/layout'
@@ -113,16 +113,24 @@ export function NoteDialog() {
   const c = A.ctx()
   const [text, setText] = useState('')
   const [had, setHad] = useState(false)
+  const [loaded, setLoaded] = useState(false)
+  const edited = useRef(false)
   useEffect(() => {
     if (!c) return
+    let live = true
     void c.book.api.noteAt(c.view.sheet, c.view.sel.active.r, c.view.sel.active.c).then((n) => {
-      setText(n?.text ?? '')
+      if (!live) return
+      // The user can type (or clear the text) while the original note is being read.
+      if (!edited.current) setText(n?.text ?? '')
       setHad(!!n)
+      setLoaded(true)
     })
+    return () => { live = false }
   }, [])
   if (!c) return null
   const { r, c: col } = c.view.sel.active
   const save = async (value: string | null) => {
+    if (!loaded) return
     await c.book.api.setNote(c.view.sheet, r, col, value, get().settings.authorName)
     markDirty(c.tab)
     close()
@@ -142,13 +150,13 @@ export function NoteDialog() {
             </Btn>
           )}
           <Btn onClick={() => (close(), refocus())}>Cancel</Btn>
-          <Btn variant="primary" onClick={() => void save(text.trim() ? text : null)}>
+          <Btn variant="primary" disabled={!loaded} onClick={() => void save(text.trim() ? text : null)}>
             Save
           </Btn>
         </>
       }
     >
-      <textarea aria-label="Note" autoFocus className={cx(inputCls, 'h-32 py-2')} value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && void save(text.trim() ? text : null)} />
+      <textarea aria-label="Note" autoFocus className={cx(inputCls, 'h-32 py-2')} value={text} onChange={(e) => { edited.current = true; setText(e.target.value) }} onKeyDown={(e) => e.key === 'Enter' && (e.ctrlKey || e.metaKey) && void save(text.trim() ? text : null)} />
       {!get().settings.authorName && <p className="mt-2 text-[11.5px] text-text-3">Notes are signed with the author name from Settings ▸ General.</p>}
     </Modal>
   )

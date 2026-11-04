@@ -123,6 +123,29 @@ export async function settle(page: Page, ms = 300) {
   await page.waitForTimeout(ms)
 }
 
+/** Hold one kind of worker reply until released, to exercise dialogs while their initial data is still loading. */
+export async function holdWorkerReply(page: Page, method: 'noteAt' | 'filterValues') {
+  await page.evaluate((method) => {
+    const sc = (window as any).__sc
+    const book = sc.books.get(sc.get().active)
+    const api = book.api
+    const gate = new Promise<void>((resolve) => {
+      sc.releaseWorkerReply = () => {
+        book.api = api
+        resolve()
+      }
+    })
+    book.api = new Proxy(api, {
+      get: (target, key) => key === method ? async (...args: unknown[]) => {
+        const result = await target[key](...args)
+        await gate
+        return result
+      } : target[key]
+    })
+  }, method)
+  return () => page.evaluate(() => (window as any).__sc.releaseWorkerReply())
+}
+
 /**
  * The key for a command on this OS, from the app's own shortcut registry ("Mod-Shift-k" → "Meta+Shift+k" on macOS),
  * so tests press what a user of this platform would (Mac Excel's bindings differ from Windows').

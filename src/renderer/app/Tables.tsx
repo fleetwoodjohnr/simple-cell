@@ -143,7 +143,7 @@ export function FilterOverlay({ tab, book, L }: { tab: string; book: Book; L: La
           ]
         })
       )}
-      {open && filters.some((f) => f.key === open.key) && <FilterMenu tab={tab} book={book} L={L} range={filters.find((f) => f.key === open.key)!} col={open.col} />}
+      {open && filters.some((f) => f.key === open.key) && <FilterMenu key={`${open.key}:${open.col}`} tab={tab} book={book} L={L} range={filters.find((f) => f.key === open.key)!} col={open.col} />}
     </>
   )
 }
@@ -172,8 +172,9 @@ function FilterMenu({ tab, book, L, range, col }: { tab: string; book: Book; L: 
   const [val, setVal] = useState('')
   const ref = useRef<HTMLDivElement>(null)
   useEffect(() => {
+    let live = true
     void book.api.filterValues(view.sheet, range.key, col).then((d) => {
-      if (!d) return
+      if (!live || !d) return
       setData(d)
       const cur = d.current
       setChecked(new Set(cur?.values ? cur.values.map((v) => v.toLowerCase()) : d.values.map((v) => v.toLowerCase())))
@@ -192,21 +193,25 @@ function FilterMenu({ tab, book, L, range, col }: { tab: string; book: Book; L: 
         }
       }
     })
-    // Now, not a frame later (keys typed meanwhile were lost).
-    ref.current?.querySelector<HTMLElement>('input')?.focus()
+    return () => { live = false }
   }, [range.key, col])
+  useEffect(() => {
+    if (data) ref.current?.querySelector<HTMLElement>('input')?.focus()
+  }, [data])
   const shown = useMemo(() => (data?.values ?? []).filter((v) => v.toLowerCase().includes(q.toLowerCase())), [data, q])
   const done = () => {
     setView(tab, { filterMenu: undefined })
     refocus()
   }
   const apply = async (fc: Omit<FilterColumn, 'col'> | null) => {
+    if (!data) return
     const c = A.ctx()
     if (!c) return
     await A.edit(c, (b) => b.api.setFilter(view.sheet, range.key, col, fc))
     done()
   }
   const ok = () => {
+    if (!data) return
     if (mode === 'custom') {
       if (!val.trim()) return void apply(null)
       return void apply({ custom: { conds: [OPS.find(([k]) => k === op)![2](val.trim())] } })
@@ -255,18 +260,19 @@ function FilterMenu({ tab, book, L, range, col }: { tab: string; book: Book; L: 
       <div className="my-1.5 h-px bg-border" />
       <div className="mb-1.5 flex gap-1">
         {(['list', 'custom'] as const).map((m) => (
-          <button key={m} type="button" aria-pressed={mode === m} onClick={() => setMode(m)} className={cx('flex-1 rounded px-2 py-1', mode === m ? 'bg-accent-soft text-accent-ink' : 'hover:bg-hover')}>
+          <button key={m} type="button" disabled={!data} aria-pressed={mode === m} onClick={() => setMode(m)} className={cx('flex-1 rounded px-2 py-1', mode === m ? 'bg-accent-soft text-accent-ink' : 'hover:bg-hover')}>
             {m === 'list' ? 'Values' : 'Condition'}
           </button>
         ))}
       </div>
       {mode === 'list' ? (
         <>
-          <input aria-label="Search values" className={cx(inputCls, 'mb-1.5 h-7')} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok()} />
+          <input aria-label="Search values" disabled={!data} className={cx(inputCls, 'mb-1.5 h-7')} placeholder="Search" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && ok()} />
           <div className="max-h-[200px] overflow-y-auto rounded border border-border p-1">
             <label className="flex items-center gap-2 px-1 py-0.5">
               <input
                 type="checkbox"
+                disabled={!data}
                 checked={allOn}
                 onChange={(e) => {
                   const next = new Set(checked)
@@ -316,7 +322,7 @@ function FilterMenu({ tab, book, L, range, col }: { tab: string; book: Book; L: 
         <Btn size="sm" onClick={done}>
           Cancel
         </Btn>
-        <Btn size="sm" variant="primary" onClick={ok}>
+        <Btn size="sm" variant="primary" disabled={!data} onClick={ok}>
           OK
         </Btn>
       </div>
