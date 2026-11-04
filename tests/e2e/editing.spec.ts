@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor, clickMenuPath } from './helpers'
 
 const style = (page: Page, r: number, c: number) =>
   page.evaluate(([r, c]) => {
@@ -72,6 +72,52 @@ test('paste special (operation, transpose) and format painter', async () => {
     await expect(page.getByTestId('name-box')).toHaveValue('A1')
     await page.keyboard.press(keyFor('view.formulaBarTall'))
     await expect.poll(async () => (await page.getByTestId('formula-bar').boundingBox())!.height).toBeGreaterThan(80)
+  } finally {
+    await quit(app)
+  }
+})
+
+test('AutoFit column width and row height (Home ▸ Format, double-click a row border), one undo step each', async () => {
+  const { app, page } = await launch()
+  const meta = () =>
+    page.evaluate(() => {
+      const sc = (window as any).__sc
+      const tab = sc.get().active
+      const m = sc.books.get(tab).sheetMeta(sc.getView(tab).sheet)
+      return { cols: Object.fromEntries(m.cols), rows: Object.fromEntries(m.rows), defW: m.defaultColWidth, defH: m.defaultRowHeight }
+    })
+  const fontSize = (size: number | undefined) => page.evaluate((size) => (window as any).__sc.A.formatSel((window as any).__sc.A.ctx(), { size }), size)
+  try {
+    await newWorkbook(page)
+    await typeCell(page, 'B2', 'A fairly long piece of text that overflows column B')
+    await goto(page, 'B2')
+    await page.getByRole('tablist', { name: 'Ribbon' }).getByRole('tab', { name: 'Home', exact: true }).click()
+    await page.getByRole('button', { name: 'Format', exact: true }).click()
+    await clickMenuPath(page, 'AutoFit column width')
+    const { defW, defH } = await meta()
+    await expect.poll(async () => (await meta()).cols[1] ?? 0).toBeGreaterThan(defW * 2)
+
+    await typeCell(page, 'C3', 'Big')
+    await goto(page, 'C3')
+    await fontSize(28)
+    await page.evaluate(() => (window as any).__sc.runCommand('fmt.autofitRows'))
+    await expect.poll(async () => (await meta()).rows[2] ?? 0).toBeGreaterThan(defH * 2)
+    // Back to the default font: the row goes back to the default height. Undo restores the fitted height in one step.
+    await fontSize(undefined)
+    await page.evaluate(() => (window as any).__sc.runCommand('fmt.autofitRows'))
+    await expect.poll(async () => (await meta()).rows[2]).toBeUndefined()
+    await page.keyboard.press(`${MOD}+z`)
+    await expect.poll(async () => (await meta()).rows[2] ?? 0).toBeGreaterThan(defH * 2)
+    // Double-click the border under row 3's header fits it too: the font is the default again, so the row shrinks back.
+    const box = (await page.getByTestId('grid').boundingBox())!
+    await page.mouse.dblclick(box.x + 10, box.y + 22 + 2 * defH + (await meta()).rows[2])
+    await expect.poll(async () => (await meta()).rows[2]).toBeUndefined()
+    // Wrapped text: one line per wrapped line.
+    await typeCell(page, 'C5', 'one two three four five six seven eight')
+    await goto(page, 'C5')
+    await page.evaluate(() => (window as any).__sc.A.formatSel((window as any).__sc.A.ctx(), { wrap: true }))
+    await page.evaluate(() => (window as any).__sc.runCommand('fmt.autofitRows'))
+    await expect.poll(async () => (await meta()).rows[4] ?? 0).toBeGreaterThan(defH * 3)
   } finally {
     await quit(app)
   }

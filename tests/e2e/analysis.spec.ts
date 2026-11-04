@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test'
+import AxeBuilder from '@axe-core/playwright'
 import { launch, quit, newWorkbook, typeCell, goto, cell, clickMenuPath } from './helpers'
 
 test('Solver: objective, variables, a constraint; Solve; keep the solution with an Answer Report; the model is remembered', async () => {
@@ -96,6 +97,36 @@ test('what-if: a data table through its dialog, and the Scenario Manager (add, s
     await expect(page.getByTestId('sheet-tab-Scenario Summary')).toBeVisible()
     expect(await cell(page, 'Scenario Summary!E6')).toBe(160)
     expect(await cell(page, 'Scenario Summary!F6')).toBe(20)
+  } finally {
+    await quit(app)
+  }
+})
+
+test('Data Analysis: Regression through its dialog onto a new sheet (and the form passes axe)', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    const data: [string, string][] = [['A1', 'Y'], ['B1', 'X']]
+    ;[3, 5, 7, 10, 11, 15].forEach((y, i) => data.push([`A${i + 2}`, String(y)], [`B${i + 2}`, String(i + 1)]))
+    for (const [ref, v] of data) await typeCell(page, ref, v)
+    await goto(page, 'A1')
+    await page.getByTestId('ribbon-tab-data').click()
+    await page.getByRole('button', { name: 'Data analysis', exact: true }).click()
+    await page.getByRole('listbox', { name: 'Analysis tools' }).selectOption({ label: 'Regression' })
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
+    const form = page.getByRole('dialog', { name: 'Regression' })
+    await expect(form.getByLabel('Input Y range')).toHaveValue('$A$1:$B$7')
+    await form.getByLabel('Input Y range').fill('$A$1:$A$7')
+    await form.getByLabel('Input X range').fill('$B$1:$B$7')
+    await form.getByLabel('Residuals').check()
+    const a11y = await new AxeBuilder({ page }).setLegacyMode(true).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze()
+    expect(a11y.violations.map((v) => v.id)).toEqual([])
+    await form.getByRole('button', { name: 'OK', exact: true }).click()
+    await expect(page.getByTestId('sheet-tab-Regression')).toBeVisible()
+    expect(await cell(page, 'Regression!A1')).toBe('SUMMARY OUTPUT')
+    // Slope of y on x: 2.3714… (least squares on these six points).
+    expect(await cell(page, 'Regression!B18')).toBeCloseTo(2.3714285714285714, 12)
+    expect(await cell(page, 'Regression!A18')).toBe('X')
   } finally {
     await quit(app)
   }

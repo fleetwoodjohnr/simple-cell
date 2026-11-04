@@ -1560,6 +1560,17 @@ export class Doc {
     })
   }
 
+  /** AutoFit: a size per row or column in one undo step; undefined goes back to the default. Fitted rows aren't custom. */
+  fitSizes(sheet: number, axis: 'row' | 'col', sizes: [number, number | undefined][]) {
+    return this.transact(axis === 'row' ? 'AutoFit row height' : 'AutoFit column width', (tx) => {
+      const sh = this.sheet(sheet)
+      for (const [i, px] of sizes) {
+        if (axis === 'row') tx.mapSet(sh.rowInfo, i, cleanInfo({ ...(sh.rowInfo.get(i) ?? {}), height: px, custom: undefined }))
+        else tx.mapSet(sh.cols, i, cleanInfo({ ...(sh.cols.get(i) ?? {}), width: px }))
+      }
+    })
+  }
+
   hide(sheet: number, axis: 'row' | 'col', indexes: number[], hidden: boolean) {
     return this.transact(hidden ? 'Hide' : 'Unhide', (tx) => {
       if (axis === 'row') tx.rowsShown = true

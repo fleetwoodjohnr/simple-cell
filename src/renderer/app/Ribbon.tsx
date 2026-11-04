@@ -535,7 +535,9 @@ function HomeTab({ tab }: { tab: string }) {
           <MenuContent>
             <MenuLabel>Cell size</MenuLabel>
             <MenuItem onSelect={() => runCommand('fmt.rowHeight')}>Row height…</MenuItem>
+            <MenuItem onSelect={() => runCommand('fmt.autofitRows')}>AutoFit row height</MenuItem>
             <MenuItem onSelect={() => runCommand('fmt.colWidth')}>Column width…</MenuItem>
+            <MenuItem onSelect={() => runCommand('fmt.autofitCols')}>AutoFit column width</MenuItem>
             <MenuLabel>Visibility</MenuLabel>
             <SubMenu label="Hide & unhide">
               <MenuItem onSelect={() => runCommand('fmt.hideRows')}>Hide rows</MenuItem>
@@ -811,7 +813,7 @@ function DataTab() {
           </MenuContent>
         </Menu>
         <Cmd id="data.solver" label="Solver" text="Solver" icon={<SlidersHorizontal />} />
-        <Cmd id="data.descriptiveStats" label="Descriptive statistics" text="Statistics" icon={<Sigma />} />
+        <Cmd id="data.analysis" label="Data analysis" text="Data Analysis" icon={<Sigma />} />
       </Group>
       <Sep />
       <Group label="Outline">

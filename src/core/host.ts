@@ -12,6 +12,7 @@ import type { PivotConfig } from './pivot'
 import { descriptiveStats, goalSeek, removeDuplicates, textToColumns } from './analysis'
 import { emptySolverModel, finishSolver, readSolverModel, solve, type SolverModel, type SolverResult } from './solver'
 import { createDataTable, scenarioSummary, setScenarios, showScenario } from './whatif'
+import { runTool, type ToolId, type ToolParams } from './toolpak'
 import type { Scenario, ScenarioSet } from './model/workbook'
 import { vbaModules } from './vba'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
@@ -505,32 +506,17 @@ export class Host {
   setRowHeights(sheet: number, rows: number[], height: number | undefined) {
     return this.run(() => this.doc.setRowHeights(sheet, rows, height))
   }
-  /** Best width for columns from their displayed text (double-click on a column border). */
-  autofitCols(sheet: number, cols: number[], measure: (text: string, style: number) => number) {
-    void measure
-    return this.run(() => {
-      const s = this.doc.sheet(sheet)
-      const widths: number[] = cols.map((c) => {
-        let w = 0
-        s.forEachIn({ sheet, r0: 0, r1: MAX_ROWS - 1, c0: c, c1: c }, (r, cc, cell) => {
-          const t = this.doc.viewOf(cell, r, cc, 255).t
-          w = Math.max(w, t.length * 7 + 10)
-        })
-        return w ? Math.min(Math.max(w, 20), 800) : s.defaultColWidth
-      })
-      this.doc.transact('AutoFit column width', (tx) => {
-        cols.forEach((c, i) => tx.mapSet(s.cols, c, { ...(s.cols.get(c) ?? {}), width: widths[i], hidden: undefined }))
-      })
-    })
+  /** AutoFit sizes measured by the UI (which knows fonts), in one undo step. */
+  fitSizes(sheet: number, axis: 'row' | 'col', sizes: [number, number | undefined][]) {
+    return this.run(() => this.doc.fitSizes(sheet, axis, sizes))
   }
-  /** Column texts for autofit measured by the UI (which knows fonts). */
-  columnTexts(sheet: number, col: number, limit = 5000): { t: string; s: number }[] {
-    const s = this.doc.sheet(sheet)
-    const out: { t: string; s: number }[] = []
-    s.forEachIn({ sheet, r0: 0, r1: MAX_ROWS - 1, c0: col, c1: col }, (r, c, cell) => {
+  /** Displayed texts in an area, for AutoFit. */
+  cellTexts(area: Area, limit = 50_000): { r: number; c: number; t: string; s: number }[] {
+    const out: { r: number; c: number; t: string; s: number }[] = []
+    this.doc.sheet(area.sheet).forEachIn(area, (r, c, cell) => {
       if (out.length >= limit) return
       const vc = this.doc.viewOf(cell, r, c, 255)
-      if (vc.t) out.push({ t: vc.t, s: vc.s })
+      if (vc.t) out.push({ r, c, t: vc.t, s: vc.s })
     })
     return out
   }
@@ -662,6 +648,15 @@ export class Host {
   scenarioSummary(sheet: number, resultCells: string): { ok: true; sheet: number } | { ok: false; error: string } {
     try {
       return { ok: true, sheet: scenarioSummary(this.doc, sheet, resultCells) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
+  /** Analysis ToolPak: run a tool and write its output. */
+  runTool(id: ToolId, params: ToolParams): { ok: true; sheet: number } | { ok: false; error: string } {
+    try {
+      return { ok: true, ...runTool(this.doc, id, params) }
     } catch (e) {
       return { ok: false, error: (e as Error).message }
     }

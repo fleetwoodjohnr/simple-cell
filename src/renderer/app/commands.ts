@@ -7,6 +7,7 @@ import { runPrint } from './Print'
 import { insertChart } from './Charts'
 import { openInsertPivot, refreshAll } from './Pivot'
 import { openTool } from './AnalysisDialogs'
+import { autofitCols, autofitRows } from '@/grid/Grid'
 import { get, set, toast, updateSettings, HOME, activeTab } from '../state/store'
 import * as docs from '../state/documents'
 import * as A from './actions'
@@ -346,6 +347,8 @@ def({ id: 'fmt.cells', label: 'Format cells…', run: () => set({ dialog: { kind
 def({ id: 'fmt.font', label: 'Format font…', run: () => set({ dialog: { kind: 'format-cells', tab: 'font' } }) })
 def({ id: 'fmt.rowHeight', label: 'Row height…', run: () => set({ dialog: { kind: 'row-height' } }) })
 def({ id: 'fmt.colWidth', label: 'Column width…', run: () => set({ dialog: { kind: 'col-width' } }) })
+def({ id: 'fmt.autofitRows', label: 'AutoFit row height', run: (c) => { const x = needsSelection(c); return autofitRows(x, x.view.sel.ranges) } })
+def({ id: 'fmt.autofitCols', label: 'AutoFit column width', run: (c) => { const x = needsSelection(c); return autofitCols(x, x.view.sel.ranges) } })
 def({ id: 'fmt.hideRows', label: 'Hide rows', run: (c) => hideSel(needsSelection(c), 'row', true) })
 def({ id: 'fmt.unhideRows', label: 'Unhide rows', run: (c) => hideSel(needsSelection(c), 'row', false) })
 def({ id: 'fmt.hideCols', label: 'Hide columns', run: (c) => hideSel(needsSelection(c), 'col', true) })
@@ -541,6 +544,7 @@ def({ id: 'data.removeDuplicates', label: 'Remove duplicates…', keywords: 'ded
 def({ id: 'data.textToColumns', label: 'Text to columns…', keywords: 'split delimiter', run: (c) => (needsSelection(c), openTool('text-to-columns')) })
 def({ id: 'data.scenarios', label: 'Scenario manager…', keywords: 'what-if scenarios best worst case', run: (c) => (needsSelection(c), openTool('scenarios')) })
 def({ id: 'data.dataTable', label: 'Data table…', keywords: 'what-if table sensitivity input cell', run: (c) => (needsSelection(c), openTool('data-table')) })
+def({ id: 'data.analysis', label: 'Data analysis…', keywords: 'analysis toolpak statistics anova regression histogram t-test correlation covariance fourier random sampling', run: (c) => (needsSelection(c), openTool('data-analysis')) })
 def({ id: 'data.solver', label: 'Solver…', keywords: 'optimize optimise linear programming maximize minimize constraints what-if', run: (c) => (needsSelection(c), openTool('solver')) })
 def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
 def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })

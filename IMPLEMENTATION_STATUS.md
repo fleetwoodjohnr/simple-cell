@@ -39,7 +39,8 @@ _Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits
 | Clipboard: copy/cut/paste inside the app (formulas move relative), paste TSV from other apps, copy out as TSV and HTML | e2e `core › copy and paste…` |
 | Fill down/right/up/left (Ctrl+D, Ctrl+R); AutoFill with the fill handle (numbers, dates, weekdays, months, "Item 1") | e2e `core` (fill down); AutoFill: unit tests pending |
 | Formatting: bold/italic/underline/strike, font, size, colours, borders, alignment, wrap, indent, merge, number formats, Format Cells dialog | e2e `core › keyboard…` (bold); others: manual check, tests pending |
-| Column width/row height (drag, double-click autofit, dialog), hide/unhide, freeze panes, gridlines, headings, zoom | manual check; tests pending |
+| AutoFit row height and column width (Home ▸ Format, double-click a border; one undo step) | e2e `editing › AutoFit…` |
+| Column width/row height (drag, dialog), hide/unhide, freeze panes, gridlines, headings, zoom | manual check; tests pending |
 | Status bar: Average, Count, Sum, Min, Max of the selection; Ready/Enter/Edit mode; circular reference warning | e2e `core › insert and delete rows…` |
 | CSV/TSV open and save (UTF-8/UTF-16/Windows-1252 detection, delimiter sniffing, quoted fields); CSV-injection guard on export | e2e `core › save as CSV…` |
 | AutoSave and crash recovery (renderer crash → restore) | e2e `core › unsaved work survives a renderer crash` |

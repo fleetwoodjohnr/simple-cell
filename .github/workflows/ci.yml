@@ -140,6 +140,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          # The updater compares package.json's version: a tag that differs would publish a broken update feed
+          [ "${GITHUB_REF_NAME#v}" = "$(node -p "require('./package.json').version")" ] || { echo "::error::tag $GITHUB_REF_NAME does not match package.json"; exit 1; }
           # The in-app updater downloads the names written in latest*.yml, where spaces are dashes
           for f in dist/*' '*; do [ -e "$f" ] && mv "$f" "${f// /-}"; done
           # Notes: the newest CHANGELOG section

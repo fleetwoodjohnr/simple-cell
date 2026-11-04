@@ -404,7 +404,7 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
     }
 }
 
-function wrapText(ctx: CanvasRenderingContext2D, font: string, text: string, width: number): string[] {
+export function wrapText(ctx: CanvasRenderingContext2D, font: string, text: string, width: number): string[] {
   const out: string[] = []
   for (const para of text.split('\n')) {
     const words = para.split(/(\s+)/)

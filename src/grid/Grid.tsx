@@ -9,11 +9,11 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, useSyncExter
 import { useShallow } from 'zustand/react/shallow'
 import { MAX_COLS, MAX_ROWS } from '@/core/engine/values'
 import { books, get, set, useApp } from '@/renderer/state/store'
-import { getView, rectOf, setView, useViews, cellSel, type Sel } from '@/renderer/state/view'
+import { getView, rectOf, setView, useViews, cellSel, type Rect, type Sel } from '@/renderer/state/view'
 import * as A from '@/renderer/app/actions'
 import { handleGridKey, refHighlights, insertPointRef } from './keys'
 import { colX, hit, makeLayout, rowY, scrollToShow, visibleCols, visibleRows, axesFor, type Layout } from './layout'
-import { clearMeasureCache, fontOf, paint, type Theme } from './paint'
+import { clearMeasureCache, fontOf, paint, wrapText, type Theme } from './paint'
 import { GridMenu } from './GridMenu'
 
 function readTheme(dark: boolean): Theme {
@@ -385,14 +385,19 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
     const h = hit(L, x, y)
     const c = A.ctx()
     if (!c) return
+    // Double-click a header border: AutoFit that column or row, or every selected whole column or row that contains it.
     if (h.zone === 'colhdr') {
       const edge = nearEdge(L, x, 'col')
-      if (edge !== null) await autofit(c, edge)
+      if (edge === null) return
+      const sel = c.view.sel.ranges.filter((r) => r.r0 === 0 && r.r1 === MAX_ROWS - 1 && edge >= r.c0 && edge <= r.c1)
+      await autofitCols(c, sel.length ? sel : [{ r0: 0, r1: MAX_ROWS - 1, c0: edge, c1: edge }])
       return
     }
     if (h.zone === 'rowhdr') {
       const edge = nearEdge(L, y, 'row')
-      if (edge !== null) await A.edit(c, (b) => b.api.setRowHeights(c.view.sheet, [edge], undefined))
+      if (edge === null) return
+      const sel = c.view.sel.ranges.filter((r) => r.c0 === 0 && r.c1 === MAX_COLS - 1 && edge >= r.r0 && edge <= r.r1)
+      await autofitRows(c, sel.length ? sel : [{ r0: edge, r1: edge, c0: 0, c1: MAX_COLS - 1 }])
       return
     }
     if (h.zone === 'cell') await A.startEdit(c)
@@ -543,10 +548,11 @@ function LiveRegion({ tab }: { tab: string }) {
 }
 
 let mctx: CanvasRenderingContext2D | null = null
+const measureCtx = () => (mctx ??= document.createElement('canvas').getContext('2d')!)
 function measureText(font: string, text: string) {
-  mctx ??= document.createElement('canvas').getContext('2d')
-  mctx!.font = font
-  return mctx!.measureText(text).width
+  const ctx = measureCtx()
+  ctx.font = font
+  return ctx.measureText(text).width
 }
 
 function nearEdge(L: Layout, px: number, axis: 'col' | 'row'): number | null {
@@ -575,22 +581,48 @@ function nearFillHandle(L: Layout, x: number, y: number) {
   return Math.abs(x - colX(L, r.c1 + 1)) <= 5 && Math.abs(y - rowY(L, r.r1 + 1)) <= 5
 }
 
-/** Double-click a column border: fit the widest displayed text (measured with the real fonts). */
-export async function autofit(c: A.Ctx, col: number) {
-  const s = getView(c.tab)
-  const sel = s.sel.ranges.filter((r) => r.r0 === 0 && r.r1 === MAX_ROWS - 1 && col >= r.c0 && col <= r.c1)
-  const cols = sel.length ? sel.flatMap((r) => range(r.c0, r.c1)) : [col]
+const inAny = (rs: Rect[], r: number, c: number) => rs.some((a) => r >= a.r0 && r <= a.r1 && c >= a.c0 && c <= a.c1)
+
+/** AutoFit column width: each column fits its widest displayed text inside the ranges (measured with the real fonts). */
+export async function autofitCols(c: A.Ctx, ranges: Rect[]) {
+  const sheet = c.view.sheet
+  const m = c.book.sheetMeta(sheet)!
+  const { cols } = axesFor(m)
   const { defaultFont, defaultFontSize } = get().settings
-  for (const cc of cols) {
-    const texts = await c.book.api.columnTexts(c.view.sheet, cc)
-    let w = 0
-    for (const t of texts) {
-      const st = c.book.meta.styles[t.s] ?? {}
-      w = Math.max(w, measureText(fontOf(st, 1, defaultFont, defaultFontSize), t.t) + 10)
+  const fit = new Map<number, number | undefined>()
+  // Whole columns with a set width and no text go back to the default width.
+  for (const [i, px] of m.cols) if (px > 0 && ranges.some((a) => a.r0 === 0 && a.r1 === MAX_ROWS - 1 && i >= a.c0 && i <= a.c1)) fit.set(i, undefined)
+  for (const a of ranges)
+    for (const t of await c.book.api.cellTexts({ sheet, ...a })) {
+      // Hidden columns stay hidden; merged cells don't count (as in Excel).
+      if (!cols.size(t.c) || inAny(m.merges, t.r, t.c)) continue
+      // Header cells of a filter range leave room for the filter button (17 px, Tables.tsx).
+      const button = m.filters.some((f) => f.area.r0 === t.r && t.c >= f.area.c0 && t.c <= f.area.c1) ? 19 : 0
+      const w = Math.ceil(Math.min(Math.max(measureText(fontOf(c.book.meta.styles[t.s] ?? {}, 1, defaultFont, defaultFontSize), t.t) + 10 + button, 16), 1200))
+      fit.set(t.c, Math.max(fit.get(t.c) ?? 0, w))
     }
-    const m = c.book.sheetMeta(c.view.sheet)!
-    await A.edit(c, (b) => b.api.setColWidths(c.view.sheet, [cc], texts.length ? Math.ceil(Math.min(Math.max(w, 16), 1200)) : m.defaultColWidth))
-  }
+  if (fit.size) await A.edit(c, (b) => b.api.fitSizes(sheet, 'col', [...fit]))
+}
+
+/** AutoFit row height: each row of the ranges (all of its cells) fits its tallest text: font size, and lines when wrapped. */
+export async function autofitRows(c: A.Ctx, ranges: Rect[]) {
+  const sheet = c.view.sheet
+  const m = c.book.sheetMeta(sheet)!
+  const { rows, cols } = axesFor(m)
+  const { defaultFont, defaultFontSize } = get().settings
+  const fit = new Map<number, number>()
+  // Rows with a set height and no text go back to the default height.
+  for (const [i, px] of m.rows) if (px > 0 && ranges.some((a) => i >= a.r0 && i <= a.r1)) fit.set(i, 0)
+  for (const a of ranges)
+    for (const t of await c.book.api.cellTexts({ sheet, r0: a.r0, r1: a.r1, c0: 0, c1: MAX_COLS - 1 })) {
+      if (!rows.size(t.r) || inAny(m.merges, t.r, t.c)) continue
+      const st = c.book.meta.styles[t.s] ?? {}
+      // Same line breaking as the painter (3 px padding each side).
+      const lines = st.wrap ? wrapText(measureCtx(), fontOf(st, 1, defaultFont, defaultFontSize), t.t, cols.size(t.c) - 6).length : 1
+      // ponytail: height scales the default row by font size and line count; use real font metrics if fitted rows look off
+      fit.set(t.r, Math.max(fit.get(t.r) ?? 0, Math.ceil((m.defaultRowHeight * lines * (st.size ?? defaultFontSize)) / defaultFontSize)))
+    }
+  if (fit.size) await A.edit(c, (b) => b.api.fitSizes(sheet, 'row', [...fit].map(([r, h]): [number, number | undefined] => [r, h > m.defaultRowHeight ? h : undefined])))
 }
 
 function range(a: number, b: number) {

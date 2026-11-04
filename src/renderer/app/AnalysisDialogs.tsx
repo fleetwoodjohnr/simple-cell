@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react'
 import type { SolverConstraint, SolverModel, SolverRel, SolverResult } from '@/core/solver'
 import type { Scenario, ScenarioSet } from '@/core/model/workbook'
 import { setView } from '../state/view'
+import { DataAnalysis } from './ToolPak'
 import { areaName, cellName, colName, parseArea, parseCell } from '@/core/refs'
 import { set, toast, type Dialog } from '../state/store'
 import { Btn, Field, Modal, cx, inputCls } from '../ui'
@@ -14,7 +15,7 @@ const close = closeDialog
 const refocus = focusGrid
 const done = () => (close(), refocus())
 
-export type ToolKind = 'dedupe' | 'text-to-columns' | 'goal-seek' | 'descriptive' | 'solver' | 'data-table' | 'scenarios'
+export type ToolKind = 'dedupe' | 'text-to-columns' | 'goal-seek' | 'descriptive' | 'solver' | 'data-table' | 'scenarios' | 'data-analysis'
 
 export function openTool(tool: ToolKind) {
   set({ dialog: { kind: 'tool', tool } })
@@ -27,6 +28,7 @@ export function ToolDialog({ d }: { d: Extract<Dialog, { kind: 'tool' }> }) {
   if (d.tool === 'solver') return <Solver />
   if (d.tool === 'data-table') return <DataTableDialog />
   if (d.tool === 'scenarios') return <ScenarioManager />
+  if (d.tool === 'data-analysis') return <DataAnalysis />
   return <Descriptive />
 }
 

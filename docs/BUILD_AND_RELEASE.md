@@ -2,7 +2,7 @@
 
 How to build, test and release Simple Cell.
 - **Linux** (Fedora 44, x86-64): steps marked **verified** were run there.
-- **Windows and macOS:** the CI workflow ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) is written to build and test them on every push. It **has not run yet**, because the repository has no GitHub remote.
+- **Windows and macOS:** the CI workflow ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) builds and tests them on GitHub on every push. On CI a failed end-to-end test is retried twice; one that passes on a retry is reported as flaky.
 
 ## Requirements
 
@@ -25,6 +25,7 @@ npm run e2e:headless       # build, then Playwright on Electron under xvfb; ever
 npm run crosscheck         # every function-test formula also calculated by LibreOffice, compared
 npm run bench              # performance benchmarks → test-results/bench.md (see PERFORMANCE_BENCHMARKS.md)
 SC_PERF=1 npm run e2e:headless -- perf   # scrolling frame times in the app
+npm run build && SC_SCREENSHOTS=1 xvfb-run -a -s "-screen 0 1920x1080x24" npx playwright test screenshots   # README screenshots → docs/screenshots
 ```
 
 After changing commands, shortcuts or functions, regenerate the generated docs and commit them:
@@ -99,7 +100,7 @@ Installed copies check the newest **published** GitHub release of `fleetwoodjohn
 ## Release
 
 1. Bump `version` in `package.json`, turn the top `CHANGELOG.md` section into that version, and update the date line in `IMPLEMENTATION_STATUS.md`.
-2. Push a tag `v<version>`. CI builds and tests on all three OSes and installs the deb and rpm into clean Ubuntu and Fedora containers. If that passes, it creates a **draft** release with every installer and the changelog section as notes.
+2. Push a tag `v<version>` (it must match `package.json`, or the release job stops). CI builds and tests on all three OSes and installs the deb and rpm into clean Ubuntu and Fedora containers. If that passes, it creates a **draft** release with every installer and the changelog section as notes.
 3. Check by hand before publishing:
    - Open files from Excel and LibreOffice, save them, and reopen the results in both.
    - Print a page and export a PDF.
@@ -108,4 +109,4 @@ Installed copies check the newest **published** GitHub release of `fleetwoodjohn
    - With the update check off, confirm the app makes no network traffic.
 4. Publish the draft. Publishing is what ships the update to installed copies.
 
-None of this has been done yet: there is no remote, and nothing has been pushed.
+No release has been published yet.
