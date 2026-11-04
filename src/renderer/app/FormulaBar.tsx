@@ -46,7 +46,10 @@ export function FormulaBar({ tab }: { tab: string }) {
         value={nameBox}
         onFocus={(e) => {
           setNameText(nameBox)
-          requestAnimationFrame(() => e.target.select())
+          // After the click's mouseup (which would clear the selection). Only while still focused: select() also focuses,
+          // and a late frame would otherwise pull focus back from the grid after Enter, losing what is typed next.
+          const input = e.target
+          requestAnimationFrame(() => document.activeElement === input && input.select())
         }}
         onChange={(e) => setNameText(e.target.value)}
         onBlur={() => setNameText(null)}

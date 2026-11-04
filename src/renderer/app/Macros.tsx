@@ -27,7 +27,8 @@ const highlight = HighlightStyle.define([
   { tag: [t.number, t.bool, t.null], color: 'light-dark(#15803d, #86efac)' },
   { tag: [t.definition(t.variableName), t.function(t.variableName), t.function(t.propertyName)], color: 'light-dark(#1d4ed8, #93c5fd)' },
   { tag: [t.propertyName, t.typeName, t.className], color: 'light-dark(#9a3412, #fdba74)' },
-  { tag: t.comment, color: 'var(--text-3)', fontStyle: 'italic' }
+  // Brighter than --text-3 in dark mode: it must also pass on the active line's highlight.
+  { tag: t.comment, color: 'light-dark(#696973, #9d9da8)', fontStyle: 'italic' }
 ])
 const editorTheme = EditorView.theme({
   '&': { color: 'var(--text)', backgroundColor: 'var(--panel)' },

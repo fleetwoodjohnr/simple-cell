@@ -354,7 +354,21 @@ function binary(op: string, an: Node, bn: Node, ctx: EvalContext): Value {
     return out.length ? { kind: 'ref', areas: out } : ERR.NULL
   }
   const f = OPS[op]
-  return lift2(evaluate(an, ctx), evaluate(bn, ctx), ctx, f)
+  const x = cellOperand(an, ctx)
+  const y = cellOperand(bn, ctx)
+  return lift2(x === NOT_CELL ? evaluate(an, ctx) : x, y === NOT_CELL ? evaluate(bn, ctx) : y, ctx, f)
+}
+
+const NOT_CELL = Symbol('not a cell')
+
+/** A same-sheet single-cell reference, read directly without building a reference value (the common operand). */
+function cellOperand(n: Node, ctx: EvalContext): Scalar | typeof NOT_CELL {
+  if (n.t !== 'ref' || n.sheet) return NOT_CELL
+  const r = n.ra0 ? n.r0 : n.r0 + ctx.row
+  const c = n.ca0 ? n.c0 : n.c0 + ctx.col
+  if (r !== (n.ra1 ? n.r1 : n.r1 + ctx.row) || c !== (n.ca1 ? n.c1 : n.c1 + ctx.col)) return NOT_CELL
+  if (r < 0 || c < 0 || r >= MAX_ROWS || c >= MAX_COLS) return NOT_CELL
+  return ctx.read(ctx.sheet, r, c)
 }
 
 /** Operand for an operator: one value, or an array when the operand is a range/array (dynamic arrays). */

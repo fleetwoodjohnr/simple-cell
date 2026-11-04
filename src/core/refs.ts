@@ -80,9 +80,11 @@ export function intersect(a: Area, b: Area): Area | null {
 }
 
 /** A numeric key for a cell: fits in a double exactly for up to 2^18 sheets. */
-export const cellKey = (sheet: number, r: number, c: number) => sheet * 17_179_869_184 + r * MAX_COLS + c
+/** Sheet multiplier in cell keys (2^34, above MAX_ROWS × MAX_COLS). */
+export const KEY_SHEET = 17_179_869_184
+export const cellKey = (sheet: number, r: number, c: number) => sheet * KEY_SHEET + r * MAX_COLS + c
 export function fromKey(k: number): { sheet: number; r: number; c: number } {
-  const sheet = Math.floor(k / 17_179_869_184)
-  const rest = k - sheet * 17_179_869_184
+  const sheet = Math.floor(k / KEY_SHEET)
+  const rest = k - sheet * KEY_SHEET
   return { sheet, r: Math.floor(rest / MAX_COLS), c: rest % MAX_COLS }
 }

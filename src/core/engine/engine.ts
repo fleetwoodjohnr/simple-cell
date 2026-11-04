@@ -4,7 +4,7 @@
 // formulas so precedents come first (an iterative depth-first search over their static precedents), then evaluates them.
 // A formula that reads a cell which is still dirty (INDIRECT, OFFSET, spilled ranges) computes that cell first.
 
-import { cellKey, fromKey } from '../refs'
+import { KEY_SHEET, cellKey, fromKey } from '../refs'
 import type { Cell, Formula, Workbook } from '../model/workbook'
 import { evaluate, finalValue, getFunction, pick, type EvalContext } from './evaluate'
 import { parseFormula, refCorner, walk, type Node } from './parser'
@@ -51,6 +51,11 @@ export class Engine {
   readonly rowSensitive = new Set<number>()
   /** Count of formula evaluations, for tests and benchmarks. */
   evaluations = 0
+
+  // Shared by every evaluation context (one context per computed cell, so no closures are allocated per cell).
+  private readonly readFn = (s: number, r: number, c: number) => this.read(s, r, c)
+  private readonly ensureFn = (a: Area) => this.ensure(a)
+  private readonly spillFn = (s: number, r: number, c: number) => this.spills.get(cellKey(s, r, c)) ?? null
 
   constructor(readonly wb: Workbook) {}
 
@@ -177,9 +182,12 @@ export class Engine {
   /** Formulas that read this cell directly. */
   dependentsOf(key: number, out: (dep: number) => void) {
     this.single.get(key)?.forEach(out)
-    const { sheet, r, c } = fromKey(key)
+    const sheet = Math.floor(key / KEY_SHEET)
     const idx = this.ranges.get(sheet)
     if (!idx) return
+    const rest = key - sheet * KEY_SHEET
+    const r = Math.floor(rest / MAX_COLS)
+    const c = rest - r * MAX_COLS
     idx.byCol.get(c)?.forEach((e) => {
       if (r >= e.r0 && r <= e.r1) out(e.dep)
     })
@@ -191,7 +199,10 @@ export class Engine {
   private markDirty(key: number) {
     if (this.dirty.has(key)) return false
     this.dirty.add(key)
-    const { sheet, r, c } = fromKey(key)
+    const sheet = Math.floor(key / KEY_SHEET)
+    const rest = key - sheet * KEY_SHEET
+    const r = Math.floor(rest / MAX_COLS)
+    const c = rest - r * MAX_COLS
     let cols = this.dirtyIndex.get(sheet)
     if (!cols) this.dirtyIndex.set(sheet, (cols = new Map()))
     let rows = cols.get(c)
@@ -202,7 +213,10 @@ export class Engine {
 
   private clearDirty(key: number) {
     if (!this.dirty.delete(key)) return
-    const { sheet, r, c } = fromKey(key)
+    const sheet = Math.floor(key / KEY_SHEET)
+    const rest = key - sheet * KEY_SHEET
+    const r = Math.floor(rest / MAX_COLS)
+    const c = rest - r * MAX_COLS
     const rows = this.dirtyIndex.get(sheet)?.get(c)
     rows?.delete(r)
     if (rows && !rows.size) this.dirtyIndex.get(sheet)!.delete(c)
@@ -217,16 +231,21 @@ export class Engine {
     this.dirtyDependents(key)
   }
 
+  /** Work queue of dirtyDependents, kept between calls (it runs once per changed value). */
+  private queue: number[] = []
+  private readonly enqueueDirty = (d: number) => {
+    if (this.markDirty(d)) this.queue.push(d)
+  }
+
   private dirtyDependents(start: number) {
-    const queue = [start]
+    const queue = this.queue
+    queue.push(start)
     while (queue.length) {
       const k = queue.pop()!
-      this.dependentsOf(k, (d) => {
-        if (this.markDirty(d)) queue.push(d)
-      })
+      this.dependentsOf(k, this.enqueueDirty)
       // Cells spilled from an anchor change with it.
       const sp = this.spills.get(k)
-      if (sp) for (let r = sp.r0; r <= sp.r1; r++) for (let c = sp.c0; c <= sp.c1; c++) if (r !== sp.r0 || c !== sp.c0) this.dependentsOf(cellKey(sp.sheet, r, c), (d) => this.markDirty(d) && queue.push(d))
+      if (sp) for (let r = sp.r0; r <= sp.r1; r++) for (let c = sp.c0; c <= sp.c1; c++) if (r !== sp.r0 || c !== sp.c0) this.dependentsOf(cellKey(sp.sheet, r, c), this.enqueueDirty)
     }
   }
 
@@ -335,31 +354,44 @@ export class Engine {
   private order(): number[] {
     const out: number[] = []
     const state = new Map<number, 1 | 2>() // 1 = on stack, 2 = done
-    for (const start of this.dirty) {
-      if (state.has(start)) continue
-      const stack: { k: number; pre: number[] | null; i: number }[] = [{ k: start, pre: null, i: 0 }]
-      state.set(start, 1)
-      while (stack.length) {
-        const top = stack[stack.length - 1]
-        if (!top.pre) {
-          const pre: number[] = []
-          const reg = this.regs.get(top.k)
-          if (reg) for (const a of reg.areas) this.dirtyIn(a, (d) => d !== top.k && pre.push(d))
-          top.pre = pre
-        }
-        if (top.i < top.pre.length) {
-          const d = top.pre[top.i++]
-          const st = state.get(d)
-          if (st === undefined) {
-            state.set(d, 1)
-            stack.push({ k: d, pre: null, i: 0 })
-          }
-          // st === 1: a cycle; compute() detects it when the value is read.
+    // The stack in parallel arrays, and every stacked formula's dirty precedents in one shared buffer (a formula's
+    // list sits above its parent's, so popping truncates it): no allocation per formula.
+    const keys: number[] = []
+    const next: number[] = []
+    const end: number[] = []
+    const pre: number[] = []
+    let cur = 0
+    const collect = (d: number) => {
+      if (d !== cur) pre.push(d)
+    }
+    const push = (k: number) => {
+      state.set(k, 1)
+      const start = pre.length
+      cur = k
+      const reg = this.regs.get(k)
+      if (reg) for (const a of reg.areas) this.dirtyIn(a, collect)
+      keys.push(k)
+      next.push(start)
+      end.push(pre.length)
+    }
+    for (const startKey of this.dirty) {
+      if (state.has(startKey)) continue
+      push(startKey)
+      while (keys.length) {
+        const top = keys.length - 1
+        if (next[top] < end[top]) {
+          const d = pre[next[top]++]
+          // Already on the stack: a cycle, which compute() detects when the value is read.
+          if (!state.has(d)) push(d)
           continue
         }
-        state.set(top.k, 2)
-        out.push(top.k)
-        stack.pop()
+        const k = keys.pop()!
+        next.pop()
+        end.pop()
+        state.set(k, 2)
+        out.push(k)
+        // This formula's list began where its parent's ended.
+        pre.length = top > 0 ? end[top - 1] : 0
       }
     }
     return out
@@ -374,9 +406,9 @@ export class Engine {
       env: null,
       legacy,
       depth: 0,
-      read: (s, rr, cc) => this.read(s, rr, cc),
-      ensure: (a) => this.ensure(a),
-      spillArea: (s, rr, cc) => this.spills.get(cellKey(s, rr, cc)) ?? null
+      read: this.readFn,
+      ensure: this.ensureFn,
+      spillArea: this.spillFn
     }
   }
 

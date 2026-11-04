@@ -287,7 +287,9 @@ export class Workbook {
   }
 
   sheetById(id: number): Sheet | undefined {
-    return this.sheets.find((s) => s.id === id)
+    // A plain loop: called several times per formula evaluation.
+    for (const s of this.sheets) if (s.id === id) return s
+    return undefined
   }
   sheetByName(name: string): Sheet | undefined {
     const n = name.toLowerCase()

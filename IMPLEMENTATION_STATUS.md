@@ -12,7 +12,7 @@ _Last updated: 2026-11-03 · Milestones M0–M5 and M7 complete (with the limits
 | `npm test` (vitest) | ✅ 594 / 594 (481 function tests covering 973 formulas, plus engine, parser, number-format, registry and file-format tests; the 4 LibreOffice re-read tests, and the LibreOffice part of the data validation test, run when LibreOffice is installed) |
 | `npm run crosscheck` (every function test formula also calculated by LibreOffice Calc 26.2) | ✅ 878 same result; 92 differ where Simple Cell matches Excel's documented value; 0 where only LibreOffice matches ([report](docs/LIBREOFFICE_CROSSCHECK.md)) |
 | `npm run e2e:headless` (Playwright + Electron, Linux/xvfb) | ✅ 23 / 23, plus 2 that run only on request: the updater test (needs a packaged build) and scroll timing (`SC_PERF=1`). Every test also fails on a CSP violation or an uncaught renderer error). Earlier intermittent failures had one likely cause: button locators matched by substring, so `OK` also matched “New workbook”. They are now exact. The earlier `smoke` and `files` flakes have not recurred since, but they were not proven to come from this. |
-| `npm run bench` | 5 of 7 targets met; recalculating a 100,000-cell chain is ~10% over target ([report](docs/PERFORMANCE_BENCHMARKS.md)) |
+| `npm run bench` | every target met; the 100,000-cell chain only just (422–482 ms against 500) ([report](docs/PERFORMANCE_BENCHMARKS.md)) |
 | Windows, macOS | ⏳ not run: needs the GitHub Actions workflow (`.github/workflows/ci.yml`) and a remote |
 
 ## M0 — Scaffold ✅
@@ -205,7 +205,7 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 
 | Feature | Test |
 |---|---|
-| Benchmarks with targets, run on this machine; a quadratic slowdown in recalculation found and fixed (100,000-cell chain: 35 s → 0.55 s) | `npm run bench`, e2e `perf` (`SC_PERF=1`); [docs/PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md) |
+| Benchmarks with targets, run on this machine; a quadratic slowdown in recalculation found and fixed (100,000-cell chain: 35 s → 0.55 s), then the chain brought under its 500 ms target (0.42–0.48 s) | `npm run bench`, e2e `perf` (`SC_PERF=1`); [docs/PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md) |
 | Security: XML external entities and entity bombs, a hostile .xlsx (DOCTYPE, absurd row numbers and column spans), CSV formula injection, links limited to http/https/mailto (one shared check in the main process and the renderer), deeply nested formulas | unit `security` (5) |
 | Accessibility: axe-core WCAG 2.2 A/AA in light and dark, on the dashboard, all 8 ribbon tabs and the Format Cells, Settings and Macros dialogs. The fixes it led to: accent and cyan accent contrast; ribbon captions included in button names; the sheet tab list structure; checkbox spacing; a labelled macro editor with syntax colours that pass in both themes | e2e `a11y` (2) |
 | Updater against a local release feed: offer, sha512-verified download, restart prompt | e2e `update` (packaged build) |
@@ -214,7 +214,6 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 
 ### Still to do in M10
 
-- Speed up the dependency-chain recalculation to meet its 500 ms target.
 - Accessibility audit of the remaining dialogs, and a screen-reader pass by hand.
 - Windows and macOS: needs the CI workflow and a remote.
 
