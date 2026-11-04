@@ -1,6 +1,8 @@
 // Data tools dialogs: Remove Duplicates, Text to Columns, Goal Seek, Descriptive Statistics.
 import { useEffect, useState } from 'react'
 import type { SolverConstraint, SolverModel, SolverRel, SolverResult } from '@/core/solver'
+import type { Scenario, ScenarioSet } from '@/core/model/workbook'
+import { setView } from '../state/view'
 import { areaName, cellName, colName, parseArea, parseCell } from '@/core/refs'
 import { set, toast, type Dialog } from '../state/store'
 import { Btn, Field, Modal, cx, inputCls } from '../ui'
@@ -12,7 +14,7 @@ const close = closeDialog
 const refocus = focusGrid
 const done = () => (close(), refocus())
 
-export type ToolKind = 'dedupe' | 'text-to-columns' | 'goal-seek' | 'descriptive' | 'solver'
+export type ToolKind = 'dedupe' | 'text-to-columns' | 'goal-seek' | 'descriptive' | 'solver' | 'data-table' | 'scenarios'
 
 export function openTool(tool: ToolKind) {
   set({ dialog: { kind: 'tool', tool } })
@@ -23,6 +25,8 @@ export function ToolDialog({ d }: { d: Extract<Dialog, { kind: 'tool' }> }) {
   if (d.tool === 'text-to-columns') return <TextToColumns />
   if (d.tool === 'goal-seek') return <GoalSeek />
   if (d.tool === 'solver') return <Solver />
+  if (d.tool === 'data-table') return <DataTableDialog />
+  if (d.tool === 'scenarios') return <ScenarioManager />
   return <Descriptive />
 }
 
@@ -372,5 +376,235 @@ function Solver() {
       </div>
     </Modal>
   )
+}
+
+// ---------- Data Table (what-if) ----------
+
+function DataTableDialog() {
+  const c = A.ctx()
+  const [row, setRow] = useState('')
+  const [col, setCol] = useState('')
+  const [error, setError] = useState('')
+  if (!c) return null
+  const area = c.view.sel.ranges[c.view.sel.ranges.length - 1]
+  const ok = async () => {
+    const cellOf = (t: string) => (t.trim() ? parseCell(t.replace(/\$/g, '').replace(/^.*!/, '')) : null)
+    const ri = cellOf(row)
+    const ci = cellOf(col)
+    if ((row.trim() && !ri) || (col.trim() && !ci)) return setError('Input cells must be single cells, like $B$1.')
+    const r = await c.book.api.createDataTable(c.view.sheet, area, ri, ci)
+    if (!r.ok) return setError(r.error ?? 'The data table couldn’t be made.')
+    A.markDirtyTab(c.tab)
+    done()
+  }
+  return (
+    <Modal open onOpenChange={(o) => !o && done()} title="Data table" description={`For ${areaName(area)}: formulas and input values in its first row and column, results in the rest.`} width={380} footer={<><Btn onClick={done}>Cancel</Btn><Btn variant="primary" onClick={() => void ok()}>OK</Btn></>}>
+      <div className="space-y-3 text-[12.5px]">
+        <Field label="Row input cell" hint="The cell the values across the first row go into.">
+          <input aria-label="Row input cell" autoFocus className={inputCls} value={row} onChange={(e) => setRow(e.target.value)} />
+        </Field>
+        <Field label="Column input cell" hint="The cell the values down the first column go into.">
+          <input aria-label="Column input cell" className={inputCls} value={col} onChange={(e) => setCol(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void ok()} />
+        </Field>
+        {error && (
+          <p role="alert" className="text-[12px] text-danger">
+            {error}
+          </p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+// ---------- Scenario Manager ----------
+
+const refText = (cells: { r: number; c: number }[]) => cells.map((p) => cellName(p.r, p.c).replace(/([A-Z]+)(\d+)/, '$$$1$$$2')).join(',')
+
+function ScenarioManager() {
+  const c = A.ctx()
+  const [set0, setSet] = useState<ScenarioSet | null | undefined>(undefined)
+  const [sel, setSel] = useState(0)
+  // Adding (index −1) or editing a scenario: its name, cells and comment, then its values.
+  const [form, setForm] = useState<{ i: number; name: string; cells: string; comment: string; values: string[] | null } | null>(null)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [error, setError] = useState('')
+  const load = async () => {
+    if (!c) return
+    const s = await c.book.api.scenarios(c.view.sheet)
+    setSet(s)
+    if (s) setSel(Math.min(sel, s.list.length - 1))
+  }
+  useEffect(() => void load(), [])
+  if (!c || set0 === undefined) return null
+  const list = set0?.list ?? []
+  const save = async (next: Scenario[], current: number) => {
+    const r = await c.book.api.setScenarios(c.view.sheet, next, current)
+    if (!r.ok) return setError(r.error ?? 'That didn’t work.'), false
+    A.markDirtyTab(c.tab)
+    setError('')
+    await load()
+    setSel(current)
+    return true
+  }
+  const startAdd = () => {
+    const r = c.view.sel.ranges[c.view.sel.ranges.length - 1]
+    setForm({ i: -1, name: '', cells: areaName(r).replace(/([A-Z]+)(\d+)/g, '$$$1$$$2'), comment: '', values: null })
+    setError('')
+  }
+  const next = async () => {
+    if (!form) return
+    if (!form.name.trim()) return setError('Enter a name for the scenario.')
+    if (form.values === null) {
+      // Second step: one value per changing cell, starting from what the cells hold now (or the scenario's).
+      const cells = cellsFromText(form.cells)
+      if (typeof cells === 'string') return setError(cells)
+      const old = form.i >= 0 ? list[form.i] : null
+      const values = await Promise.all(cells.map(async (p, k) => (old && refText(old.cells) === refText(cells) ? old.values[k] : await c.book.api.editText(c.view.sheet, p.r, p.c))))
+      setError('')
+      return setForm({ ...form, values })
+    }
+    const cells = cellsFromText(form.cells) as { r: number; c: number }[]
+    const sc: Scenario = { ...(form.i >= 0 ? list[form.i] : {}), name: form.name.trim(), cells, values: form.values, comment: form.comment.trim() || undefined }
+    const all = form.i >= 0 ? list.map((x, k) => (k === form.i ? sc : x)) : [...list, sc]
+    if (await save(all, form.i >= 0 ? form.i : all.length - 1)) setForm(null)
+  }
+  if (form) {
+    return (
+      <Modal open onOpenChange={(o) => !o && setForm(null)} title={form.i < 0 ? 'Add scenario' : 'Edit scenario'} width={420} footer={<><Btn onClick={() => setForm(null)}>Cancel</Btn><Btn variant="primary" onClick={() => void next()}>{form.values === null ? 'Next' : 'OK'}</Btn></>}>
+        <div className="space-y-3 text-[12.5px]">
+          {form.values === null ? (
+            <>
+              <Field label="Scenario name">
+                <input aria-label="Scenario name" autoFocus className={inputCls} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+              </Field>
+              <Field label="Changing cells" hint="Up to 32 cells, such as $B$1:$B$3,$D$1.">
+                <input aria-label="Changing cells" className={inputCls} value={form.cells} onChange={(e) => setForm({ ...form, cells: e.target.value })} />
+              </Field>
+              <Field label="Comment">
+                <input aria-label="Comment" className={inputCls} value={form.comment} onChange={(e) => setForm({ ...form, comment: e.target.value })} />
+              </Field>
+            </>
+          ) : (
+            <div className="max-h-[50vh] space-y-2 overflow-y-auto">
+              <p className="text-text-2">Values for each changing cell:</p>
+              {(cellsFromText(form.cells) as { r: number; c: number }[]).map((p, k) => (
+                <Field key={k} label={cellName(p.r, p.c)}>
+                  <input aria-label={`Value for ${cellName(p.r, p.c)}`} autoFocus={k === 0} className={inputCls} value={form.values![k]} onChange={(e) => setForm({ ...form, values: form.values!.map((v, j) => (j === k ? e.target.value : v)) })} />
+                </Field>
+              ))}
+            </div>
+          )}
+          {error && (
+            <p role="alert" className="text-[12px] text-danger">
+              {error}
+            </p>
+          )}
+        </div>
+      </Modal>
+    )
+  }
+  if (summary !== null) {
+    const ok = async () => {
+      const r = await c.book.api.scenarioSummary(c.view.sheet, summary)
+      if (!r.ok) return setError(r.error)
+      A.markDirtyTab(c.tab)
+      await c.book.refreshMeta()
+      setView(c.tab, { sheet: r.sheet })
+      done()
+    }
+    return (
+      <Modal open onOpenChange={(o) => !o && setSummary(null)} title="Scenario summary" width={380} footer={<><Btn onClick={() => setSummary(null)}>Cancel</Btn><Btn variant="primary" onClick={() => void ok()}>OK</Btn></>}>
+        <div className="space-y-3 text-[12.5px]">
+          <Field label="Result cells" hint="The cells whose values the report shows for each scenario.">
+            <input aria-label="Result cells" autoFocus className={inputCls} value={summary} onChange={(e) => setSummary(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && void ok()} />
+          </Field>
+          {error && (
+            <p role="alert" className="text-[12px] text-danger">
+              {error}
+            </p>
+          )}
+        </div>
+      </Modal>
+    )
+  }
+  const cur = list[sel]
+  return (
+    <Modal open onOpenChange={(o) => !o && done()} title="Scenario manager" width={480} footer={<Btn variant="primary" onClick={done}>Close</Btn>}>
+      <div className="space-y-3 text-[12.5px]">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <span id="scenario-list" className="mb-1.5 block text-[12px] font-medium text-text-2">
+              Scenarios
+            </span>
+            {list.length ? (
+              <select aria-labelledby="scenario-list" size={6} className={cx(inputCls, 'h-auto w-full py-1')} value={String(sel)} onChange={(e) => setSel(Number(e.target.value))}>
+                {list.map((x, k) => (
+                  <option key={k} value={k}>
+                    {x.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <p className="rounded-lg border border-border p-3 text-text-3">No scenarios on this sheet. Choose Add to make one.</p>
+            )}
+          </div>
+          <div className="flex w-28 flex-col gap-1.5 pt-6">
+            <Btn onClick={startAdd}>Add…</Btn>
+            <Btn disabled={!cur} onClick={() => void save(list.filter((_, k) => k !== sel), Math.max(0, sel - 1))}>
+              Delete
+            </Btn>
+            <Btn disabled={!cur} onClick={() => cur && (setForm({ i: sel, name: cur.name, cells: refText(cur.cells), comment: cur.comment ?? '', values: null }), setError(''))}>
+              Edit…
+            </Btn>
+            <Btn
+              disabled={!cur}
+              onClick={async () => {
+                const r = await c.book.api.showScenario(c.view.sheet, sel)
+                if (!r.ok) return setError(r.error ?? 'That didn’t work.')
+                A.markDirtyTab(c.tab)
+              }}
+            >
+              Show
+            </Btn>
+            <Btn disabled={!cur} onClick={() => (setSummary(set0?.resultCells ?? cellName(c.view.sel.active.r, c.view.sel.active.c)), setError(''))}>
+              Summary…
+            </Btn>
+          </div>
+        </div>
+        {cur && (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-text-2">
+            <dt>Changing cells</dt>
+            <dd className="font-mono text-[12px] text-text">{refText(cur.cells)}</dd>
+            {cur.comment && (
+              <>
+                <dt>Comment</dt>
+                <dd className="text-text">{cur.comment}</dd>
+              </>
+            )}
+          </dl>
+        )}
+        {error && (
+          <p role="alert" className="text-[12px] text-danger">
+            {error}
+          </p>
+        )}
+      </div>
+    </Modal>
+  )
+}
+
+/** "B1:B2,D1" → cells (at most 32), or an error message. */
+function cellsFromText(text: string): { r: number; c: number }[] | string {
+  const out: { r: number; c: number }[] = []
+  for (const raw of text.split(',')) {
+    const t = raw.trim().replace(/^.*!/, '')
+    if (!t) continue
+    const a = parseArea(t.replace(/\$/g, ''))
+    if (!a) return `“${raw.trim()}” isn’t a cell or range.`
+    for (let r = a.r0; r <= a.r1; r++) for (let cc = a.c0; cc <= a.c1; cc++) out.push({ r, c: cc })
+  }
+  if (!out.length) return 'Enter the changing cells.'
+  if (out.length > 32) return 'A scenario can change at most 32 cells.'
+  return out
 }
 

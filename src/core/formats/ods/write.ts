@@ -154,6 +154,8 @@ function cellStyleXml(name: string, s: Style, dataStyle: string | null): string 
 
 export function writeOds(wb: Workbook): ExportResult {
   const w = new Warnings()
+  if (wb.sheets.some((s) => s.dataTables.length)) w.add('loss', 'Data tables are saved as their current values: OpenDocument has no data tables (LibreOffice’s multiple operations work differently).')
+  if (wb.sheets.some((s) => s.scenarios)) w.add('loss', 'Scenarios aren’t saved in OpenDocument files.')
   const carry = (wb.carry as OdsCarry | null)?.kind === 'ods' ? (wb.carry as OdsCarry) : undefined
   const files: Record<string, Uint8Array> = carry ? { ...carry.files } : {}
   const sheetName = (id: number) => wb.sheetById(id)?.name ?? null

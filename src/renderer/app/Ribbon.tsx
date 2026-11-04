@@ -673,7 +673,8 @@ function FormulasTab({ tab }: { tab: string }) {
   const book = books.get(tab)
   useBookVersion(book)
   const showFormulas = useApp((s) => s.showFormulas)
-  const manual = book?.meta.calcMode === 'manual'
+  const mode = book?.meta.calcMode ?? 'auto'
+  const manual = mode === 'manual'
   return (
     <>
       <Group label="Function library">
@@ -691,9 +692,10 @@ function FormulasTab({ tab }: { tab: string }) {
       <Sep />
       <Group label="Calculation">
         <Menu>
-          <DropBtn icon={<Calculator />} label={`Calculation options: ${manual ? 'Manual' : 'Automatic'}`} text={manual ? 'Manual' : 'Automatic'} />
+          <DropBtn icon={<Calculator />} label={`Calculation options: ${manual ? 'Manual' : mode === 'autoNoTable' ? 'Automatic except data tables' : 'Automatic'}`} text={manual ? 'Manual' : 'Automatic'} />
           <MenuContent>
-            <MenuItem onSelect={() => runCommand('formulas.calcAuto')}>{!manual ? '✓ ' : ''}Automatic</MenuItem>
+            <MenuItem onSelect={() => runCommand('formulas.calcAuto')}>{mode === 'auto' ? '✓ ' : ''}Automatic</MenuItem>
+            <MenuItem onSelect={() => runCommand('formulas.calcAutoNoTable')}>{mode === 'autoNoTable' ? '✓ ' : ''}Automatic except data tables</MenuItem>
             <MenuItem onSelect={() => runCommand('formulas.calcManual')}>{manual ? '✓ ' : ''}Manual</MenuItem>
           </MenuContent>
         </Menu>
@@ -800,7 +802,14 @@ function DataTab() {
       </Group>
       <Sep />
       <Group label="Analysis">
-        <Cmd id="data.goalSeek" label="Goal seek" text="Goal Seek" icon={<Target />} />
+        <Menu>
+          <DropBtn icon={<Target />} label="What-if analysis" text="What-If" />
+          <MenuContent>
+            <MenuItem onSelect={() => runCommand('data.scenarios')}>Scenario manager…</MenuItem>
+            <MenuItem onSelect={() => runCommand('data.goalSeek')}>Goal seek…</MenuItem>
+            <MenuItem onSelect={() => runCommand('data.dataTable')}>Data table…</MenuItem>
+          </MenuContent>
+        </Menu>
         <Cmd id="data.solver" label="Solver" text="Solver" icon={<SlidersHorizontal />} />
         <Cmd id="data.descriptiveStats" label="Descriptive statistics" text="Statistics" icon={<Sigma />} />
       </Group>

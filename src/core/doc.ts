@@ -1,6 +1,7 @@
 // A workbook being edited: the model, the calculation engine, and undoable transactions.
 // Every change goes through `transact`, which records how to revert it.
 
+import { dataTableAt, recalcDataTables, removeTablesInTx } from './whatif'
 import { Engine } from './engine/engine'
 import './engine/functions'
 import { FormulaSyntaxError, parseFormula, printFormula, type Node } from './engine/parser'
@@ -60,6 +61,9 @@ export class Tx {
     const before = cloneCell(sh.get(r, c))
     // A cell whose content is replaced is no longer part of a spill.
     const after = cell ? { ...cell } : undefined
+    // Data table results are filled in by the engine: their content can't be edited (formatting can), except when
+    // rows and columns move (the table moves with them).
+    if (!this.structural && sh.dataTables.length && (before?.v !== after?.v || after?.f) && dataTableAt(this.doc, sheet, r, c)) throw new Error('You can’t change part of a data table.')
     if (after && after.spillOf !== undefined && (after.f || after.v !== null)) delete after.spillOf
     const doc = this.doc
     const ch: Change = {
@@ -301,16 +305,34 @@ export class Doc {
   }
 
   recalc(force = false) {
-    if (this.wb.calc.mode === 'auto' || force) this.engine.recalc({ volatile: true })
-    for (const k of this.engine.takeChanged()) this.changedKeys.add(k)
+    if (this.wb.calc.mode !== 'manual' || force) this.engine.recalc({ volatile: true })
+    this.afterRecalc(force)
+  }
+
+  private inTables = false
+  /** A data table was added or changed: recalculate the tables even if no cell changed. */
+  tablesDirty = false
+  /** Collect the changed cells; data tables recalculate when something changed (unless "automatic except tables"). */
+  private afterRecalc(force: boolean) {
+    const changed = this.engine.takeChanged()
+    for (const k of changed) this.changedKeys.add(k)
+    if (!this.inTables && (changed.length || force || this.tablesDirty) && (this.wb.calc.mode === 'auto' || force || this.tablesDirty) && this.wb.sheets.some((s) => s.dataTables.length)) {
+      this.inTables = true
+      this.tablesDirty = false
+      try {
+        recalcDataTables(this)
+      } finally {
+        this.inTables = false
+      }
+      for (const k of this.engine.takeChanged()) this.changedKeys.add(k)
+    }
     this.version++
   }
 
   /** Full recalculation (Ctrl+Alt+F9). */
   recalcAll() {
     this.engine.recalcAll()
-    for (const k of this.engine.takeChanged()) this.changedKeys.add(k)
-    this.version++
+    this.afterRecalc(true)
   }
 
   takeChanges(): number[] {
@@ -466,6 +488,8 @@ export class Doc {
   /** Clear contents, formats or both from areas (Delete key clears contents). */
   clear(areas: Area[], what: 'contents' | 'formats' | 'all' = 'contents') {
     return this.transact(what === 'contents' ? 'Clear contents' : what === 'formats' ? 'Clear formats' : 'Clear', (tx) => {
+      // A whole data table can be cleared (it goes with its cells); part of one can't.
+      if (what !== 'formats') for (const a of areas) removeTablesInTx(this, tx, a.sheet, areas.filter((b) => b.sheet === a.sheet))
       for (const a of areas) {
         const sh = this.sheet(a.sheet)
         const cells: [number, number, Cell][] = []
@@ -1376,6 +1400,29 @@ export class Doc {
         if (JSON.stringify(groups) !== JSON.stringify(o.sparklines)) tx.prop(o, 'sparklines', groups)
       }
     }
+    // Data tables and scenarios: their cells move; a table whose results or inputs are deleted goes (its values stay).
+    const moveCell = (p: { r: number; c: number }) => {
+      if (!inBand(p.r, p.c)) return p
+      const a = shiftArea({ sheet: sh.id, r0: p.r, c0: p.c, r1: p.r, c1: p.c }, s)
+      return a ? { r: a.r0, c: a.c0 } : null
+    }
+    if (sh.dataTables.length) {
+      const next = sh.dataTables.flatMap((t) => {
+        const a = shiftArea({ sheet: sh.id, ...t.area }, s)
+        const rowInput = t.rowInput && moveCell(t.rowInput)
+        const colInput = t.colInput && moveCell(t.colInput)
+        if (!a || (t.rowInput && !rowInput) || (t.colInput && !colInput)) return []
+        return [{ area: { r0: a.r0, c0: a.c0, r1: a.r1, c1: a.c1 }, rowInput, colInput }]
+      })
+      if (JSON.stringify(next) !== JSON.stringify(sh.dataTables)) tx.prop(sh, 'dataTables', next)
+    }
+    if (sh.scenarios) {
+      const list = sh.scenarios.list.map((sc) => {
+        const kept = sc.cells.map((p, i) => [moveCell(p), sc.values[i]] as const).filter(([p]) => p)
+        return { ...sc, cells: kept.map(([p]) => p!), values: kept.map(([, v]) => v) }
+      })
+      if (JSON.stringify(list) !== JSON.stringify(sh.scenarios.list)) tx.prop(sh, 'scenarios', { ...sh.scenarios, list })
+    }
     // Notes and hyperlinks move with their cells; those on deleted cells go.
     for (const m of [sh.notes, sh.links] as Map<number, unknown>[]) {
       if (!m.size) continue
@@ -2139,8 +2186,7 @@ export class Doc {
   /** Recalculate (F9; in manual mode this is the only time formulas update). */
   calculateNow() {
     this.engine.recalc({ volatile: true })
-    for (const k of this.engine.takeChanged()) this.changedKeys.add(k)
-    this.version++
+    this.afterRecalc(true)
   }
 }
 

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, clickMenuPath } from './helpers'
 
 test('Solver: objective, variables, a constraint; Solve; keep the solution with an Answer Report; the model is remembered', async () => {
   const { app, page } = await launch()
@@ -43,6 +43,59 @@ test('Solver: objective, variables, a constraint; Solve; keep the solution with 
     await expect(res.getByRole('status')).toContainText('could not find a feasible solution')
     await res.getByRole('button', { name: 'OK', exact: true }).click()
     expect(await cell(page, 'Sheet1!B1')).toBe(2)
+  } finally {
+    await quit(app)
+  }
+})
+
+test('what-if: a data table through its dialog, and the Scenario Manager (add, show, summary)', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    // Payment-like model: B2 = 1000 × B1; rates down A5:A7, the formula in B4.
+    for (const [ref, v] of [['B1', '0.05'], ['B2', '=1000*B1'], ['B4', '=B2'], ['A5', '0.01'], ['A6', '0.02'], ['A7', '0.03']] as [string, string][]) await typeCell(page, ref, v)
+    await goto(page, 'A4:B7')
+    await page.getByTestId('ribbon-tab-data').click()
+    await page.getByRole('button', { name: 'What-if analysis' }).click()
+    await clickMenuPath(page, 'Data table…')
+    const dt = page.getByRole('dialog', { name: 'Data table' })
+    await dt.getByLabel('Column input cell').fill('$B$1')
+    await dt.getByRole('button', { name: 'OK', exact: true }).click()
+    await expect.poll(() => cell(page, 'B6')).toBe(20)
+    expect(await cell(page, 'B7')).toBe(30)
+    // Part of a data table can't be changed.
+    await typeCell(page, 'B6', '5')
+    await expect(page.getByRole('dialog', { name: /Can’t change that/ })).toBeVisible()
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
+    expect(await cell(page, 'B6')).toBe(20)
+    // The table follows its formula.
+    await typeCell(page, 'B2', '=2000*B1')
+    await expect.poll(() => cell(page, 'B6')).toBe(40)
+
+    // Scenarios on B1.
+    await goto(page, 'B1')
+    await page.getByRole('button', { name: 'What-if analysis' }).click()
+    await clickMenuPath(page, 'Scenario manager…')
+    const sm = page.getByRole('dialog', { name: 'Scenario manager' })
+    for (const [name, value] of [['High', '0.08'], ['Low', '0.01']]) {
+      await page.getByRole('button', { name: 'Add…' }).click()
+      const add = page.getByRole('dialog', { name: 'Add scenario' })
+      await add.getByLabel('Scenario name').fill(name)
+      await expect(add.getByLabel('Changing cells')).toHaveValue('$B$1')
+      await add.getByRole('button', { name: 'Next' }).click()
+      await add.getByLabel('Value for B1').fill(value)
+      await add.getByRole('button', { name: 'OK', exact: true }).click()
+    }
+    await expect(sm.getByRole('option')).toHaveText(['High', 'Low'])
+    await sm.getByRole('listbox').selectOption({ label: 'High' })
+    await sm.getByRole('button', { name: 'Show' }).click()
+    await expect.poll(() => cell(page, 'B2')).toBe(160)
+    await sm.getByRole('button', { name: 'Summary…' }).click()
+    await page.getByRole('dialog', { name: 'Scenario summary' }).getByLabel('Result cells').fill('$B$2')
+    await page.getByRole('dialog', { name: 'Scenario summary' }).getByRole('button', { name: 'OK', exact: true }).click()
+    await expect(page.getByTestId('sheet-tab-Scenario Summary')).toBeVisible()
+    expect(await cell(page, 'Scenario Summary!E6')).toBe(160)
+    expect(await cell(page, 'Scenario Summary!F6')).toBe(20)
   } finally {
     await quit(app)
   }

@@ -402,6 +402,7 @@ def({ id: 'formulas.names', label: 'Name manager…', run: () => set({ dialog: {
 def({ id: 'formulas.calculate', label: 'Calculate now', run: (c) => A.edit(needsSelection(c), (b) => b.api.calculate(false)) })
 def({ id: 'formulas.calculateAll', label: 'Calculate all (full)', run: (c) => A.edit(needsSelection(c), (b) => b.api.calculate(true)) })
 def({ id: 'formulas.calcAuto', label: 'Calculation options: Automatic', run: (c) => needsSelection(c).book.api.setCalc('auto').then(() => c!.book.refreshMeta()) })
+def({ id: 'formulas.calcAutoNoTable', label: 'Calculation options: Automatic except data tables', run: (c) => needsSelection(c).book.api.setCalc('autoNoTable').then(() => c!.book.refreshMeta()) })
 def({ id: 'formulas.calcManual', label: 'Calculation options: Manual', run: (c) => needsSelection(c).book.api.setCalc('manual').then(() => c!.book.refreshMeta()) })
 def({ id: 'formulas.showFormulas', label: 'Show formulas', run: () => set((s) => ({ showFormulas: !s.showFormulas })) })
 
@@ -538,6 +539,8 @@ def({ id: 'insert.pivot', label: 'Insert PivotTable…', keywords: 'pivot summar
 def({ id: 'data.refreshAll', label: 'Refresh all', keywords: 'pivot refresh update', run: () => refreshAll() })
 def({ id: 'data.removeDuplicates', label: 'Remove duplicates…', keywords: 'dedupe unique', run: (c) => (needsSelection(c), openTool('dedupe')) })
 def({ id: 'data.textToColumns', label: 'Text to columns…', keywords: 'split delimiter', run: (c) => (needsSelection(c), openTool('text-to-columns')) })
+def({ id: 'data.scenarios', label: 'Scenario manager…', keywords: 'what-if scenarios best worst case', run: (c) => (needsSelection(c), openTool('scenarios')) })
+def({ id: 'data.dataTable', label: 'Data table…', keywords: 'what-if table sensitivity input cell', run: (c) => (needsSelection(c), openTool('data-table')) })
 def({ id: 'data.solver', label: 'Solver…', keywords: 'optimize optimise linear programming maximize minimize constraints what-if', run: (c) => (needsSelection(c), openTool('solver')) })
 def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
 def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })

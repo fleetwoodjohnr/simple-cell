@@ -29,6 +29,8 @@ export interface Snapshot {
     rows: [number, unknown][]
     /** [row, col, value, style, formula, array area] */
     cells: [number, number, JScalar, number, string?, unknown?][]
+    dataTables?: Sheet['dataTables']
+    scenarios?: Sheet['scenarios']
   }[]
 }
 
@@ -70,7 +72,9 @@ export function snapshot(wb: Workbook): Snapshot {
         zoom: s.zoom,
         cols: [...s.cols],
         rows: [...s.rowInfo],
-        cells
+        cells,
+        dataTables: s.dataTables.length ? s.dataTables : undefined,
+        scenarios: s.scenarios ?? undefined
       }
     })
   }
@@ -84,7 +88,7 @@ export function restore(snap: Snapshot): Workbook {
   wb.props = snap.props ?? {}
   for (const s of snap.sheets) {
     const sh = new Sheet(s.id, s.name)
-    Object.assign(sh, { hidden: s.hidden, tabColor: s.tabColor, freeze: s.freeze, merges: s.merges, defaultColWidth: s.defaultColWidth, defaultRowHeight: s.defaultRowHeight, showGridlines: s.showGridlines, zoom: s.zoom ?? 1 })
+    Object.assign(sh, { hidden: s.hidden, tabColor: s.tabColor, freeze: s.freeze, merges: s.merges, defaultColWidth: s.defaultColWidth, defaultRowHeight: s.defaultRowHeight, showGridlines: s.showGridlines, zoom: s.zoom ?? 1, dataTables: s.dataTables ?? [], scenarios: s.scenarios ?? null })
     for (const [k, v] of s.cols) sh.cols.set(k, v as never)
     for (const [k, v] of s.rows) sh.rowInfo.set(k, v as never)
     wb.restoreSheet(sh, wb.sheets.length)

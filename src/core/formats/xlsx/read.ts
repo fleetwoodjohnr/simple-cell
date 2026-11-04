@@ -19,6 +19,7 @@ import { drawingAnchors, readAnchors, readChart } from './charts'
 import { readSparklines } from '../../sparklines'
 import { REL_PIVOT_CACHE, REL_PIVOT_TABLE, readPivot } from './pivot'
 import { readMacros } from '../macros'
+import { readDataTable, readScenarios } from './whatif'
 import { Warnings, type ImportResult } from '../types'
 
 export interface XlsxCarry {
@@ -309,7 +310,8 @@ export function readXlsx(bytes: Uint8Array): ImportResult & { carry: XlsxCarry }
   wb.date1904 = boolAttr(wbPr, 'date1904')
   const calcPr = kid(root, 'calcPr')
   if (calcPr) {
-    if (attr(calcPr, 'calcMode') === 'manual') wb.calc.mode = 'manual'
+    const mode = attr(calcPr, 'calcMode')
+    if (mode === 'manual' || mode === 'autoNoTable') wb.calc.mode = mode
     wb.calc.iterate = boolAttr(calcPr, 'iterate')
     wb.calc.maxIterations = numAttr(calcPr, 'iterateCount') ?? 100
     wb.calc.maxChange = numAttr(calcPr, 'iterateDelta') ?? 0.001
@@ -495,6 +497,10 @@ function readSheet(sh: Sheet, path: string, xml: string, ctx: SheetCtx) {
     const list = readValidations(e.xml, sh.id, ctx.sheetId)
     if (list) sh.validations.push(...list)
     return !list
+  }).filter((e) => {
+    if (e.name !== 'scenarios') return true
+    sh.scenarios = readScenarios(e.xml)
+    return !sh.scenarios
   }).filter((e) => {
     if (e.name !== 'autoFilter') return true
     sh.autoFilter = readAutoFilter(e.xml, sh.id)
@@ -721,6 +727,12 @@ function readSheetData(sh: Sheet, xml: string, ctx: SheetCtx) {
       if (fm) {
         const fa = tagAttrs(`<f${fm[1]}>`)
         const ftext = fm[2] !== undefined ? xmlText(fm[2]) : ''
+        if (fa.t === 'dataTable') {
+          // The cell values are the table's results (kept); the table recalculates from its formulas.
+          const t = readDataTable(fa)
+          if (t) sh.dataTables.push(t)
+          else ctx.w.add('loss', 'A data table whose input cell was deleted is kept as values.')
+        }
         let ast: Node | undefined
         try {
           if (fa.t === 'shared' && !ftext && fa.si !== undefined) {

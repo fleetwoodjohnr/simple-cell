@@ -28,3 +28,7 @@
   - Fixed: keys pressed right after closing a dialog, or right after opening a validation list or filter menu, could be lost when the window was slow to redraw (focus moved a frame late).
   - Solver (Data ▸ Solver): maximize, minimize or reach a value subject to constraints, with the Simplex LP method (including integer and binary variables) and a nonlinear method; Answer Report; the model is saved where Excel's Solver keeps it.
   - Fixed: closing a workbook straight after typing into it could close it without asking to save.
+  - Data Tables (Data ▸ What-If Analysis ▸ Data Table) with one or two input cells, and the calculation option "Automatic except data tables".
+  - Scenario Manager: named sets of input values, shown with one click, compared in a Scenario Summary sheet.
+  - macOS: ⌘W closes the workbook, not the whole window.
+  - Fixed: an address typed quickly into Insert Link could be cleared again.

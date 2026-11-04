@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, clickMenuPath } from './helpers'
 
 test('PivotTable: insert on a new sheet, tick fields, summarize, refresh', async () => {
   const { app, page } = await launch()
@@ -57,7 +57,8 @@ test('data tools: Remove Duplicates and Goal Seek through their dialogs', async 
     await typeCell(page, 'C1', '100')
     await typeCell(page, 'D1', '=C1*3')
     await goto(page, 'D1')
-    await page.getByRole('button', { name: 'Goal seek' }).click()
+    await page.getByRole('button', { name: 'What-if analysis' }).click()
+    await clickMenuPath(page, 'Goal seek…')
     await page.getByLabel('To value').fill('600')
     await page.getByLabel('By changing cell').fill('C1')
     await page.getByRole('button', { name: 'OK', exact: true }).click()

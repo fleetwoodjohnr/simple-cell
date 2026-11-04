@@ -165,8 +165,9 @@ export function LinkDialog({ d }: { d: Extract<Dialog, { kind: 'link' }> }) {
     if (!c) return
     const { r, c: col } = c.view.sel.active
     void c.book.api.linkAt(c.view.sheet, r, col).then((l) => {
-      setAddress(l?.url?.replace(/^mailto:/, 'mailto:') ?? l?.location ?? '')
-      setTip(l?.tooltip ?? '')
+      // Only into empty fields: what the user typed while the link was being looked up stays.
+      setAddress((cur) => cur || (l?.url ?? l?.location ?? ''))
+      setTip((cur) => cur || (l?.tooltip ?? ''))
       setHad(!!l)
     })
     setDisplay(c.book.cell(c.view.sheet, r, col)?.t ?? '')

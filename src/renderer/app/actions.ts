@@ -228,7 +228,13 @@ export async function commitEdit(c: Ctx, dir: 'down' | 'up' | 'right' | 'left' |
     }
   }
   if (!res.ok) {
-    set({ dialog: { kind: 'message', title: 'There’s a problem with this formula', body: `${res.error ?? 'The formula could not be read.'}\n\nTo type text that starts with “=”, begin it with an apostrophe: '=` } })
+    // Formula errors carry the position of the problem; other refusals (a data table's cells) don't.
+    if (res.pos === undefined && res.error) {
+      // The entry is discarded, as in Excel (there is nothing to fix in it).
+      setView(c.tab, { editing: null })
+      set({ dialog: { kind: 'message', title: 'Can’t change that', body: res.error } })
+    }
+    else set({ dialog: { kind: 'message', title: 'There’s a problem with this formula', body: `${res.error ?? 'The formula could not be read.'}\n\nTo type text that starts with “=”, begin it with an apostrophe: '=` } })
     return false
   }
   markDirty(c.tab)

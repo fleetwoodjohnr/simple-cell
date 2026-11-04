@@ -151,7 +151,8 @@ function buildMenu() {
         { type: 'separator' },
         { label: 'Print…', click: send('file.print') },
         { type: 'separator' },
-        { role: 'close' }
+        // ⌘W closes the workbook, as in Excel, not the whole window (role 'close' would).
+        { label: 'Close Workbook', accelerator: 'CmdOrCtrl+W', click: send('file.close') }
       ]
     },
     { role: 'editMenu' },

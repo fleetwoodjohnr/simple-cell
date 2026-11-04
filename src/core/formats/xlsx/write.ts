@@ -17,6 +17,7 @@ import { autoFilterXml, filterColumnsXml } from './filter'
 import { tableSig } from './read'
 import { commentsXml, hyperlinksXml, notesSig, vmlHasShapes, vmlXml } from './notes'
 import { pageSetupXml } from './pagesetup'
+import { dataTableFormulaXml, scenariosXml } from './whatif'
 import { CT_CHART, CT_DRAWING, DRAWING_HEAD, REL_CHART, anchorXml, chartXml, drawingAnchors } from './charts'
 import { chartSig } from '../../charts'
 import { withSparklines } from '../../sparklines'
@@ -625,7 +626,7 @@ function workbookXml(wb: Workbook, carry: XlsxCarry | undefined, rids: string[],
       return `<definedName name="${esc(n.name)}"${local >= 0 ? ` localSheetId="${local}"` : ''}${n.hidden ? ' hidden="1"' : ''}${n.comment ? ` comment="${esc(n.comment)}"` : ''}>${esc(txt)}</definedName>`
     })
     .join('')
-  const calc = `<calcPr calcId="191029"${wb.calc.mode === 'manual' ? ' calcMode="manual"' : ''}${wb.calc.iterate ? ` iterate="1" iterateCount="${wb.calc.maxIterations}" iterateDelta="${wb.calc.maxChange}"` : ''}${!wb.calc.fullPrecision ? ' fullPrecision="0"' : ''}/>`
+  const calc = `<calcPr calcId="191029"${wb.calc.mode !== 'auto' ? ` calcMode="${wb.calc.mode}"` : ''}${wb.calc.iterate ? ` iterate="1" iterateCount="${wb.calc.maxIterations}" iterateDelta="${wb.calc.maxChange}"` : ''}${!wb.calc.fullPrecision ? ' fullPrecision="0"' : ''}/>`
   // Elements in CT_Workbook order; the ones we don't model are kept as they were.
   const before = ['fileVersion', 'fileSharing'].map(raw).join('')
   const afterPr = ['workbookProtection'].map(raw).join('')
@@ -763,7 +764,8 @@ function sheetXml(
     if (row) {
       for (const c of [...row.keys()].sort((a, b) => a - b)) {
         if (c >= MAX_COLS) continue
-        const x = cellXml(sh, r, c, row.get(c)!, styles, sharedString, sheetName, fname, spillArea)
+        const t = sh.dataTables.find((d) => d.area.r0 === r && d.area.c0 === c)
+        const x = cellXml(sh, r, c, row.get(c)!, styles, sharedString, sheetName, fname, spillArea, t ? dataTableFormulaXml(t) : '')
         if (x.dynamic) dynamic = true
         if (x.xml) cells.push(x.xml)
       }
@@ -774,6 +776,7 @@ function sheetXml(
   parts.set('sheetData', `<sheetData>${rowsXml.join('')}</sheetData>`)
   if (sh.merges.length) parts.set('mergeCells', `<mergeCells count="${sh.merges.length}">${sh.merges.map((m) => `<mergeCell ref="${areaName(m)}"/>`).join('')}</mergeCells>`)
   if (sh.autoFilter) parts.set('autoFilter', autoFilterXml(sh.autoFilter))
+  if (sh.scenarios) parts.set('scenarios', scenariosXml(sh.scenarios))
   if (sh.condFormats.length) parts.set('conditionalFormatting', condFormatsXml(sh.condFormats, (r) => styles.dxf(r), sheetName, fname))
   if (sh.validations.length) parts.set('dataValidations', validationsXml(sh.validations, sheetName, fname))
   if (tableParts.length) parts.set('tableParts', `<tableParts count="${tableParts.length}">${tableParts.join('')}</tableParts>`)
@@ -822,12 +825,19 @@ function cellXml(
   sharedString: (t: string, rich?: unknown) => number,
   sheetName: (id: number) => string | null,
   fname: (n: string) => string,
-  spillArea: Map<number, { r1: number; c1: number }>
+  spillArea: Map<number, { r1: number; c1: number }>,
+  dataTable = ''
 ): { xml: string; dynamic?: boolean } {
   const ref = `${colName(c)}${r + 1}`
   const s = cell.s ? styles.xf(cell.s) : 0
   const sAttr = s ? ` s="${s}"` : ''
   const v = cell.v
+  if (dataTable) {
+    // A data table's first result cell carries the table; its value (and the others') are the cached results.
+    const t = typeof v === 'string' ? ' t="str"' : typeof v === 'boolean' ? ' t="b"' : v instanceof CellError ? ' t="e"' : ''
+    const val = v === null ? '' : `<v>${escText(typeof v === 'boolean' ? (v ? '1' : '0') : v instanceof CellError ? v.code : typeof v === 'number' ? numStr(v) : v)}</v>`
+    return { xml: `<c r="${ref}"${sAttr}${t}>${dataTable}${val}</c>` }
+  }
   if (cell.f) {
     const text = printFormula(cell.f.ast, { row: r, col: c, sheetName, fileNames: fname })
     let fEl: string

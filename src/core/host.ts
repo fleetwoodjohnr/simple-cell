@@ -11,6 +11,8 @@ import type { Chart, ChartType } from './charts'
 import type { PivotConfig } from './pivot'
 import { descriptiveStats, goalSeek, removeDuplicates, textToColumns } from './analysis'
 import { emptySolverModel, finishSolver, readSolverModel, solve, type SolverModel, type SolverResult } from './solver'
+import { createDataTable, scenarioSummary, setScenarios, showScenario } from './whatif'
+import type { Scenario, ScenarioSet } from './model/workbook'
 import { vbaModules } from './vba'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
@@ -64,7 +66,7 @@ export interface WorkbookMeta {
   styles: Style[]
   names: { name: string; scope: number | null; text: string; comment?: string }[]
   tables: ReturnType<Doc['tablesOn']>[number] extends infer T ? (T & { sheet: number })[] : never
-  calcMode: 'auto' | 'manual'
+  calcMode: 'auto' | 'autoNoTable' | 'manual'
   iterate: boolean
   canUndo: string | null
   canRedo: string | null
@@ -644,6 +646,27 @@ export class Host {
       return { ok: false as const, error: (e as Error).message }
     }
   }
+  // ---------- what-if: data tables and scenarios ----------
+  createDataTable(sheet: number, area: { r0: number; c0: number; r1: number; c1: number }, rowInput: { r: number; c: number } | null, colInput: { r: number; c: number } | null) {
+    return this.run(() => createDataTable(this.doc, sheet, area, rowInput, colInput))
+  }
+  scenarios(sheet: number): ScenarioSet | null {
+    return this.doc.wb.sheetById(sheet)?.scenarios ?? null
+  }
+  setScenarios(sheet: number, list: Scenario[], current?: number) {
+    return this.run(() => setScenarios(this.doc, sheet, list, current))
+  }
+  showScenario(sheet: number, index: number) {
+    return this.run(() => showScenario(this.doc, sheet, index))
+  }
+  scenarioSummary(sheet: number, resultCells: string): { ok: true; sheet: number } | { ok: false; error: string } {
+    try {
+      return { ok: true, sheet: scenarioSummary(this.doc, sheet, resultCells) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+
   /** The Solver model saved on a sheet (Excel's hidden names), or an empty one. */
   solverModel(sheet: number): SolverModel {
     const sh = this.doc.wb.sheetById(sheet)
@@ -789,10 +812,10 @@ export class Host {
     const r = this.run(() => (n = replaceCells(this.doc, opts)))
     return { ...r, count: n }
   }
-  setCalc(mode: 'auto' | 'manual', iterate?: boolean) {
+  setCalc(mode: 'auto' | 'autoNoTable' | 'manual', iterate?: boolean) {
     this.doc.wb.calc.mode = mode
     if (iterate !== undefined) this.doc.wb.calc.iterate = iterate
-    if (mode === 'auto') this.doc.recalc(true)
+    if (mode !== 'manual') this.doc.recalc(true)
     return { ok: true }
   }
   calculate(full = false) {

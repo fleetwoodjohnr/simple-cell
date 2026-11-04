@@ -219,7 +219,9 @@ test('closing an unsaved workbook asks first: Cancel keeps it, Don’t save clos
   try {
     await newWorkbook(page)
     await typeCell(page, 'A1', 'draft')
-    await page.keyboard.press(`${MOD}+w`)
+    await page.keyboard.press(keyFor('file.close'))
+    // What the app did with the key (shown if the dialog doesn't appear).
+    await expect.poll(() => page.evaluate(() => JSON.stringify({ dialog: (window as any).__sc.get().dialog?.kind, tabs: (window as any).__sc.get().tabs.map((t: { dirty: boolean }) => t.dirty) }))).toBe('{"dialog":"confirm-close","tabs":[true]}')
     const ask = page.getByRole('dialog', { name: /^Save changes to/ })
     await expect(ask).toBeVisible()
     await ask.getByRole('button', { name: 'Cancel', exact: true }).click()

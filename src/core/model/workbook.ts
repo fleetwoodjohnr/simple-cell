@@ -50,6 +50,36 @@ export interface Link {
   tooltip?: string
 }
 
+/** A what-if data table. Formulas and input values sit in the row above the area and the column to its left. */
+export interface DataTable {
+  /** The result cells. */
+  area: { r0: number; c0: number; r1: number; c1: number }
+  /** The values across the top row go into this cell (null: none). */
+  rowInput: { r: number; c: number } | null
+  /** The values down the left column go into this cell (null: none). */
+  colInput: { r: number; c: number } | null
+}
+
+export interface Scenario {
+  name: string
+  cells: { r: number; c: number }[]
+  /** One value per changing cell, as typed (numbers as text). */
+  values: string[]
+  comment?: string
+  user?: string
+  locked?: boolean
+  hidden?: boolean
+}
+
+export interface ScenarioSet {
+  list: Scenario[]
+  /** The scenario last selected and last shown (Excel keeps both). */
+  current: number
+  show: number
+  /** Result cells last used for a summary report. */
+  resultCells?: string
+}
+
 export interface ColInfo {
   width?: number
   hidden?: boolean
@@ -126,6 +156,10 @@ export class Sheet {
   sparklines: SparklineGroup[] = []
   /** Charts drawn over the sheet. */
   charts: Chart[] = []
+  /** What-if data tables ({=TABLE()}): their result cells hold values the engine fills in. */
+  dataTables: DataTable[] = []
+  /** Scenario Manager: named sets of values for changing cells. */
+  scenarios: ScenarioSet | null = null
   /** Page Layout: paper, margins, scaling, headers and footers, breaks. */
   pageSetup: PageSetup = defaultPageSetup()
   /** The sheet's AutoFilter (Ctrl+Shift+L), separate from tables' filters. */
@@ -236,7 +270,8 @@ function eachCol(row: Map<number, Cell>, c0: number, c1: number, fn: (c: number,
 }
 
 export interface CalcSettings {
-  mode: 'auto' | 'manual'
+  /** 'autoNoTable': automatic except data tables, which recalculate on F9 (Excel's option). */
+  mode: 'auto' | 'autoNoTable' | 'manual'
   iterate: boolean
   maxIterations: number
   maxChange: number

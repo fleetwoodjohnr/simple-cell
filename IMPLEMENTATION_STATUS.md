@@ -169,6 +169,8 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
 | PivotTables follow structure edits (source reference and position) | unit `pivot` |
 | XLSX: Excel's PivotTables read (source, fields, layout, location) so they refresh and edit; unchanged ones written back as they were; new or edited ones written as cache + table definitions Excel refreshes on open; LibreOffice reads them as working DataPilot tables | unit `pivot-xlsx` (2) |
 | Remove Duplicates, Text to Columns (delimiters, quotes, consecutive), Goal Seek, Descriptive Statistics (Analysis ToolPak) | unit `analysis` (4), e2e `pivot › data tools…` |
+| Data Tables (what-if, one and two variables): Data ▸ What-If Analysis ▸ Data Table; results recalculate with their formulas and inputs; part of a table can't be changed, the whole can be cleared; follow inserted/deleted rows and columns; Formulas ▸ Calculation Options ▸ Automatic except data tables (F9 updates them); kept in .xlsx as Excel's `dataTable` formulas — LibreOffice computes the same results from our files; saved as values in .ods (with a warning) | unit `whatif` (7), e2e `analysis › what-if` |
+| Scenario Manager: add, edit, delete, show (one undoable step), Summary report sheet with result cells; up to 32 changing cells; kept in .xlsx (`<scenarios>`); not in .ods (warning) | unit `whatif` (4), e2e `analysis › what-if` |
 | Solver: Max / Min / Value Of, variable cells, constraints (≤, =, ≥, int, bin; a number or cells on the right); Simplex LP (linearity checked from the sheet; two-phase simplex; exact branch and bound for integers); a nonlinear method (Nelder–Mead with growing penalties: a local optimum, not Excel's GRG); infeasible, unbounded and not-linear models reported; Keep or Restore, Answer Report sheet; one undoable step; the model kept as Excel's hidden `solver_*` sheet names, so it round-trips through .xlsx | unit `solver` (12), e2e `analysis` |
 
 ### Still to do in M6
@@ -178,7 +180,8 @@ Details: [docs/FILE_FORMAT_SUPPORT.md](docs/FILE_FORMAT_SUPPORT.md).
   - Calculated fields, number grouping, item sorting from the UI, and multiple-item report filters from the UI.
 - Analysis tools:
   - Solver: the Evolutionary method, the Options dialog (limits, precision, integer optimality), Sensitivity and Limits reports, AllDifferent constraints.
-  - Scenario Manager, Data Tables (what-if), Consolidate, column profiling.
+  - Scenario Manager: merging scenarios from other sheets, the Scenario PivotTable report, protection of scenarios.
+  - Consolidate, column profiling.
   - The rest of the Analysis ToolPak (histogram, regression, t-tests…).
 - The data model: DAX and relationships remain planned.
 
