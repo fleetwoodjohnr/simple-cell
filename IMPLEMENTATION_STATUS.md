@@ -207,14 +207,14 @@ See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).
 |---|---|
 | Benchmarks with targets, run on this machine; a quadratic slowdown in recalculation found and fixed (100,000-cell chain: 35 s → 0.55 s), then the chain brought under its 500 ms target (0.42–0.48 s) | `npm run bench`, e2e `perf` (`SC_PERF=1`); [docs/PERFORMANCE_BENCHMARKS.md](docs/PERFORMANCE_BENCHMARKS.md) |
 | Security: XML external entities and entity bombs, a hostile .xlsx (DOCTYPE, absurd row numbers and column spans), CSV formula injection, links limited to http/https/mailto (one shared check in the main process and the renderer), deeply nested formulas | unit `security` (5) |
-| Accessibility: axe-core WCAG 2.2 A/AA in light and dark, on the dashboard, all 8 ribbon tabs and the Format Cells, Settings and Macros dialogs. The fixes it led to: accent and cyan accent contrast; ribbon captions included in button names; the sheet tab list structure; checkbox spacing; a labelled macro editor with syntax colours that pass in both themes | e2e `a11y` (2) |
+| Accessibility: axe-core WCAG 2.2 A/AA in light and dark, on the dashboard, all 8 ribbon tabs, a chart, every dialog (49, including each Settings section and Format Cells tab) and the PivotTable Fields panel. The fixes it led to: accent and cyan accent contrast; ribbon captions included in button names; the sheet tab list structure; spacing of checkboxes and radio buttons; a labelled macro editor with syntax colours that pass in both themes; shortcut buttons named by what they show; the Insert Function and command palette lists usable from the keyboard (Tab to the list, arrows, Home/End, Enter; the highlighted item scrolls into view) | e2e `a11y` (2), e2e `core › keyboard only` |
 | Updater against a local release feed: offer, sha512-verified download, restart prompt | e2e `update` (packaged build) |
 | Linux packages: AppImage, deb and rpm built locally; the whole E2E suite against the packaged app, part of it against the AppImage; the deb installs on clean Ubuntu 22.04/24.04 and the rpm on Fedora 44, with every library resolved | `SC_PACKAGED=… playwright test` (24/24), [docs/BUILD_AND_RELEASE.md](docs/BUILD_AND_RELEASE.md) |
 | Pressing a chart hands keyboard focus to the grid at once (the packaged run caught Delete being dropped when pressed within a frame of the click) | e2e `charts` |
 
 ### Still to do in M10
 
-- Accessibility audit of the remaining dialogs, and a screen-reader pass by hand.
+- A screen-reader pass by hand (NVDA, VoiceOver, Orca): not possible in this environment.
 - Windows and macOS: needs the CI workflow and a remote.
 
 ## Next

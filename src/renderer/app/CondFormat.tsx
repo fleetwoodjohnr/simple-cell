@@ -438,8 +438,8 @@ export function CfManageDialog() {
           <Trash2 className="size-3.5" /> Delete rule
         </Btn>
       </div>
-      <div role="listbox" aria-label="Rules" className="max-h-[320px] overflow-y-auto rounded-lg border border-border">
-        {!rules.length && <p className="p-4 text-center text-[12.5px] text-text-3">This sheet has no conditional formatting.</p>}
+      {!rules.length && <p className="rounded-lg border border-border p-4 text-center text-[12.5px] text-text-3">This sheet has no conditional formatting.</p>}
+      <div role="listbox" aria-label="Rules" hidden={!rules.length} className="max-h-[320px] overflow-y-auto rounded-lg border border-border">
         {rules.map((r) => (
           <div
             key={r.id}

@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell, MOD } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor } from './helpers'
 
 const style = (page: Page, r: number, c: number) =>
   page.evaluate(([r, c]) => {
@@ -19,7 +19,7 @@ test('paste special (operation, transpose) and format painter', async () => {
     await goto(page, 'C1')
     await page.keyboard.press(`${MOD}+c`)
     await goto(page, 'A1:A2')
-    await page.keyboard.press(`${MOD}+Alt+v`)
+    await page.keyboard.press(keyFor('edit.pasteSpecial'))
     await page.getByLabel('Values', { exact: true }).check()
     await page.getByLabel('Multiply').check()
     await page.getByRole('button', { name: 'OK', exact: true }).click()
@@ -29,7 +29,7 @@ test('paste special (operation, transpose) and format painter', async () => {
     await goto(page, 'A1:A2')
     await page.keyboard.press(`${MOD}+c`)
     await goto(page, 'E1')
-    await page.keyboard.press(`${MOD}+Alt+v`)
+    await page.keyboard.press(keyFor('edit.pasteSpecial'))
     await page.getByLabel('Transpose').check()
     await page.getByRole('button', { name: 'OK', exact: true }).click()
     await expect.poll(() => cell(page, 'F1')).toBe(60)

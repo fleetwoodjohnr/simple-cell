@@ -22,3 +22,6 @@
   - Faster recalculation of long dependency chains (100,000 cells: 35 s → under 0.5 s).
   - Accessibility fixes from an axe WCAG 2.2 AA audit: contrast of the default and cyan accents, button names that include their visible captions, the sheet tab list, and the macro editor in dark mode.
   - Fixed: keys typed right after pressing Enter in the Name Box could be lost when the screen was slow to redraw (the Name Box took focus back from the grid).
+  - Fixed: closing an unsaved workbook crashed the window instead of asking to save (the dialog re-rendered forever).
+  - Fixed: after Alt+Enter, F4 or a point-mode arrow while editing, letters typed quickly could land in the wrong order.
+  - Accessibility: every dialog passes axe WCAG 2.2 AA in light and dark; the Insert Function list and the command palette work from the keyboard.

@@ -108,8 +108,8 @@ export function handleGridKey(e: React.KeyboardEvent<HTMLTextAreaElement>, c: A.
       const t = e.currentTarget
       const pos = t.selectionStart
       const text = editing.text.slice(0, pos) + '\n' + editing.text.slice(t.selectionEnd)
+      // The caret follows the state (useCaret in Grid.tsx).
       setView(c.tab, { editing: { ...editing, text, caret: pos + 1 } })
-      requestAnimationFrame(() => t.setSelectionRange(pos + 1, pos + 1))
       return
     }
     if (key === 'Enter') {
@@ -133,8 +133,6 @@ export function handleGridKey(e: React.KeyboardEvent<HTMLTextAreaElement>, c: A.
       const r = cycleRef(editing.text, e.currentTarget.selectionStart)
       if (r) {
         setView(c.tab, { editing: { ...editing, text: r.text, caret: r.caret } })
-        const t = e.currentTarget
-        requestAnimationFrame(() => t.setSelectionRange(r.caret, r.caret))
       }
       return
     }
@@ -151,11 +149,6 @@ export function handleGridKey(e: React.KeyboardEvent<HTMLTextAreaElement>, c: A.
           const text = editing.text.slice(0, editing.point.start) + ref + editing.text.slice(editing.point.end)
           setView(c.tab, { editing: { ...editing, text, caret: editing.point.start + ref.length, point: { start: editing.point.start, end: editing.point.start + ref.length, anchor: next, focus: next } } })
         } else insertPointRef(c, next, null)
-        const t = e.currentTarget
-        requestAnimationFrame(() => {
-          const ed = getView(c.tab).editing
-          if (ed) t.setSelectionRange(ed.caret, ed.caret)
-        })
         return
       }
       e.preventDefault()

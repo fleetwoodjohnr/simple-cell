@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, keyFor } from './helpers'
 
 const hiddenRows = (page: Page) =>
   page.evaluate(() => {
@@ -15,7 +15,7 @@ test('group rows (Shift+Alt+Right), collapse and expand with the outline buttons
     await newWorkbook(page)
     for (let i = 1; i <= 6; i++) await typeCell(page, `A${i}`, String(i))
     await goto(page, 'A2:A4')
-    await page.keyboard.press('Shift+Alt+ArrowRight')
+    await page.keyboard.press(keyFor('data.group'))
     const minus = page.getByTestId('outline-row-2-4')
     await expect(minus).toHaveText('−')
     await minus.click()
@@ -28,7 +28,7 @@ test('group rows (Shift+Alt+Right), collapse and expand with the outline buttons
     await page.screenshot({ path: 'test-results/outline.png', clip: { x: 0, y: 280, width: 500, height: 200 } })
     await page.getByTestId('outline-row-2-4').click()
     await goto(page, 'A2:A4')
-    await page.keyboard.press('Shift+Alt+ArrowLeft')
+    await page.keyboard.press(keyFor('data.ungroup'))
     await expect(page.getByTestId('outline-row-2-4')).toHaveCount(0)
   } finally {
     await quit(app)

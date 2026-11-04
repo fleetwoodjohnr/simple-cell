@@ -213,3 +213,55 @@ test('keyboard: editing modes, F2, Escape, Alt+Enter, Ctrl+Enter, F4, point mode
     await quit(app)
   }
 })
+
+test('closing an unsaved workbook asks first: Cancel keeps it, Don’t save closes it', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    await typeCell(page, 'A1', 'draft')
+    await page.keyboard.press(`${MOD}+w`)
+    const ask = page.getByRole('dialog', { name: /^Save changes to/ })
+    await expect(ask).toBeVisible()
+    await ask.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(ask).toHaveCount(0)
+    expect(await cell(page, 'A1')).toBe('draft')
+    await page.keyboard.press(`${MOD}+w`)
+    await ask.getByRole('button', { name: 'Don’t save', exact: true }).click()
+    await expect(page.getByTestId('dashboard')).toBeVisible()
+  } finally {
+    await quit(app)
+  }
+})
+
+test('keyboard only: Insert Function list and the command palette', async () => {
+  const { app, page } = await launch()
+  try {
+    await newWorkbook(page)
+    await typeCell(page, 'A1', '4')
+    await goto(page, 'B1')
+    // Shift+F3, search, then Tab to the list and pick with the arrows; Enter inserts.
+    await page.keyboard.press('Shift+F3')
+    await page.keyboard.type('sqrtpi')
+    await page.keyboard.press('Tab')
+    await page.keyboard.press('Tab')
+    await expect(page.getByRole('listbox', { name: 'Functions' })).toBeFocused()
+    await page.keyboard.press('Home')
+    await expect(page.getByRole('option', { name: 'SQRTPI', exact: true })).toHaveAttribute('aria-selected', 'true')
+    await page.keyboard.press('Enter')
+    await expect(page.getByRole('dialog')).toHaveCount(0)
+    await page.keyboard.type('A1)')
+    await page.keyboard.press('Enter')
+    expect(await cell(page, 'B1')).toBeCloseTo(Math.sqrt(4 * Math.PI), 12)
+    // The palette scrolls the highlighted command into view as the arrows move past the bottom.
+    await page.evaluate(() => (window as any).__sc.runCommand('tools.palette'))
+    await page.keyboard.type('e')
+    const list = page.getByRole('listbox', { name: 'Commands' })
+    for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowDown')
+    const active = page.locator('#palette-opt-25')
+    await expect(active).toHaveAttribute('aria-selected', 'true')
+    await expect(active).toBeInViewport()
+    await expect(list).toBeVisible()
+  } finally {
+    await quit(app)
+  }
+})

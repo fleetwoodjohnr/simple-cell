@@ -2,6 +2,7 @@ import { _electron as electron, type ElectronApplication, type Page } from '@pla
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import path from 'node:path'
+import { SHORTCUTS } from '../../src/renderer/app/shortcuts'
 
 export interface Launched {
   app: ElectronApplication
@@ -120,4 +121,32 @@ export async function typeCell(page: Page, ref: string, text: string, key = 'Ent
 
 export async function settle(page: Page, ms = 300) {
   await page.waitForTimeout(ms)
+}
+
+/**
+ * The key for a command on this OS, from the app's own shortcut registry ("Mod-Shift-k" → "Meta+Shift+k" on macOS),
+ * so tests press what a user of this platform would (Mac Excel's bindings differ from Windows').
+ */
+export function keyFor(command: string): string {
+  const def = SHORTCUTS.find((s) => s.command === command)
+  if (!def) throw new Error(`No shortcut for ${command}`)
+  const keys = (mac ? def.mac ?? def.win : def.win)[0]
+  return keys
+    .split('-')
+    .map((k) => (k === 'Mod' ? MOD : k === 'Ctrl' ? 'Control' : k))
+    .join('+')
+}
+
+/**
+ * Click through nested menu items, moving the pointer gradually as a hand would. A submenu that opens to the left
+ * (no room on the right, as on a 1024 × 768 screen) closes when the pointer jumps into it in one step.
+ */
+export async function clickMenuPath(page: Page, ...names: string[]) {
+  for (const name of names) {
+    const item = page.getByRole('menuitem', { name, exact: true })
+    await item.waitFor()
+    const b = (await item.boundingBox())!
+    await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2, { steps: 12 })
+    await item.click()
+  }
 }

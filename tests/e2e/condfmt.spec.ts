@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'node:path'
-import { launch, quit, newWorkbook, typeCell, goto, MOD, tempDir, stubDialogs } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, MOD, tempDir, stubDialogs, clickMenuPath } from './helpers'
 
 /** What the grid draws for a cell: the cached view cell (conditional style, icon, bar). */
 async function drawn(page: Page, ref: string) {
@@ -14,7 +14,7 @@ async function drawn(page: Page, ref: string) {
 
 async function menu(page: Page, ...path: string[]) {
   await page.getByTestId('ribbon').getByRole('button', { name: 'Conditional formatting', exact: true }).click()
-  for (const p of path) await page.getByRole('menuitem', { name: p, exact: true }).click()
+  await clickMenuPath(page, ...path)
 }
 
 test('conditional formatting: highlight rule, icon set, manage, undo, save and reopen', async () => {

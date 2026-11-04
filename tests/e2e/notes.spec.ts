@@ -14,7 +14,8 @@ test('notes (Shift+F2, hover) and links (Ctrl+K, chip, open, internal jump)', as
     await page.keyboard.press('Shift+F2')
     await page.getByLabel('Note', { exact: true }).fill('Includes the March correction')
     await page.getByRole('button', { name: 'Save', exact: true }).click()
-    // Hovering the cell shows the note.
+    // Hovering the cell shows the note (once the dialog is gone: until then the pointer is over its overlay).
+    await expect(page.getByRole('dialog')).toHaveCount(0)
     const box = await page.getByTestId('grid').boundingBox()
     await page.mouse.move(box!.x + 46 + 64 + 30, box!.y + 22 + 20 + 10)
     await expect(page.getByTestId('note-popup')).toContainText('Includes the March correction')

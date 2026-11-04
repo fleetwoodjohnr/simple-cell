@@ -224,3 +224,9 @@ body {
 :is(.pop-in, .fade-in, .dialog-in)[data-state='closed'] {
   animation: none;
 }
+
+/* WCAG 2.5.8 target size: rows of checkboxes and radio buttons are at least 24px apart. */
+label:has(> input[type='checkbox']),
+label:has(> input[type='radio']) {
+  min-height: 24px;
+}

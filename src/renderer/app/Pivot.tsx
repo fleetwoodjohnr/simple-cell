@@ -159,13 +159,13 @@ export function PivotPanel({ tab, book }: { tab: string; book: Book }) {
                       </option>
                     ))}
                   </select>
-                  <button type="button" aria-label={`Move ${f} up`} className="rounded p-0.5 hover:bg-panel" onClick={() => reorder(a, i, -1)}>
+                  <button type="button" aria-label={`Move ${f} up`} className="grid size-6 place-items-center rounded hover:bg-panel" onClick={() => reorder(a, i, -1)}>
                     <ArrowUp className="size-3" />
                   </button>
-                  <button type="button" aria-label={`Move ${f} down`} className="rounded p-0.5 hover:bg-panel" onClick={() => reorder(a, i, 1)}>
+                  <button type="button" aria-label={`Move ${f} down`} className="grid size-6 place-items-center rounded hover:bg-panel" onClick={() => reorder(a, i, 1)}>
                     <ArrowDown className="size-3" />
                   </button>
-                  <button type="button" aria-label={`Remove ${f}`} className="rounded p-0.5 hover:bg-panel" onClick={() => apply(without(a, i))}>
+                  <button type="button" aria-label={`Remove ${f}`} className="grid size-6 place-items-center rounded hover:bg-panel" onClick={() => apply(without(a, i))}>
                     <X className="size-3" />
                   </button>
                 </div>

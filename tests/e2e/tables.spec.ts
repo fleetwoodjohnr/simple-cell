@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-import { launch, quit, newWorkbook, typeCell, goto, cell, MOD } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, MOD, keyFor } from './helpers'
 
 const hiddenRows = (page: Page) =>
   page.evaluate(() => {
@@ -56,13 +56,13 @@ test('tables: Ctrl+T, total row, header filter menu, Ctrl+Shift+L', async () => 
     await typeCell(page, 'F2', 'Ann')
     await typeCell(page, 'F3', 'Bob')
     await goto(page, 'F2')
-    await page.keyboard.press(`${MOD}+Shift+l`)
+    await page.keyboard.press(keyFor('data.filter'))
     await expect(page.getByTestId('filter-button-F1')).toBeVisible()
     await page.getByTestId('filter-button-F1').click()
     await menu.getByLabel('Search values').fill('bo')
     await menu.getByLabel('Search values').press('Enter')
     await expect.poll(() => hiddenRows(page)).toEqual([1])
-    await page.keyboard.press(`${MOD}+Shift+l`)
+    await page.keyboard.press(keyFor('data.filter'))
     await expect(page.getByTestId('filter-button-F1')).toHaveCount(0)
     await expect.poll(() => hiddenRows(page)).toEqual([])
     await page.screenshot({ path: 'test-results/tables.png' })

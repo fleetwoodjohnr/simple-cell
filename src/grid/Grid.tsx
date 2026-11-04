@@ -189,6 +189,7 @@ export function Grid({ tab, hidden }: { tab: string; hidden: boolean }) {
     if (!hidden && !view?.editing) inputRef.current?.focus({ preventScroll: true })
   }, [hidden, view?.sheet])
 
+  useCaret(inputRef, view?.editing)
   if (!view || !meta) return null
 
   const onScroll = () => {
@@ -597,3 +598,18 @@ function range(a: number, b: number) {
 }
 
 export { axesFor, set }
+
+/**
+ * Edits made by code (a line break, F4, point mode, autocomplete) move the caret in the view state; put the text box's
+ * caret there before the browser handles the next key. Done later (a frame), keys typed meanwhile landed at the old
+ * position ("two" became "wot").
+ */
+export function useCaret(ref: React.RefObject<HTMLTextAreaElement | null>, editing: { text: string; caret: number } | null | undefined) {
+  useLayoutEffect(() => {
+    const t = ref.current
+    if (!t || !editing || document.activeElement !== t) return
+    // Only selectionStart is compared: onSelect keeps the caret at selectionStart, so a selected range is left alone.
+    if (t.selectionStart !== editing.caret) t.setSelectionRange(editing.caret, editing.caret)
+  }, [ref, editing?.text, editing?.caret])
+}
+

@@ -110,7 +110,8 @@ function afterDialog() {
 }
 
 function ConfirmClose({ d }: { d: Extract<Dialog, { kind: 'confirm-close' }> }) {
-  const tabs = useApp((s) => s.tabs.filter((t) => d.tabIds.includes(t.id)))
+  // Filter outside the selector: a selector returning a new array each call re-renders forever (React error 185).
+  const tabs = useApp((s) => s.tabs).filter((t) => d.tabIds.includes(t.id))
   const many = tabs.length > 1
   const finish = () => {
     close()
@@ -403,6 +404,30 @@ function ShiftCellsDialog({ mode }: { mode: 'insert' | 'delete' }) {
   )
 }
 
+// ---------- lists driven by the keyboard ----------
+
+/**
+ * Arrow keys (and Home/End on the list itself) move through n items; Enter chooses. Used by a list and by the search
+ * box above it, so the list works from either.
+ */
+function listKeys(e: React.KeyboardEvent, n: number, i: number, move: (k: number) => void, enter: () => void, homeEnd: boolean) {
+  const k = e.key === 'ArrowDown' ? i + 1 : e.key === 'ArrowUp' ? i - 1 : homeEnd && e.key === 'Home' ? 0 : homeEnd && e.key === 'End' ? n - 1 : null
+  if (k !== null && n) {
+    e.preventDefault()
+    move(Math.max(0, Math.min(n - 1, k)))
+  } else if (e.key === 'Enter') {
+    e.preventDefault()
+    enter()
+  }
+}
+
+/** Keep the chosen option of a scrolling list in view. */
+function useScrollIntoView(id: string | undefined) {
+  useEffect(() => {
+    if (id) document.getElementById(id)?.scrollIntoView({ block: 'nearest' })
+  }, [id])
+}
+
 // ---------- command palette ----------
 
 function CommandPalette() {
@@ -419,6 +444,8 @@ function CommandPalette() {
     if (parseCell(q.trim()) || /^[A-Za-z]+\d+:[A-Za-z]+\d+$/.test(q.trim())) out.unshift({ id: 'goto', label: `Go to ${q.trim().toUpperCase()}`, hint: 'Enter', run: () => withCtx((c) => A.goTo(c, q)) })
     return out
   }, [q])
+  const active = results.length ? `palette-opt-${i}` : undefined
+  useScrollIntoView(active)
   const choose = (k: number) => {
     const r = results[k]
     if (!r) return
@@ -440,29 +467,28 @@ function CommandPalette() {
             setQ(e.target.value)
             setI(0)
           }}
-          onKeyDown={(e) => {
-            if (e.key === 'ArrowDown') {
-              e.preventDefault()
-              setI((x) => Math.min(results.length - 1, x + 1))
-            } else if (e.key === 'ArrowUp') {
-              e.preventDefault()
-              setI((x) => Math.max(0, x - 1))
-            } else if (e.key === 'Enter') {
-              e.preventDefault()
-              choose(i)
-            }
-          }}
+          role="combobox"
+          aria-expanded={results.length > 0}
+          aria-controls="palette-list"
+          aria-activedescendant={active}
+          onKeyDown={(e) => listKeys(e, results.length, i, setI, () => choose(i), false)}
         />
       </div>
-      <ul className="mt-2 max-h-[50vh] overflow-y-auto" role="listbox" aria-label="Commands" data-testid="palette-results">
-        {results.map((r, k) => (
-          <li key={r.id} role="option" aria-selected={k === i} onMouseEnter={() => setI(k)} onClick={() => choose(k)} className={cx('flex h-9 cursor-default items-center justify-between rounded-lg px-3 text-[13px]', k === i && 'bg-accent-soft text-accent-ink')}>
-            <span>{r.label}</span>
-            <span className="text-[11.5px] text-text-3">{r.hint}</span>
-          </li>
-        ))}
-        {!results.length && <li className="px-3 py-6 text-center text-[13px] text-text-3">No matching commands</li>}
-      </ul>
+      {results.length ? (
+        <ul id="palette-list" tabIndex={0} aria-activedescendant={active} onKeyDown={(e) => listKeys(e, results.length, i, setI, () => choose(i), true)} className="mt-2 max-h-[50vh] overflow-y-auto rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-accent" role="listbox" aria-label="Commands" data-testid="palette-results">
+          {results.map((r, k) => (
+            <li key={r.id} id={`palette-opt-${k}`} role="option" aria-selected={k === i} onMouseEnter={() => setI(k)} onClick={() => choose(k)} className={cx('flex h-9 cursor-default items-center justify-between rounded-lg px-3 text-[13px]', k === i && 'bg-accent-soft text-accent-ink')}>
+              <span>{r.label}</span>
+              {/* On the highlighted row the hint takes the accent ink: --text-3 is too faint on --accent-soft in dark mode. */}
+              <span className={cx('text-[11.5px]', k === i ? 'text-accent-ink' : 'text-text-3')}>{r.hint}</span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="mt-2 px-3 py-6 text-center text-[13px] text-text-3" data-testid="palette-results">
+          No matching commands
+        </p>
+      )}
     </Modal>
   )
 }
@@ -736,6 +762,10 @@ function InsertFunctionDialog() {
   const cats = ['All', ...[...new Set(fns.map((f) => f.category))].sort()]
   const list = fns.filter((f) => (cat === 'All' || f.category === cat) && (!q || f.name.toLowerCase().includes(q.toLowerCase()) || f.description.toLowerCase().includes(q.toLowerCase())))
   const chosen = fns.find((f) => f.name === sel)
+  const si = list.findIndex((f) => f.name === sel)
+  const pick = (k: number) => setSel(list[k].name)
+  const active = si >= 0 ? `fn-opt-${sel}` : undefined
+  useScrollIntoView(active)
   const ok = () => {
     if (!sel) return
     close()
@@ -744,16 +774,16 @@ function InsertFunctionDialog() {
   return (
     <Modal open onOpenChange={(o) => !o && (close(), afterDialog())} title="Insert function" width={640} footer={<><Btn onClick={close}>Cancel</Btn><Btn variant="primary" disabled={!sel} onClick={ok}>Insert</Btn></>}>
       <div className="flex gap-2">
-        <input autoFocus aria-label="Search for a function" className={inputCls} placeholder="Search for a function" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input autoFocus aria-label="Search for a function" className={inputCls} placeholder="Search for a function" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => listKeys(e, list.length, si, pick, ok, false)} />
         <select aria-label="Category" className={cx(inputCls, 'w-56')} value={cat} onChange={(e) => setCat(e.target.value)}>
           {cats.map((c) => (
             <option key={c}>{c}</option>
           ))}
         </select>
       </div>
-      <ul className="mt-2 h-64 overflow-y-auto rounded-lg border border-border" role="listbox" aria-label="Functions">
+      <ul tabIndex={0} aria-activedescendant={active} onKeyDown={(e) => listKeys(e, list.length, si, pick, ok, true)} className="mt-2 h-64 overflow-y-auto rounded-lg border border-border outline-none focus-visible:ring-2 focus-visible:ring-accent" role="listbox" aria-label="Functions">
         {list.map((f) => (
-          <li key={f.name} role="option" aria-selected={sel === f.name} onClick={() => setSel(f.name)} onDoubleClick={() => (setSel(f.name), setTimeout(ok))} className={cx('flex cursor-default items-center justify-between px-3 py-1 text-[12.5px]', sel === f.name ? 'bg-accent-soft text-accent-ink' : 'hover:bg-hover')}>
+          <li key={f.name} id={`fn-opt-${f.name}`} role="option" aria-selected={sel === f.name} onClick={() => setSel(f.name)} onDoubleClick={() => (setSel(f.name), setTimeout(ok))} className={cx('flex cursor-default items-center justify-between px-3 py-1 text-[12.5px]', sel === f.name ? 'bg-accent-soft text-accent-ink' : 'hover:bg-hover')}>
             <span className="font-medium">{f.name}</span>
             {!f.implemented && <span className="rounded bg-warn/15 px-1.5 text-[10.5px] text-warn">not yet calculated</span>}
           </li>
@@ -1099,7 +1129,9 @@ function ShortcutsDialog() {
               <tr key={c.id} className="border-t border-border">
                 <td className="py-1.5">{c.label}</td>
                 <td className="py-1.5 text-right">
-                  <button className={cx('inline-flex min-w-[96px] justify-end gap-1 rounded px-2 py-0.5 hover:bg-hover', conflict && 'text-danger')} onClick={() => setRecording(c.id)} aria-label={`Change shortcut for ${c.label}`}>
+                  <button className={cx('inline-flex min-w-[96px] justify-end gap-1 rounded px-2 py-0.5 hover:bg-hover', conflict && 'text-danger')} onClick={() => setRecording(c.id)}>
+                    {/* Named by its content (hidden words + the visible keys), so the name includes what is seen. */}
+                    <span className="sr-only">Change shortcut for {c.label}: </span>
                     {recording === c.id ? <span className="text-accent-ink">Press keys…</span> : keys.length ? keys.map((k) => <Kbd key={k}>{formatShortcut(k)}</Kbd>) : <span className="text-text-3">—</span>}
                   </button>
                   {conflict && <span className="ml-1 text-[11px] text-danger">conflict</span>}

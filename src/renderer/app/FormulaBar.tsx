@@ -8,6 +8,7 @@ import { getView, setView, useViews } from '../state/view'
 import * as A from './actions'
 import { IconBtn, cx } from '../ui'
 import { useBookVersion } from './hooks'
+import { useCaret } from '@/grid/Grid'
 import { catalogEntry } from '@/core/engine/catalog'
 import { CATALOG } from '@/core/engine/catalog'
 
@@ -33,6 +34,7 @@ export function FormulaBar({ tab }: { tab: string }) {
     }
   }, [sel?.active.r, sel?.active.c, sheet, book.version])
 
+  useCaret(inputRef, editing)
   const text = editing ? editing.text : cellText
   // Function tooltip: the innermost function whose parentheses contain the caret.
   const fnHint = editing?.text.startsWith('=') ? currentFunction(editing.text, editing.caret) : null
