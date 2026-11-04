@@ -138,7 +138,17 @@ export function handleKeydown(e: KeyboardEvent) {
     if (inField && !c.global) return
     if (c.needsBook && !A.ctx()) return
     // While a cell is edited, only commands that make sense in the editor run (the rest are text keys).
-    if (editing && !EDITOR_OK.has(c.id)) return
+    if (editing && !EDITOR_OK.has(c.id)) {
+      // Pressed right after Enter, while the entry is on its way to the core: run it once the entry lands, instead of losing it.
+      const x = A.ctx()
+      if (!x || !A.isSubmitting(x.tab)) return
+      e.preventDefault()
+      e.stopPropagation()
+      void x.book.idle().then(() => {
+        if (!A.ctx()?.view.editing) void runCommand(c.id)
+      })
+      return
+    }
     e.preventDefault()
     e.stopPropagation()
     void runCommand(c.id)

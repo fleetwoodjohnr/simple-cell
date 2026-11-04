@@ -191,6 +191,10 @@ export function cancelEdit(c: Ctx) {
  * Commit what is being typed. Enter moves down, Tab right (Shift reverses). Ctrl+Enter fills the selection,
  * Ctrl+Shift+Enter enters a legacy array formula over it.
  */
+/** Tabs whose entry has been sent to the core (Enter) and not answered yet: the editor is still open, but keys aren't text any more. */
+const submitting = new Set<string>()
+export const isSubmitting = (tab: string) => submitting.has(tab)
+
 export async function commitEdit(c: Ctx, dir: 'down' | 'up' | 'right' | 'left' | 'none' = 'down', mode: 'one' | 'all' | 'array' = 'one'): Promise<boolean> {
   const e = c.view.editing
   if (!e) return true
@@ -209,11 +213,16 @@ export async function commitEdit(c: Ctx, dir: 'down' | 'up' | 'right' | 'left' |
   }
   const areas = areasOf(c.view)
   let res: { ok: boolean; error?: string; pos?: number; alert?: DvAlert }
-  if (mode === 'all') res = await c.book.api.inputAll(areas, text)
-  else if (mode === 'array') {
-    const a = areas[areas.length - 1]
-    res = await c.book.api.input(c.view.sheet, a.r0, a.c0, text, a)
-  } else res = await c.book.api.input(c.view.sheet, r, col, text)
+  submitting.add(c.tab)
+  try {
+    if (mode === 'all') res = await c.book.api.inputAll(areas, text)
+    else if (mode === 'array') {
+      const a = areas[areas.length - 1]
+      res = await c.book.api.input(c.view.sheet, a.r0, a.c0, text, a)
+    } else res = await c.book.api.input(c.view.sheet, r, col, text)
+  } finally {
+    submitting.delete(c.tab)
+  }
   // Data validation: a stop rule already undid the entry; warning and information rules ask whether to keep it.
   if (res.alert) {
     const choice = await showValidationAlert(res.alert)

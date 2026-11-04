@@ -218,7 +218,10 @@ test('closing an unsaved workbook asks first: Cancel keeps it, Don’t save clos
   const { app, page } = await launch()
   try {
     await newWorkbook(page)
-    await typeCell(page, 'A1', 'draft')
+    // The close key straight after Enter, while the entry is still on its way to the core: it must not be lost.
+    await goto(page, 'A1')
+    await page.keyboard.type('draft')
+    await page.keyboard.press('Enter')
     await page.keyboard.press(keyFor('file.close'))
     // What the app did with the key (shown if the dialog doesn't appear).
     await expect.poll(() => page.evaluate(() => JSON.stringify({ dialog: (window as any).__sc.get().dialog?.kind, tabs: (window as any).__sc.get().tabs.map((t: { dirty: boolean }) => t.dirty) }))).toBe('{"dialog":"confirm-close","tabs":[true]}')

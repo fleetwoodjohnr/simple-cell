@@ -124,8 +124,8 @@ test('Data Analysis: Regression through its dialog onto a new sheet (and the for
     await form.getByRole('button', { name: 'OK', exact: true }).click()
     await expect(page.getByTestId('sheet-tab-Regression')).toBeVisible()
     expect(await cell(page, 'Regression!A1')).toBe('SUMMARY OUTPUT')
-    // Slope of y on x: 2.3714… (least squares on these six points).
-    expect(await cell(page, 'Regression!B18')).toBeCloseTo(2.3714285714285714, 12)
+    // Slope of y on x: 2.3143… (least squares on these six points: Σ(x−x̄)(y−ȳ) / Σ(x−x̄)² = 40.5 / 17.5).
+    expect(await cell(page, 'Regression!B18')).toBeCloseTo(2.3142857142857145, 12)
     expect(await cell(page, 'Regression!A18')).toBe('X')
   } finally {
     await quit(app)
