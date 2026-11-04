@@ -87,6 +87,19 @@ podman run --rm -v "$PWD/release":/rel:ro registry.fedoraproject.org/fedora:44 b
 - **rpm:** installs on clean Fedora 44 with every library resolved.
 - **Not yet started from a desktop menu:** the installed deb and rpm builds. File associations have not been tried either.
 
+## Version 0.2.1: macOS accessibility repair
+
+The [v0.2.0 tag run](https://github.com/fleetwoodjohnr/simple-cell/actions/runs/41929512475)
+passed Windows and Linux but stopped at the macOS light-mode accessibility audit.
+SQL source buttons were exactly 24px tall before the entrance transform reduced their
+rendered height; intermittent contrast failures also occurred while dialogs faded in.
+The fix raises SQL source buttons to 28px and waits for fonts and finite animations
+before running the full accessibility audit. A regression test holds the dialog at its
+smallest entrance scale and verifies its actual target sizes. No rules are disabled.
+
+Keep `v0.2.0` unchanged: retries build that same commit. Push `main` and the new `v0.2.1`
+tag to build the repair and create its release draft. Nothing is published automatically.
+
 ## Version 0.2.0 validation (Linux, 2026-11-04)
 
 - Strict type checking and all 665 unit tests pass; the optional LibreOffice cross-check is skipped.

@@ -4,7 +4,7 @@ A fast, private spreadsheet for Windows, macOS and Linux that opens and saves Ex
 
 ![Simple Cell: a sales table with data bars, a SUM formula and a column chart](docs/screenshots/main.png)
 
-> **Early development (0.2.0).** Simple Cell does **not** claim full Excel compatibility. What works, with the tests that prove it, is listed in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), and Excel compatibility is tracked feature by feature in [docs/EXCEL_COMPATIBILITY.md](docs/EXCEL_COMPATIBILITY.md).
+> **Early development (0.2.1).** Simple Cell does **not** claim full Excel compatibility. What works, with the tests that prove it, is listed in [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md), and Excel compatibility is tracked feature by feature in [docs/EXCEL_COMPATIBILITY.md](docs/EXCEL_COMPATIBILITY.md).
 
 ## Install
 

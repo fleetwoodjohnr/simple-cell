@@ -1,11 +1,12 @@
 // Accessibility: axe-core WCAG 2.2 A/AA rules on the dashboard, every ribbon tab and every dialog, light and dark.
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
-import { launch, quit, newWorkbook, typeCell, goto, cell } from './helpers'
+import { launch, quit, newWorkbook, typeCell, goto, cell, waitForUiSettled } from './helpers'
 
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']
 
 async function violations(page: Page, label: string) {
+  await waitForUiSettled(page)
   const r = await new AxeBuilder({ page }).setLegacyMode(true).withTags(TAGS).analyze()
   return r.violations.map((v) => `${label}: [${v.impact}] ${v.id} — ${v.help} (${v.nodes.length}×: ${v.nodes.slice(0, 3).map((n) => n.target.join(' ')).join(' | ')})`)
 }

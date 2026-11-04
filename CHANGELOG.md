@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.1 (2026-11-04)
+
+- Includes the v0.2.0 icon, border pictograms, cursor settings, and SQL transformations over tables and selected datasets.
+- SQL source buttons remain above the minimum touch-target size during the dialog entrance animation, fixing the macOS release accessibility failure.
+- Accessibility audits wait for fonts, opening animations and color transitions to finish before measuring the UI. All WCAG rules and thresholds remain enforced.
+
 ## 0.2.0 (2026-11-04)
 
 - New app icon: a sheet with column and row headings and the active cell's fill handle; Linux windows now show it instead of Electron's.

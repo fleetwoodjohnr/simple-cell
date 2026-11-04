@@ -1,7 +1,7 @@
 {
   "name": "simple-cell",
   "productName": "Simple Cell",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "A fast, modern spreadsheet that opens and saves Excel and OpenDocument workbooks",
   "main": "out/main/index.js",
   "homepage": "https://github.com/fleetwoodjohnr/simple-cell",

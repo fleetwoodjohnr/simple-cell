@@ -138,11 +138,11 @@ export function SqlDialog() {
         <div role="list" aria-label="Tables and columns" className="max-h-[320px] w-44 shrink-0 overflow-auto rounded-lg border border-border p-1 text-[12.5px]">
           {available.map((t) => (
             <div role="listitem" key={t.name}>
-              <button type="button" title="Insert" className="min-h-6 w-full truncate rounded px-1.5 py-0.5 text-left font-medium hover:bg-hover" onClick={() => insert(ident(t.name))}>
+              <button type="button" title="Insert" className="min-h-7 w-full truncate rounded px-1.5 py-0.5 text-left font-medium hover:bg-hover" onClick={() => insert(ident(t.name))}>
                 {t.name}
               </button>
               {t.columns.map((col) => (
-                <button type="button" title="Insert" key={col} className="min-h-6 w-full truncate rounded py-0.5 pl-4 pr-1.5 text-left text-text-2 hover:bg-hover" onClick={() => insert(`"${col.replace(/"/g, '""')}"`)}>
+                <button type="button" title="Insert" key={col} className="min-h-7 w-full truncate rounded py-0.5 pl-4 pr-1.5 text-left text-text-2 hover:bg-hover" onClick={() => insert(`"${col.replace(/"/g, '""')}"`)}>
                   {col}
                 </button>
               ))}

@@ -173,3 +173,14 @@ export async function clickMenuPath(page: Page, ...names: string[]) {
     await item.click()
   }
 }
+
+/** Audit the visible UI after fonts, opening animations and color transitions have settled.
+ * Infinite animations (e.g. carets) never block the audit; cancelled animations are harmless.
+ */
+export async function waitForUiSettled(page: Page) {
+  await page.evaluate(async () => {
+    await document.fonts.ready
+    const animations = document.getAnimations().filter((animation) => Number.isFinite(animation.effect?.getComputedTiming().endTime))
+    await Promise.all(animations.map((animation) => animation.finished.catch(() => {})))
+  })
+}
