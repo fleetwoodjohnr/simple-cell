@@ -10,6 +10,7 @@ import type { PageSetup } from './print'
 import type { Chart, ChartType } from './charts'
 import type { PivotConfig } from './pivot'
 import { descriptiveStats, goalSeek, removeDuplicates, textToColumns } from './analysis'
+import { emptySolverModel, finishSolver, readSolverModel, solve, type SolverModel, type SolverResult } from './solver'
 import { vbaModules } from './vba'
 import { MAX_COLS, MAX_ROWS, isError, type Area, type Scalar } from './engine/values'
 import { FormulaSyntaxError } from './engine/parser'
@@ -642,6 +643,23 @@ export class Host {
     } catch (e) {
       return { ok: false as const, error: (e as Error).message }
     }
+  }
+  /** The Solver model saved on a sheet (Excel's hidden names), or an empty one. */
+  solverModel(sheet: number): SolverModel {
+    const sh = this.doc.wb.sheetById(sheet)
+    return (sh && readSolverModel(this.doc.wb.names, sheet, sh.name)) ?? emptySolverModel()
+  }
+  /** Run Solver; the sheet is left unchanged (finishSolver keeps the result). */
+  solve(sheet: number, model: SolverModel): { ok: true; result: SolverResult } | { ok: false; error: string } {
+    try {
+      return { ok: true, result: solve(this.doc, sheet, model) }
+    } catch (e) {
+      return { ok: false, error: (e as Error).message }
+    }
+  }
+  /** Save the model; with `keep`, apply its values; with `report`, add an Answer Report sheet. One undoable step. */
+  finishSolver(sheet: number, model: SolverModel, keep: SolverResult | null, report: SolverResult | null) {
+    return this.run(() => finishSolver(this.doc, sheet, model, keep, report))
   }
   descriptiveStats(input: Area, out: { sheet: number; r: number; c: number }, headers: boolean) {
     return this.run(() => descriptiveStats(this.doc, input, out, headers))

@@ -243,7 +243,10 @@ export async function save(id = get().active, opts: { as?: boolean; format?: For
 
 // ---------- closing ----------
 
-export function closeTab(id: string, force = false) {
+export async function closeTab(id: string, force = false) {
+  // An edit still on its way to the core marks the workbook unsaved when it lands: wait for it, so closing right
+  // after typing still asks to save instead of discarding the edit.
+  if (!force) await books.get(id)?.idle()
   const tab = get().tabs.find((t) => t.id === id)
   if (!tab) return
   if (tab.dirty && !force) {
@@ -264,7 +267,8 @@ export function closeTab(id: string, force = false) {
   })
 }
 
-export function requestQuit() {
+export async function requestQuit() {
+  await Promise.all(get().tabs.map((t) => books.get(t.id)?.idle()))
   const dirty = get().tabs.filter((t) => t.dirty).map((t) => t.id)
   if (dirty.length) set({ dialog: { kind: 'confirm-close', tabIds: dirty, then: 'quit' } })
   else quitNow()

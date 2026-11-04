@@ -538,6 +538,7 @@ def({ id: 'insert.pivot', label: 'Insert PivotTable…', keywords: 'pivot summar
 def({ id: 'data.refreshAll', label: 'Refresh all', keywords: 'pivot refresh update', run: () => refreshAll() })
 def({ id: 'data.removeDuplicates', label: 'Remove duplicates…', keywords: 'dedupe unique', run: (c) => (needsSelection(c), openTool('dedupe')) })
 def({ id: 'data.textToColumns', label: 'Text to columns…', keywords: 'split delimiter', run: (c) => (needsSelection(c), openTool('text-to-columns')) })
+def({ id: 'data.solver', label: 'Solver…', keywords: 'optimize optimise linear programming maximize minimize constraints what-if', run: (c) => (needsSelection(c), openTool('solver')) })
 def({ id: 'data.goalSeek', label: 'Goal seek…', keywords: 'what-if solve target', run: (c) => (needsSelection(c), openTool('goal-seek')) })
 def({ id: 'data.descriptiveStats', label: 'Descriptive statistics…', keywords: 'analysis toolpak mean median summary', run: (c) => (needsSelection(c), openTool('descriptive')) })
 def({ id: 'tools.macros', label: 'Macros…', keywords: 'script automate javascript', run: () => set({ dialog: { kind: 'macros' } }) })

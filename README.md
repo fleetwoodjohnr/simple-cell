@@ -15,7 +15,7 @@ A fast, private spreadsheet for Windows, macOS and Linux, in the Simple family o
 - **Tables and filters.** Ctrl+T tables with styles and a total row; filters by value, condition or top N.
 - **Notes and links.** Cell notes and hyperlinks, kept in .xlsx and .ods files.
 - **Data validation.** Dropdown lists, number, date, text-length and formula rules, input messages and error alerts.
-- **PivotTables and data tools.** PivotTables with a field list, Remove Duplicates, Text to Columns, Goal Seek and Descriptive Statistics.
+- **PivotTables and data tools.** PivotTables with a field list, Remove Duplicates, Text to Columns, Goal Seek, Solver and Descriptive Statistics.
 - **Charts.** Column, bar, line, area, pie, doughnut and scatter charts, created from a range (Alt+F1), edited, printed, and read from and saved to .xlsx.
 - **Printing and PDF.** Page setup, print areas and titles, page breaks, headers and footers, fit to page, a preview, and Save as PDF.
 - **Macros.** JavaScript macros in a sandbox that can only touch the workbook, with a trust prompt for macros from files. VBA in .xlsm files is kept and can be read, but is never run. See [docs/MACRO_SECURITY.md](docs/MACRO_SECURITY.md).

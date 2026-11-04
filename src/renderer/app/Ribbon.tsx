@@ -73,6 +73,7 @@ import {
   Grid2x2,
   CopyMinus,
   Target,
+  SlidersHorizontal,
   FileCode2,
   Code2,
   DecimalsArrowLeft,
@@ -800,6 +801,7 @@ function DataTab() {
       <Sep />
       <Group label="Analysis">
         <Cmd id="data.goalSeek" label="Goal seek" text="Goal Seek" icon={<Target />} />
+        <Cmd id="data.solver" label="Solver" text="Solver" icon={<SlidersHorizontal />} />
         <Cmd id="data.descriptiveStats" label="Descriptive statistics" text="Statistics" icon={<Sigma />} />
       </Group>
       <Sep />

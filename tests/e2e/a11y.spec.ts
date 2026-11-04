@@ -41,7 +41,7 @@ const DIALOGS: [string, Record<string, unknown>][] = [
   ['Print', { kind: 'print' }],
   ['Chart', { kind: 'chart', id: '$chart' }],
   ['PivotTable', { kind: 'pivot-insert', area: AREA }],
-  ...['dedupe', 'text-to-columns', 'goal-seek', 'descriptive'].map((tool): [string, Record<string, unknown>] => [`Tool ${tool}`, { kind: 'tool', tool }]),
+  ...['dedupe', 'text-to-columns', 'goal-seek', 'descriptive', 'solver'].map((tool): [string, Record<string, unknown>] => [`Tool ${tool}`, { kind: 'tool', tool }]),
   ['Sparklines', { kind: 'sparklines', type: 'line' }],
   ['Link', { kind: 'link' }],
   ['Row height', { kind: 'row-height' }],

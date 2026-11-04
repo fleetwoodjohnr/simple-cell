@@ -256,6 +256,7 @@ test('keyboard only: Insert Function list and the command palette', async () => 
     expect(await cell(page, 'B1')).toBeCloseTo(Math.sqrt(4 * Math.PI), 12)
     // The palette scrolls the highlighted command into view as the arrows move past the bottom.
     await page.evaluate(() => (window as any).__sc.runCommand('tools.palette'))
+    await expect(page.getByRole('combobox', { name: 'Search commands' })).toBeFocused()
     await page.keyboard.type('e')
     const list = page.getByRole('listbox', { name: 'Commands' })
     for (let i = 0; i < 25; i++) await page.keyboard.press('ArrowDown')

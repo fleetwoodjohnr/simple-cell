@@ -26,3 +26,5 @@
   - Fixed: after Alt+Enter, F4 or a point-mode arrow while editing, letters typed quickly could land in the wrong order.
   - Accessibility: every dialog passes axe WCAG 2.2 AA in light and dark; the Insert Function list and the command palette work from the keyboard.
   - Fixed: keys pressed right after closing a dialog, or right after opening a validation list or filter menu, could be lost when the window was slow to redraw (focus moved a frame late).
+  - Solver (Data ▸ Solver): maximize, minimize or reach a value subject to constraints, with the Simplex LP method (including integer and binary variables) and a nonlinear method; Answer Report; the model is saved where Excel's Solver keeps it.
+  - Fixed: closing a workbook straight after typing into it could close it without asking to save.

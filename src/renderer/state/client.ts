@@ -9,7 +9,19 @@ type Methods = { [K in keyof Host]: Host[K] extends (...a: infer A) => infer R ?
 
 let worker: Worker | null = null
 let seq = 0
-const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+const pending = new Map<number, { doc: string; resolve: (v: unknown) => void; reject: (e: Error) => void }>()
+/** Calls still on their way per workbook, and who waits for them to finish (see Book.idle). */
+const inflight = new Map<string, number>()
+const idleWaiters = new Map<string, (() => void)[]>()
+
+function settled(doc: string) {
+  const n = (inflight.get(doc) ?? 1) - 1
+  if (n > 0) return void inflight.set(doc, n)
+  inflight.delete(doc)
+  // After the callers' own continuations (queued when their promise resolved), so their markDirty has run.
+  for (const w of idleWaiters.get(doc) ?? []) w()
+  idleWaiters.delete(doc)
+}
 const books = new Map<string, Book>()
 
 function ensureWorker(): Worker {
@@ -26,6 +38,7 @@ function ensureWorker(): Worker {
     pending.delete(m.id)
     if ('error' in m) p.reject(new Error(m.error))
     else p.resolve(m.result)
+    settled(p.doc)
   }
   worker.onerror = (e) => console.error('Core worker error', e)
   return worker
@@ -35,7 +48,8 @@ function call<T>(doc: string, method: string, args: unknown[], transfer: Transfe
   const w = ensureWorker()
   const id = ++seq
   return new Promise<T>((resolve, reject) => {
-    pending.set(id, { resolve: resolve as (v: unknown) => void, reject })
+    pending.set(id, { doc, resolve: resolve as (v: unknown) => void, reject })
+    inflight.set(doc, (inflight.get(doc) ?? 0) + 1)
     w.postMessage({ id, doc, method, args }, transfer)
   })
 }
@@ -61,6 +75,16 @@ export class Book {
     this.meta = meta
     books.set(id, this)
     this.api = new Proxy({} as Methods, { get: (_t, method: string) => (...args: unknown[]) => call(id, method, args) })
+  }
+
+  /** Resolves once every call sent for this workbook has been answered (and its caller has carried on). */
+  idle(): Promise<void> {
+    if (!inflight.get(this.id)) return Promise.resolve()
+    return new Promise((resolve) => {
+      idleWaiters.set(this.id, [...(idleWaiters.get(this.id) ?? []), () => queueMicrotask(resolve)])
+      // A worker that died never answers: don't hold up closing for ever.
+      setTimeout(resolve, 3000)
+    })
   }
 
   static async create(id: string): Promise<Book> {
