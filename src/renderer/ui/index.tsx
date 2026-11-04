@@ -254,6 +254,9 @@ export function Modal({
         <Dialog.Overlay className="fade-in fixed inset-0 z-[80] bg-black/25 backdrop-blur-[2px] dark:bg-black/50" />
         <Dialog.Content
           style={{ width }}
+          // Dialogs that close by giving the grid focus (closeDialog, focusGrid) keep it there: Radix's own return of focus
+          // to the opener runs on a timer, later, and would take it away again.
+          onCloseAutoFocus={(e) => document.activeElement?.hasAttribute('data-grid-focus') && e.preventDefault()}
           className="dialog-in fixed left-1/2 top-1/2 z-[81] max-h-[86vh] max-w-[calc(100vw-32px)] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-border bg-elev text-text shadow-[var(--shadow-pop)] outline-none"
         >
           <div className="flex items-start justify-between gap-4 px-6 pb-2 pt-5">

@@ -24,8 +24,9 @@ import { ChartDialog } from './Charts'
 import { InsertPivotDialog } from './Pivot'
 import { ToolDialog } from './AnalysisDialogs'
 import type { GoToKind, PasteSpecialOptions } from '@/core/doc'
+import { closeDialog, focusGrid } from './focus'
 
-const close = () => set({ dialog: null })
+const close = closeDialog
 
 export function Dialogs() {
   const d = useApp((s) => s.dialog)
@@ -105,9 +106,7 @@ export function Dialogs() {
   }
 }
 
-function afterDialog() {
-  requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
-}
+const afterDialog = focusGrid
 
 function ConfirmClose({ d }: { d: Extract<Dialog, { kind: 'confirm-close' }> }) {
   // Filter outside the selector: a selector returning a new array each call re-renders forever (React error 185).

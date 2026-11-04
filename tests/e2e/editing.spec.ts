@@ -70,7 +70,7 @@ test('paste special (operation, transpose) and format painter', async () => {
     await goto(page, 'K1')
     await page.keyboard.press(`${MOD}+BracketLeft`)
     await expect(page.getByTestId('name-box')).toHaveValue('A1')
-    await page.keyboard.press(`${MOD}+Shift+u`)
+    await page.keyboard.press(keyFor('view.formulaBarTall'))
     await expect.poll(async () => (await page.getByTestId('formula-bar').boundingBox())!.height).toBeGreaterThan(80)
   } finally {
     await quit(app)

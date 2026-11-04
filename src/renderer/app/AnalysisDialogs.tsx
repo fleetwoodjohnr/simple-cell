@@ -5,9 +5,10 @@ import { set, toast, type Dialog } from '../state/store'
 import { Btn, Field, Modal, inputCls } from '../ui'
 import * as A from './actions'
 import { currentRegion, guessHeader } from './commands'
+import { closeDialog, focusGrid } from './focus'
 
-const close = () => set({ dialog: null })
-const refocus = () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
+const close = closeDialog
+const refocus = focusGrid
 const done = () => (close(), refocus())
 
 export type ToolKind = 'dedupe' | 'text-to-columns' | 'goal-seek' | 'descriptive'

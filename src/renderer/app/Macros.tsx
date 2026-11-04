@@ -244,10 +244,12 @@ export function MacrosDialog() {
   if (!c || !list) return null
   const save = async (l = list) => {
     await c.book.api.setMacros(l)
+    // Edited now, before the trust store's round trip: a save started meanwhile would otherwise finish first and
+    // then be marked edited again.
+    A.markDirtyTab(c.tab)
     // Code the user writes or edits here is theirs: trusted.
     await trust(l)
     setNeedTrust(false)
-    A.markDirtyTab(c.tab)
   }
   const run = async () => {
     if (needTrust) return

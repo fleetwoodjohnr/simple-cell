@@ -11,9 +11,10 @@ import { areasOf, getView, setView, useViews } from '../state/view'
 import { Btn, Field, Modal, Segmented, cx, inputCls } from '../ui'
 import * as A from './actions'
 import { markDirty } from '../state/documents'
+import { closeDialog, focusGrid } from './focus'
 
-const close = () => set({ dialog: null })
-const refocus = () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
+const close = closeDialog
+const refocus = focusGrid
 
 // ---------- alert ----------
 
@@ -248,7 +249,8 @@ export function ValidationOverlay({ tab, book, L }: { tab: string; book: Book; L
     if (open) {
       const cur = book.cell(view.sheet, r, c)?.t ?? ''
       setPick(Math.max(0, info!.items!.indexOf(cur)))
-      requestAnimationFrame(() => listRef.current?.focus())
+      // Now (the list is rendered by this commit): a frame later, arrow keys pressed meanwhile were lost.
+      listRef.current?.focus()
     }
   }, [open])
   const choose = async (text: string) => {

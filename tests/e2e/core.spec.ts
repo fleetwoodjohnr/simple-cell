@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { launch, newWorkbook, quit, typeCell, cell, shown, MOD, goto, tempDir, stubDialogs } from './helpers'
+import { launch, newWorkbook, quit, typeCell, cell, shown, MOD, goto, tempDir, stubDialogs, keyFor } from './helpers'
 
 test('copy and paste moves relative references; cut moves cells', async () => {
   const { app, page } = await launch()
@@ -195,7 +195,7 @@ test('keyboard: editing modes, F2, Escape, Alt+Enter, Ctrl+Enter, F4, point mode
     expect(await cell(page, 'E3')).toBe('x')
     // AutoSum below numbers
     await goto(page, 'A3')
-    await page.keyboard.press('Alt+=')
+    await page.keyboard.press(keyFor('formulas.autosum'))
     await page.keyboard.press('Enter')
     await page.waitForTimeout(100)
     expect(await cell(page, 'A3')).toBe(34)
@@ -241,7 +241,9 @@ test('keyboard only: Insert Function list and the command palette', async () => 
     await goto(page, 'B1')
     // Shift+F3, search, then Tab to the list and pick with the arrows; Enter inserts.
     await page.keyboard.press('Shift+F3')
+    await expect(page.getByLabel('Search for a function')).toBeFocused()
     await page.keyboard.type('sqrtpi')
+    await expect(page.getByRole('listbox', { name: 'Functions' }).getByRole('option')).toHaveCount(1)
     await page.keyboard.press('Tab')
     await page.keyboard.press('Tab')
     await expect(page.getByRole('listbox', { name: 'Functions' })).toBeFocused()

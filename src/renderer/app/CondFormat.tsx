@@ -12,11 +12,12 @@ import { areasOf } from '../state/view'
 import { Btn, Field, MenuItem, MenuSep, Modal, SubMenu, cx, inputCls } from '../ui'
 import * as A from './actions'
 import { markDirty } from '../state/documents'
+import { closeDialog, focusGrid } from './focus'
 
 export type CfPreset = 'greaterThan' | 'lessThan' | 'between' | 'equal' | 'text' | 'date' | 'duplicate' | 'top' | 'topPercent' | 'bottom' | 'bottomPercent' | 'formula'
 
-const close = () => set({ dialog: null })
-const refocus = () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
+const close = closeDialog
+const refocus = focusGrid
 
 const border = { style: 'thin' as const, color: '#9C0006' }
 export const FORMAT_PRESETS: { label: string; style: Style }[] = [

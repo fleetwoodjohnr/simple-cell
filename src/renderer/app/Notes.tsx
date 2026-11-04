@@ -10,9 +10,10 @@ import { Btn, Field, Modal, cx, inputCls } from '../ui'
 import { isSafeExternalUrl } from '@/shared/urls'
 import * as A from './actions'
 import { markDirty } from '../state/documents'
+import { closeDialog, focusGrid } from './focus'
 
-const close = () => set({ dialog: null })
-const refocus = () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
+const close = closeDialog
+const refocus = focusGrid
 
 /** The grid reports the cell under the pointer (for note popups) without re-rendering itself. */
 export function reportHover(tab: string, r: number, c: number) {

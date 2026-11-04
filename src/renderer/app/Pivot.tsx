@@ -11,8 +11,9 @@ import { Btn, Field, Modal, Segmented, inputCls } from '../ui'
 import * as A from './actions'
 import { currentRegion } from './commands'
 import { useBookVersion } from './hooks'
+import { closeDialog } from './focus'
 
-const close = () => set({ dialog: null })
+const close = closeDialog
 
 export async function openInsertPivot() {
   const c = A.ctx()

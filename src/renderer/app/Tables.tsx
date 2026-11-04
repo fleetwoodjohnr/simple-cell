@@ -13,9 +13,10 @@ import { Btn, Field, Modal, cx, inputCls } from '../ui'
 import * as A from './actions'
 import { markDirty } from '../state/documents'
 import { currentRegion, guessHeader } from './commands'
+import { closeDialog, focusGrid } from './focus'
 
-const close = () => set({ dialog: null })
-const refocus = () => requestAnimationFrame(() => document.querySelector<HTMLElement>('[data-grid-focus]:not([hidden])')?.focus())
+const close = closeDialog
+const refocus = focusGrid
 
 // ---------- Create table ----------
 
@@ -191,7 +192,8 @@ function FilterMenu({ tab, book, L, range, col }: { tab: string; book: Book; L: 
         }
       }
     })
-    requestAnimationFrame(() => ref.current?.querySelector<HTMLElement>('input')?.focus())
+    // Now, not a frame later (keys typed meanwhile were lost).
+    ref.current?.querySelector<HTMLElement>('input')?.focus()
   }, [range.key, col])
   const shown = useMemo(() => (data?.values ?? []).filter((v) => v.toLowerCase().includes(q.toLowerCase())), [data, q])
   const done = () => {
