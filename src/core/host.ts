@@ -78,6 +78,8 @@ export interface WorkbookMeta {
   /** Bumped when the display changed beyond the edited cells (conditional formats). */
   viewVersion: number
   date1904: boolean
+  /** Theme colours from the file (tableCellStyle order), null for the Office default. */
+  theme: string[] | null
   macros: number
   vba: boolean
 }
@@ -160,6 +162,7 @@ export class Host {
       structureVersion: this.doc.structureVersion,
       viewVersion: this.doc.viewVersion,
       date1904: wb.date1904,
+      theme: wb.theme,
       macros: wb.macros.length,
       vba: !!(wb.carry as { files?: Record<string, Uint8Array> } | null)?.files?.['xl/vbaProject.bin']
     }
@@ -511,13 +514,13 @@ export class Host {
   fitSizes(sheet: number, axis: 'row' | 'col', sizes: [number, number | undefined][]) {
     return this.run(() => this.doc.fitSizes(sheet, axis, sizes))
   }
-  /** Displayed texts in an area, for AutoFit. */
-  cellTexts(area: Area, limit = 50_000): { r: number; c: number; t: string; s: number }[] {
-    const out: { r: number; c: number; t: string; s: number }[] = []
+  /** Displayed texts in an area, for AutoFit; `x` is the drawn style when a table style applies (bold headers). */
+  cellTexts(area: Area, limit = 50_000): { r: number; c: number; t: string; s: number; x?: Style }[] {
+    const out: { r: number; c: number; t: string; s: number; x?: Style }[] = []
     this.doc.sheet(area.sheet).forEachIn(area, (r, c, cell) => {
       if (out.length >= limit) return
-      const vc = this.doc.viewOf(cell, r, c, 255)
-      if (vc.t) out.push({ r, c, t: vc.t, s: vc.s })
+      const vc = this.doc.viewOf(cell, r, c, 255, undefined, this.doc.tableStyleAt(area.sheet, r, c))
+      if (vc.t) out.push({ r, c, t: vc.t, s: vc.s, ...(vc.x ? { x: vc.x } : {}) })
     })
     return out
   }

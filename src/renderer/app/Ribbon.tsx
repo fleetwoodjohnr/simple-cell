@@ -309,7 +309,7 @@ function PainterBtn({ tab }: { tab: string }) {
 }
 
 /** Home ▸ Format as Table: pick a style, then confirm the range. */
-function FormatAsTable() {
+function FormatAsTable({ tab }: { tab: string }) {
   const [open, setOpen] = useState(false)
   return (
     <Pop open={open} onOpenChange={setOpen}>
@@ -331,6 +331,7 @@ function FormatAsTable() {
       </PopTrigger>
       <PopContent className="p-0">
         <StyleGallery
+          theme={books.get(tab)?.meta.theme}
           onPick={(style) => {
             setOpen(false)
             void openCreateTable(style)
@@ -389,12 +390,12 @@ function TableTab({ tab }: { tab: string }) {
         <Pop>
           <PopTrigger asChild>
             <button type="button" aria-label="Table style" className="flex items-center gap-1 rounded-md px-1.5 py-1 hover:bg-hover">
-              <StyleSwatch name={t.style || 'TableStyleMedium2'} />
+              <StyleSwatch name={t.style || 'TableStyleMedium2'} theme={book.meta.theme} />
               <ChevronDown className="size-3 opacity-60" />
             </button>
           </PopTrigger>
           <PopContent className="p-0">
-            <StyleGallery current={t.style} onPick={(style) => opt({ style })} />
+            <StyleGallery current={t.style} theme={book.meta.theme} onPick={(style) => opt({ style })} />
           </PopContent>
         </Pop>
       </Group>
@@ -527,7 +528,7 @@ function HomeTab({ tab }: { tab: string }) {
             <CondFormatMenuItems />
           </MenuContent>
         </Menu>
-        <FormatAsTable />
+        <FormatAsTable tab={tab} />
         <CellStylesButton expanded={expandedLayout} />
       </Group>
       <Sep />

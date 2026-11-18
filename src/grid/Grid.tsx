@@ -13,7 +13,7 @@ import { getView, rectOf, setView, useViews, cellSel, type Rect, type Sel } from
 import * as A from '@/renderer/app/actions'
 import { handleGridKey, refHighlights, insertPointRef } from './keys'
 import { colX, hit, makeLayout, rowY, scrollToShow, visibleCols, visibleRows, axesFor, type Layout } from './layout'
-import { clearMeasureCache, fontOf, paint, wrapText, type Theme } from './paint'
+import { clearMeasureCache, filterButtonW, fontOf, paint, wrapText, type Theme } from './paint'
 import { GridMenu } from './GridMenu'
 
 function readTheme(dark: boolean): Theme {
@@ -590,7 +590,7 @@ const inAny = (rs: Rect[], r: number, c: number) => rs.some((a) => r >= a.r0 && 
 export async function autofitCols(c: A.Ctx, ranges: Rect[]) {
   const sheet = c.view.sheet
   const m = c.book.sheetMeta(sheet)!
-  const { cols } = axesFor(m)
+  const { rows, cols } = axesFor(m)
   const { defaultFont, defaultFontSize } = get().settings
   const fit = new Map<number, number | undefined>()
   // Whole columns with a set width and no text go back to the default width.
@@ -599,9 +599,9 @@ export async function autofitCols(c: A.Ctx, ranges: Rect[]) {
     for (const t of await c.book.api.cellTexts({ sheet, ...a })) {
       // Hidden columns stay hidden; merged cells don't count (as in Excel).
       if (!cols.size(t.c) || inAny(m.merges, t.r, t.c)) continue
-      // Header cells of a filter range leave room for the filter button (17 px, Tables.tsx).
-      const button = m.filters.some((f) => f.area.r0 === t.r && t.c >= f.area.c0 && t.c <= f.area.c1) ? 19 : 0
-      const w = Math.ceil(Math.min(Math.max(measureText(fontOf(c.book.meta.styles[t.s] ?? {}, 1, defaultFont, defaultFontSize), t.t) + 10 + button, 16), 1200))
+      // Measured as drawn: the table style (bold headers), and room for a filter button.
+      const button = filterButtonW(m, t.r, t.c, rows.size(t.r))
+      const w = Math.ceil(Math.min(Math.max(measureText(fontOf(t.x ?? c.book.meta.styles[t.s] ?? {}, 1, defaultFont, defaultFontSize), t.t) + 10 + button, 16), 1200))
       fit.set(t.c, Math.max(fit.get(t.c) ?? 0, w))
     }
   if (fit.size) await A.edit(c, (b) => b.api.fitSizes(sheet, 'col', [...fit]))
@@ -619,9 +619,9 @@ export async function autofitRows(c: A.Ctx, ranges: Rect[]) {
   for (const a of ranges)
     for (const t of await c.book.api.cellTexts({ sheet, r0: a.r0, r1: a.r1, c0: 0, c1: MAX_COLS - 1 })) {
       if (!rows.size(t.r) || inAny(m.merges, t.r, t.c)) continue
-      const st = c.book.meta.styles[t.s] ?? {}
-      // Same line breaking as the painter (3 px padding each side).
-      const lines = st.wrap ? wrapText(measureCtx(), fontOf(st, 1, defaultFont, defaultFontSize), t.t, cols.size(t.c) - 6).length : 1
+      const st = t.x ?? c.book.meta.styles[t.s] ?? {}
+      // Same line breaking as the painter (3 px padding each side, left of a filter button).
+      const lines = st.wrap ? wrapText(measureCtx(), fontOf(st, 1, defaultFont, defaultFontSize), t.t, cols.size(t.c) - 6 - filterButtonW(m, t.r, t.c, rows.size(t.r))).length : 1
       // ponytail: height scales the default row by font size and line count; use real font metrics if fitted rows look off
       fit.set(t.r, Math.max(fit.get(t.r) ?? 0, Math.ceil((m.defaultRowHeight * lines * (st.size ?? defaultFontSize)) / defaultFontSize)))
     }

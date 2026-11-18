@@ -50,6 +50,9 @@ describe('tables', () => {
     expect(at(1, 0)?.x?.fill).toBe('#DAE3F3') // first data row: stripe
     expect(at(2, 0)?.x?.fill).toBeUndefined()
     expect(at(5, 0)?.x?.borderBottom).toBeTruthy() // the empty cell A6 is still in the table
+    // AutoFit measures what's drawn: the header is bold from the table style. Swatches get the workbook theme.
+    expect(h.cellTexts({ sheet: s, r0: 0, c0: 0, r1: 0, c1: 0 })[0].x?.bold).toBe(true)
+    expect(h.meta().theme).toBeNull()
     h.doc.format([{ sheet: s, r0: 1, c0: 0, r1: 1, c1: 0 }], { fill: '#FF0000' })
     expect(h.viewport(s, 1, 1, 0, 0)[0].x?.fill).toBe('#FF0000')
     h.setTableOptions('Table1', { style: 'TableStyleLight9' })

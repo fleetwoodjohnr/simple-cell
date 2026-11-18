@@ -92,3 +92,31 @@ test('tables: Ctrl+T, total row, header filter menu, Ctrl+Shift+L', async () => 
     await quit(app)
   }
 })
+
+test('AutoFit leaves a filter header’s title clear of its button (bold table header)', async () => {
+  const { app, page } = await launch()
+  const width = (col: number) =>
+    page.evaluate((col) => {
+      const sc = (window as any).__sc
+      const tab = sc.get().active
+      return new Map(sc.books.get(tab).sheetMeta(sc.getView(tab).sheet).cols).get(col) as number | undefined
+    }, col)
+  try {
+    await newWorkbook(page)
+    for (const [ref, value] of [['A1', 'Quarterly revenue by region'], ['B1', 'Units'], ['A2', 'East'], ['B2', '5'], ['A3', 'West'], ['B3', '7']]) await typeCell(page, ref, value)
+    await goto(page, 'A1')
+    await page.evaluate(() => (window as any).__sc.runCommand('fmt.autofitCols'))
+    await expect.poll(() => width(0)).toBeGreaterThan(0)
+    const plain = (await width(0))!
+    await page.keyboard.press(`${MOD}+t`)
+    await page.getByRole('button', { name: 'OK', exact: true }).click()
+    await expect(page.getByTestId('filter-button-A1')).toBeVisible()
+    await goto(page, 'A1')
+    await page.keyboard.press('Shift+ArrowRight')
+    await page.evaluate(() => (window as any).__sc.runCommand('fmt.autofitCols'))
+    // Bold text plus the 19 px button: wider than the plain fit by more than the button alone.
+    await expect.poll(async () => (await width(0)) ?? 0).toBeGreaterThan(plain + 19)
+  } finally {
+    await quit(app)
+  }
+})

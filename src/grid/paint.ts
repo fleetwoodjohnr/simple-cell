@@ -301,7 +301,9 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
       }
       if (!text) continue
       const font = fontOf(st, z, P.defaultFont, P.defaultSize)
-      const rect = m ? areaRect(L, m) : { x: colX(L, c), y, w: L.cols.size(c) * z, h: rh }
+      // A filter header's text stays left of its button.
+      const btn = m ? 0 : filterButtonW(meta, r, c, rh)
+      const rect = m ? areaRect(L, m) : { x: colX(L, c), y, w: L.cols.size(c) * z - btn, h: rh }
       if (rect.w <= 0) continue
       let align = st.hAlign && st.hAlign !== 'general' ? st.hAlign : v.k === 'n' || v.k === 'd' ? 'right' : v.k === 'b' || v.k === 'e' ? 'center' : 'left'
       if (P.showFormulas && v.f) align = 'left'
@@ -323,7 +325,7 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
       // Clip: own cell, or overflow into empty neighbours for unwrapped text.
       let clipX0 = rect.x
       let clipX1 = rect.x + rect.w
-      if (!wrap && !m && v.k === 's' && tw > rect.w - 2 * padX) {
+      if (!wrap && !m && !btn && v.k === 's' && tw > rect.w - 2 * padX) {
         if (align === 'left' || align === 'center') for (let cc = c + 1; cc <= Math.min(pane.c1 + 20, MAX_COLS - 1) && clipX1 < rect.x + tw + 2 * padX + 1; cc++) {
           if (P.cell(r, cc)?.t || mergeAt(r, cc)) break
           clipX1 += L.cols.size(cc) * z
@@ -403,6 +405,10 @@ function paintCells(ctx: CanvasRenderingContext2D, P: PaintInput, pane: Pane) {
       }
     }
 }
+
+/** Room the filter button (Tables.tsx: min(17, row − 2) px, 2 px from the edge) takes in a filter header cell, else 0. */
+export const filterButtonW = (meta: Pick<SheetMeta, 'filters'>, r: number, c: number, rowPx: number) =>
+  meta.filters.some((f) => f.area.r0 === r && c >= f.area.c0 && c <= f.area.c1) ? Math.max(0, Math.min(17, rowPx - 2) + 2) : 0
 
 export function wrapText(ctx: CanvasRenderingContext2D, font: string, text: string, width: number): string[] {
   const out: string[] = []

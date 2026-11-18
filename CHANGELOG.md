@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.2 (2026-11-17)
+
+- Fixed: the table style previews (Home ▸ Format as Table, Table Design ▸ Table styles) use the workbook's theme colours, so a header row in a file from Excel or LibreOffice matches its preview.
+- Fixed: AutoFit column width measures table headers bold, as they're drawn, and leaves room for the filter button, so the title stays visible.
+- Fixed: filter header titles are laid out left of the filter button; right-aligned and centred titles no longer sit under it, and AutoFit row height wraps headers to the same width.
+
 ## 0.2.1 (2026-11-04)
 
 - Includes the v0.2.0 icon, border pictograms, cursor settings, and SQL transformations over tables and selected datasets.

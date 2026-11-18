@@ -60,13 +60,13 @@ export function CreateTableDialog({ d }: { d: Extract<Dialog, { kind: 'create-ta
   )
 }
 
-/** A small preview of a table style (header, two stripes). */
-export function StyleSwatch({ name }: { name: string }) {
+/** A small preview of a table style (header, two stripes), in the workbook's theme colours as the sheet draws it. */
+export function StyleSwatch({ name, theme }: { name: string; theme?: string[] | null }) {
   const t = { id: 0, name: 'p', displayName: 'p', sheet: 0, area: { sheet: 0, r0: 0, c0: 0, r1: 3, c1: 2 }, headerRow: true, totalsRow: false, columns: [], style: name, showRowStripes: true }
   return (
     <span aria-hidden className="grid h-[30px] w-[46px] grid-cols-3 grid-rows-4 overflow-hidden rounded-sm border border-border bg-white">
       {Array.from({ length: 12 }, (_, i) => {
-        const s = tableCellStyle(t, Math.floor(i / 3), i % 3)
+        const s = tableCellStyle(t, Math.floor(i / 3), i % 3, theme ?? undefined)
         return <span key={i} style={{ background: s?.fill ?? '#fff', borderBottom: s?.borderBottom ? `1px solid ${s.borderBottom.color}` : undefined }} />
       })}
     </span>
@@ -74,7 +74,7 @@ export function StyleSwatch({ name }: { name: string }) {
 }
 
 /** The Format as Table gallery (Home) and the style picker (Table Design). */
-export function StyleGallery({ onPick, current }: { onPick: (style: string) => void; current?: string }) {
+export function StyleGallery({ onPick, current, theme }: { onPick: (style: string) => void; current?: string; theme?: string[] | null }) {
   const groups: [string, string][] = [
     ['Light', 'TableStyleLight'],
     ['Medium', 'TableStyleMedium'],
@@ -88,7 +88,7 @@ export function StyleGallery({ onPick, current }: { onPick: (style: string) => v
           <div className="grid grid-cols-7 gap-1">
             {TABLE_STYLES.filter((s) => s.startsWith(prefix) && /\d+$/.test(s.slice(prefix.length))).map((s) => (
               <button key={s} type="button" title={s.replace('TableStyle', '')} aria-label={s.replace('TableStyle', 'Table style ')} onClick={() => onPick(s)} className={cx('rounded p-0.5 hover:bg-hover', current === s && 'ring-2 ring-accent')}>
-                <StyleSwatch name={s} />
+                <StyleSwatch name={s} theme={theme} />
               </button>
             ))}
           </div>
