@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.3 (2026-11-17)
+
+- Fixed: bold and italic text use the font's real bold and italic faces when the font is installed (Calibri on Windows, for example). Each face named the regular font file, so bold was faked from the regular face, with regular letter widths.
+- The 0.2.2 tag build failed this check on Windows and published nothing; 0.2.3 includes all of 0.2.2's changes.
+
 ## 0.2.2 (2026-11-17)
 
 - Fixed: the table style previews (Home ▸ Format as Table, Table Design ▸ Table styles) use the workbook's theme colours, so a header row in a file from Excel or LibreOffice matches its preview.
